@@ -12,3 +12,9 @@ export interface Attendee {
   checkinTime?: string;
   sector?: string;
 }
+
+export interface Supplier {
+  id: string;
+  name: string;
+  sector: string;
+}

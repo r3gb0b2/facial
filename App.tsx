@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
-import { Attendee, CheckinStatus } from './types';
+import { Attendee, CheckinStatus, Supplier } from './types';
 import VerificationModal from './components/VerificationModal';
 import { UsersIcon, FingerPrintIcon, SparklesIcon } from './components/icons';
 import { useTranslation } from './hooks/useTranslation';
@@ -8,6 +8,7 @@ import RegisterView from './components/views/RegisterView';
 import CheckinView from './components/views/CheckinView';
 import FastCheckinView from './components/views/FastCheckinView';
 import { onAttendeesUpdate, addAttendee, updateAttendee } from './firebase/service';
+import { suppliers } from './suppliers';
 
 
 type View = 'register' | 'checkin' | 'fast-checkin';
@@ -44,6 +45,25 @@ const App: React.FC = () => {
   const [success, setSuccess] = useState<string>('');
   const [selectedAttendee, setSelectedAttendee] = useState<Attendee | null>(null);
   const [dbConnectionState, setDbConnectionState] = useState<{ status: DbConnectionStatus; message: string | null }>({ status: 'connecting', message: null });
+  const [currentSupplier, setCurrentSupplier] = useState<Supplier | null | undefined>(undefined);
+  const [supplierError, setSupplierError] = useState<string | null>(null);
+
+  // Effect to check for supplier link on mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const supplierId = urlParams.get('supplier');
+
+    if (supplierId) {
+        const foundSupplier = suppliers.find(s => s.id === supplierId);
+        if (foundSupplier) {
+            setCurrentSupplier(foundSupplier);
+        } else {
+            setSupplierError(t('supplier.invalidLink'));
+        }
+    } else {
+        setCurrentSupplier(null); // No supplier ID, normal admin mode
+    }
+  }, [t]);
 
 
   useEffect(() => {
@@ -80,7 +100,9 @@ const App: React.FC = () => {
       setSuccess(t('register.success', { name: attendee.name }));
       setTimeout(() => {
         setSuccess('');
-        setView('checkin');
+        if (!currentSupplier) { // Only change view in admin mode
+          setView('checkin');
+        }
       }, 2000);
     } catch (e: any) {
         console.error('Failed to add attendee:', e.message);
@@ -186,31 +208,120 @@ const App: React.FC = () => {
     }
   };
 
-  const renderMainContent = () => {
+  const renderAdminView = () => (
+    <>
+      <header className="py-6 text-center">
+        <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500">
+          {t('header.title')}
+        </h1>
+        <p className="text-gray-400 mt-2">{t('header.subtitle')}</p>
+      </header>
+
+      {dbConnectionState.status === 'connected' && (
+        <nav className="flex justify-center mb-8">
+          <div className="bg-gray-800 p-1 rounded-full border border-gray-700 flex flex-wrap justify-center">
+            <button
+              onClick={() => setView('register')}
+              className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${view === 'register' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+            >
+              <UsersIcon className="w-5 h-5 inline-block mr-2" />
+              {t('nav.register')}
+            </button>
+            <button
+              onClick={() => setView('checkin')}
+              className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${view === 'checkin' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+            >
+              <FingerPrintIcon className="w-5 h-5 inline-block mr-2" />
+              {t('nav.checkin')}
+            </button>
+            <button
+              onClick={() => setView('fast-checkin')}
+              className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${view === 'fast-checkin' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+            >
+              <SparklesIcon className="w-5 h-5 inline-block mr-2" />
+              {t('nav.fastCheckin')}
+            </button>
+          </div>
+        </nav>
+      )}
+      
+      <main className="container mx-auto px-4 pb-12">
+        {view === 'register' && <RegisterView onRegister={handleRegister} setError={setError} />}
+        {view === 'checkin' && <CheckinView attendees={attendees} onSelectAttendee={handleSelectAttendee} />}
+        {view === 'fast-checkin' && <FastCheckinView onVerify={handleFacialSearch} />}
+      </main>
+
+      {selectedAttendee && selectedAttendee.id && (
+        <VerificationModal 
+          attendee={selectedAttendee}
+          onClose={handleCloseModal}
+          onConfirm={() => handleCheckIn(selectedAttendee.id!)}
+        />
+      )}
+    </>
+  );
+
+  const renderSupplierView = (supplier: Supplier) => (
+    <>
+      <header className="py-6 text-center">
+        <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white">
+            {t('supplier.registerTitle', { supplierName: supplier.name })}
+        </h1>
+        <p className="text-gray-400 mt-2">{t('header.subtitle')}</p>
+      </header>
+      <main className="container mx-auto px-4 pb-12">
+        <RegisterView
+          onRegister={handleRegister}
+          setError={setError}
+          predefinedSector={supplier.sector}
+        />
+      </main>
+    </>
+  );
+
+  const renderContent = () => {
+    // Initial check for supplier URL parameter
+    if (currentSupplier === undefined) {
+      return (
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-400"></div>
+        </div>
+      );
+    }
+    if (supplierError) {
+      return (
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="text-center text-red-300 bg-red-900/30 p-8 rounded-2xl border border-red-500/50">
+            <h2 className="text-2xl font-bold text-red-400 mb-2">{t('connection.errorTitle')}</h2>
+            <p>{supplierError}</p>
+          </div>
+        </div>
+      );
+    }
+
+    // Main connection state handling
     switch (dbConnectionState.status) {
       case 'connecting':
         return (
-          <div className="text-center text-gray-400 bg-gray-800/50 p-8 rounded-2xl border border-gray-700">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-400 mx-auto mb-4"></div>
-            <p className="text-lg">{t('connection.connecting')}</p>
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="text-center text-gray-400 bg-gray-800/50 p-8 rounded-2xl border border-gray-700">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-400 mx-auto mb-4"></div>
+              <p className="text-lg">{t('connection.connecting')}</p>
+            </div>
           </div>
         );
       case 'error':
         return (
-          <div className="text-center text-red-300 bg-red-900/30 p-8 rounded-2xl border border-red-500/50">
-            <h2 className="text-2xl font-bold text-red-400 mb-2">{t('connection.errorTitle')}</h2>
-            <p className="mb-4">{dbConnectionState.message}</p>
-            <p className="text-sm text-gray-400">{t('connection.errorInstructions')}</p>
+          <div className="flex items-center justify-center min-h-screen">
+            <div className="text-center text-red-300 bg-red-900/30 p-8 rounded-2xl border border-red-500/50">
+              <h2 className="text-2xl font-bold text-red-400 mb-2">{t('connection.errorTitle')}</h2>
+              <p className="mb-4">{dbConnectionState.message}</p>
+              <p className="text-sm text-gray-400">{t('connection.errorInstructions')}</p>
+            </div>
           </div>
         );
       case 'connected':
-        return (
-          <>
-            {view === 'register' && <RegisterView onRegister={handleRegister} setError={setError} />}
-            {view === 'checkin' && <CheckinView attendees={attendees} onSelectAttendee={handleSelectAttendee} />}
-            {view === 'fast-checkin' && <FastCheckinView onVerify={handleFacialSearch} />}
-          </>
-        );
+        return currentSupplier ? renderSupplierView(currentSupplier) : renderAdminView();
     }
   };
 
@@ -218,55 +329,9 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-gray-900 text-white font-sans bg-grid-pattern">
       <div className="absolute inset-0 bg-gradient-to-b from-gray-900 via-transparent to-gray-900"></div>
       <div className="relative z-10">
-        <header className="py-6 text-center">
-          <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500">
-            {t('header.title')}
-          </h1>
-          <p className="text-gray-400 mt-2">{t('header.subtitle')}</p>
-        </header>
-
-        {dbConnectionState.status === 'connected' && (
-            <nav className="flex justify-center mb-8">
-            <div className="bg-gray-800 p-1 rounded-full border border-gray-700 flex flex-wrap justify-center">
-                <button
-                onClick={() => setView('register')}
-                className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${view === 'register' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
-                >
-                <UsersIcon className="w-5 h-5 inline-block mr-2" />
-                {t('nav.register')}
-                </button>
-                <button
-                onClick={() => setView('checkin')}
-                className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${view === 'checkin' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
-                >
-                <FingerPrintIcon className="w-5 h-5 inline-block mr-2" />
-                {t('nav.checkin')}
-                </button>
-                <button
-                onClick={() => setView('fast-checkin')}
-                className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${view === 'fast-checkin' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
-                >
-                <SparklesIcon className="w-5 h-5 inline-block mr-2" />
-                {t('nav.fastCheckin')}
-                </button>
-            </div>
-            </nav>
-        )}
-        
         {error && <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-red-500 text-white py-2 px-4 rounded-lg shadow-lg animate-fade-in-out z-50">{error}</div>}
         {success && <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-green-500 text-white py-2 px-4 rounded-lg shadow-lg animate-fade-in-out z-50">{success}</div>}
-
-        <main className="container mx-auto px-4 pb-12">
-            {renderMainContent()}
-        </main>
-        
-        {selectedAttendee && selectedAttendee.id && (
-            <VerificationModal 
-                attendee={selectedAttendee}
-                onClose={handleCloseModal}
-                onConfirm={() => handleCheckIn(selectedAttendee.id!)}
-            />
-        )}
+        {renderContent()}
       </div>
       <style>{`
         .bg-grid-pattern {

@@ -7,21 +7,24 @@ import { UsersIcon, CheckCircleIcon, SpinnerIcon } from '../icons';
 interface RegisterViewProps {
   onRegister: (newAttendee: Omit<Attendee, 'id' | 'status'>) => Promise<void>;
   setError: (message: string) => void;
+  predefinedSector?: string;
 }
 
-const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError }) => {
+const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, predefinedSector }) => {
   const { t, sectors } = useTranslation();
   const [name, setName] = useState('');
   const [cpf, setCpf] = useState('');
-  const [sector, setSector] = useState('');
+  const [sector, setSector] = useState(predefinedSector || '');
   const [photo, setPhoto] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const clearForm = () => {
     setName('');
     setCpf('');
-    setSector('');
     setPhoto(null);
+    if (!predefinedSector) {
+      setSector('');
+    }
   };
 
   const formatCPF = (value: string) => {
@@ -85,17 +88,19 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError }) => 
               disabled={isSubmitting}
             />
           </div>
-          <div>
-            <label htmlFor="sector" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.sectorLabel')}</label>
-            <select
-              id="sector" value={sector} onChange={(e) => setSector(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
-              disabled={isSubmitting}
-            >
-              <option value="" disabled>{t('register.form.sectorPlaceholder')}</option>
-              {sectors.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
-          </div>
+          {!predefinedSector && (
+            <div>
+              <label htmlFor="sector" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.sectorLabel')}</label>
+              <select
+                id="sector" value={sector} onChange={(e) => setSector(e.target.value)}
+                className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                disabled={isSubmitting}
+              >
+                <option value="" disabled>{t('register.form.sectorPlaceholder')}</option>
+                {sectors.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+              </select>
+            </div>
+          )}
           <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-indigo-400 disabled:cursor-wait" disabled={!name || !cpf || !photo || !sector || isSubmitting}>
             {isSubmitting ? (
               <>

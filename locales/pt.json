@@ -76,6 +76,10 @@
     "errorTitle": "Falha na Conexão com o Banco de Dados",
     "errorInstructions": "Por favor, verifique as instruções de configuração no arquivo `firebase/config.ts` e atualize a página."
   },
+  "supplier": {
+    "registerTitle": "Registro para {supplierName}",
+    "invalidLink": "Link de fornecedor inválido ou não encontrado."
+  },
   "sectors": [
     { "value": "bar", "label": "Bar" },
     { "value": "portaria", "label": "Portaria" },
