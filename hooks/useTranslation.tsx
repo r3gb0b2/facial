@@ -25,7 +25,8 @@ const ptTranslations = {
     "success": "Registrado {name} com sucesso!",
     "errors": {
       "allFields": "Todos os campos, incluindo uma foto, são obrigatórios.",
-      "invalidEmail": "Por favor, insira um endereço de email válido."
+      "invalidEmail": "Por favor, insira um endereço de email válido.",
+      "dbConnection": "Não foi possível conectar ao banco de dados. Verifique o console para mais detalhes."
     }
   },
   "checkin": {

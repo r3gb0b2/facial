@@ -1,4 +1,4 @@
-import { collection, addDoc, onSnapshot, doc, updateDoc, query, orderBy } from "firebase/firestore";
+import { collection, addDoc, onSnapshot, doc, updateDoc, query } from "firebase/firestore";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { db, storage } from './config';
 import { Attendee } from "../types";
@@ -21,16 +21,26 @@ const uploadPhoto = async (photoDataUrl: string): Promise<string> => {
 
 
 // Function to listen for real-time updates on the attendees collection
-export const onAttendeesUpdate = (callback: (attendees: Attendee[]) => void) => {
-  const q = query(collection(db, ATTENDEES_COLLECTION), orderBy("name"));
+export const onAttendeesUpdate = (
+  callback: (attendees: Attendee[]) => void,
+  onError: (error: Error) => void
+) => {
+  // Query without orderBy to avoid needing a composite index in Firestore
+  const q = query(collection(db, ATTENDEES_COLLECTION));
 
-  const unsubscribe = onSnapshot(q, (querySnapshot) => {
-    const attendees: Attendee[] = [];
-    querySnapshot.forEach((doc) => {
-        attendees.push({ id: doc.id, ...doc.data() } as Attendee);
-    });
-    callback(attendees);
-  });
+  const unsubscribe = onSnapshot(q, 
+    (querySnapshot) => {
+        const attendees: Attendee[] = [];
+        querySnapshot.forEach((doc) => {
+            attendees.push({ id: doc.id, ...doc.data() } as Attendee);
+        });
+        callback(attendees);
+    },
+    (error) => {
+        console.error("Error listening to attendees collection:", error);
+        onError(error);
+    }
+  );
 
   return unsubscribe; // Return the unsubscribe function to stop listening
 };

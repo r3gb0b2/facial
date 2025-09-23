@@ -15,6 +15,23 @@ type View = 'register' | 'checkin' | 'fast-checkin';
 // Helper to extract base64 data from a data URL
 const getBase64 = (dataUrl: string) => dataUrl.split(',')[1];
 
+// Helper to fetch a URL and convert it to a base64 string
+const urlToBase64 = async (url: string): Promise<string> => {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            // result includes the "data:mime/type;base64," prefix, which we strip
+            const dataUrl = reader.result as string;
+            resolve(dataUrl.split(',')[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+};
+
+
 const App: React.FC = () => {
   const { t } = useTranslation();
   const [view, setView] = useState<View>('register');
@@ -25,13 +42,21 @@ const App: React.FC = () => {
 
   useEffect(() => {
     // Subscribe to real-time updates from Firestore
-    const unsubscribe = onAttendeesUpdate((newAttendees) => {
-      setAttendees(newAttendees);
-    });
+    const unsubscribe = onAttendeesUpdate(
+      (newAttendees) => {
+        // Sort attendees by name on the client side
+        const sortedAttendees = newAttendees.sort((a, b) => a.name.localeCompare(b.name));
+        setAttendees(sortedAttendees);
+      },
+      (err) => {
+        console.error(err);
+        setError(t('register.errors.dbConnection'));
+      }
+    );
 
     // Clean up the subscription on component unmount
     return () => unsubscribe();
-  }, []);
+  }, [t]);
 
 
   const handleRegister = async (newAttendee: Omit<Attendee, 'id' | 'status'>) => {
@@ -82,7 +107,17 @@ const App: React.FC = () => {
   };
 
   const handleFacialSearch = async (livePhoto: string): Promise<void> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+    const apiKey = typeof process !== 'undefined' && process.env && process.env.API_KEY
+      ? process.env.API_KEY
+      : undefined;
+
+    if (!apiKey) {
+      setError("Gemini API key is not configured.");
+      setTimeout(() => setError(''), 4000);
+      return;
+    }
+    
+    const ai = new GoogleGenAI({ apiKey });
 
     const unCheckedInAttendees = attendees.filter(a => a.status === CheckinStatus.REGISTERED);
     if (unCheckedInAttendees.length === 0) {
@@ -101,10 +136,13 @@ const App: React.FC = () => {
     for (const attendee of unCheckedInAttendees) {
         if (!attendee.id) continue;
         try {
+            // Fetch the registered photo URL and convert it to base64
+            const registeredPhotoBase64 = await urlToBase64(attendee.photo);
+
             const registeredImagePart = {
                 inlineData: {
-                    mimeType: 'image/png',
-                    data: getBase64(attendee.photo),
+                    mimeType: 'image/png', // This might need to be dynamic if other types are stored
+                    data: registeredPhotoBase64,
                 },
             };
 
@@ -203,7 +241,7 @@ const App: React.FC = () => {
             100% { opacity: 0; transform: translate(-50%, -20px); }
         }
         .animate-fade-in-out {
-            animation: fade-in-out 3s ease-in-out forwards;
+            animation: fade-in-out 4s ease-in-out forwards;
         }
       `}</style>
     </div>
