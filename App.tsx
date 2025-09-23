@@ -48,9 +48,13 @@ const App: React.FC = () => {
         const sortedAttendees = newAttendees.sort((a, b) => a.name.localeCompare(b.name));
         setAttendees(sortedAttendees);
       },
-      (err) => {
+      (err: any) => {
         console.error(err);
-        setError(t('register.errors.dbConnection'));
+        if (err.code === 'permission-denied') {
+          setError(t('register.errors.dbPermissionDenied'));
+        } else {
+          setError(t('register.errors.dbConnection'));
+        }
       }
     );
 

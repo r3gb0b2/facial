@@ -26,7 +26,8 @@ const ptTranslations = {
     "errors": {
       "allFields": "Todos os campos, incluindo uma foto, são obrigatórios.",
       "invalidEmail": "Por favor, insira um endereço de email válido.",
-      "dbConnection": "Não foi possível conectar ao banco de dados. Verifique o console para mais detalhes."
+      "dbConnection": "Não foi possível conectar ao banco de dados. Verifique a configuração do seu Firebase.",
+      "dbPermissionDenied": "Erro de permissão. Verifique as regras de segurança do seu Firestore e se o banco de dados foi criado."
     }
   },
   "checkin": {
