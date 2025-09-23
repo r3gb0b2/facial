@@ -43,7 +43,11 @@
     "verifying": "Verificando... Comparando com os participantes.",
     "noMatch": "Nenhum participante correspondente encontrado.",
     "noOneToScan": "Não há participantes aguardando check-in.",
-    "apiPrompt": "Sua função é atuar como um sistema de verificação facial de alta precisão para a segurança de um evento. Analise as duas imagens fornecidas. A primeira é a foto oficial de registro e a segunda é uma foto tirada ao vivo. Sua única tarefa é determinar se a pessoa na foto ao vivo é a mesma da foto do registro. Leve em conta possíveis variações de iluminação, ângulo e expressão. Responda estritamente com 'Sim' se for a mesma pessoa, ou 'Não' se houver qualquer dúvida ou se forem pessoas diferentes.",
+    "apiPrompt": {
+      "part1": "FOTO REGISTRADA:",
+      "part2": "FOTO AO VIVO:",
+      "part3": "Você é um sistema de verificação facial de alta precisão para um evento. A pessoa na 'FOTO AO VIVO' é a mesma da 'FOTO REGISTRADA'? Leve em conta variações de iluminação, ângulo e expressão. Responda estritamente com 'Sim' ou 'Não'."
+    },
     "apiYes": "sim",
     "apiError": "Ocorreu um erro ao verificar o rosto. Tente novamente.",
     "apiKeyError": "Chave de API do Gemini inválida ou não configurada. Verifique a configuração do ambiente."

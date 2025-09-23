@@ -157,9 +157,11 @@ const App: React.FC = () => {
           model: 'gemini-2.5-flash',
           contents: {
             parts: [
-              { text: t('fastCheckin.apiPrompt') },
+              { text: t('fastCheckin.apiPrompt.part1') },
               registeredImagePart,
+              { text: t('fastCheckin.apiPrompt.part2') },
               liveImagePart,
+              { text: t('fastCheckin.apiPrompt.part3') },
             ],
           },
         });
