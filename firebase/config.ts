@@ -50,12 +50,21 @@ import { getStorage } from "firebase/storage";
 const firebaseConfig = {
   apiKey: "AIzaSyDlaBCtgD74608i4JdOMQYJ0433V-c0bjI",
   authDomain: "facial-244d7.firebaseapp.com",
+  databaseURL: "https://facial-244d7-default-rtdb.firebaseio.com",
   projectId: "facial-244d7",
-  // CORREÇÃO CRÍTICA: O formato correto do domínio é .appspot.com
-  storageBucket: "facial-244d7.appspot.com",
+  storageBucket: "facial-244d7.firebasestorage.app",
   messagingSenderId: "979969706148",
   appId: "1:979969706148:web:14fbcd486911fe40dc3e31"
 };
+
+// Verifica se as credenciais de exemplo ainda estão em uso e alerta o desenvolvedor.
+if (firebaseConfig.apiKey === "AIzaSyDlaBCtgD74608i4JdOMQYJ0433V-c0bjI") {
+    const errorMessage = "CONFIGURAÇÃO NECESSÁRIA: As credenciais do Firebase em 'firebase/config.ts' são valores de exemplo e precisam ser substituídas pelas chaves do SEU projeto. A aplicação não funcionará corretamente até que você as atualize seguindo o checklist no arquivo.";
+    console.error("======================================================================================");
+    console.error("🔥🔥🔥 ERRO DE CONFIGURAÇÃO DO FIREBASE 🔥🔥🔥");
+    console.error(errorMessage);
+    console.error("======================================================================================");
+}
 
 
 // Initialize Firebase

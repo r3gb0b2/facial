@@ -16,16 +16,19 @@ type DbConnectionStatus = 'connecting' | 'connected' | 'error';
 // Helper to extract base64 data from a data URL
 const getBase64 = (dataUrl: string) => dataUrl.split(',')[1];
 
-// Helper to fetch a URL and convert it to a base64 string
-const urlToBase64 = async (url: string): Promise<string> => {
+// Helper to fetch a URL and convert it to a base64 string with its mime type
+const urlToInfo = async (url: string): Promise<{ data: string; mimeType: string }> => {
     const response = await fetch(url);
     const blob = await response.blob();
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => {
-            // result includes the "data:mime/type;base64," prefix, which we strip
             const dataUrl = reader.result as string;
-            resolve(dataUrl.split(',')[1]);
+            resolve({
+                data: dataUrl.split(',')[1],
+                // Use the blob's type, with a fallback for safety
+                mimeType: blob.type || 'image/png',
+            });
         };
         reader.onerror = reject;
         reader.readAsDataURL(blob);
@@ -139,11 +142,11 @@ const App: React.FC = () => {
       for (const attendee of unCheckedInAttendees) {
         if (!attendee.id) continue;
         
-        const registeredPhotoBase64 = await urlToBase64(attendee.photo);
+        const registeredPhotoInfo = await urlToInfo(attendee.photo);
         const registeredImagePart = {
           inlineData: {
-            mimeType: 'image/png',
-            data: registeredPhotoBase64,
+            mimeType: registeredPhotoInfo.mimeType,
+            data: registeredPhotoInfo.data,
           },
         };
 

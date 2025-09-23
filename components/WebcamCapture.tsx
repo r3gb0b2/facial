@@ -10,19 +10,23 @@ interface WebcamCaptureProps {
 const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage }) => {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [stream, setStream] = useState<MediaStream | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [isStreamActive, setIsStreamActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const stopStream = useCallback(() => {
-    setStream(currentStream => {
-      if (currentStream) {
-        currentStream.getTracks().forEach(track => track.stop());
-      }
-      return null;
-    });
+    if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+        streamRef.current = null;
+    }
+    setIsStreamActive(false);
   }, []);
 
   const startStream = useCallback(async () => {
+    // Ensure any previous stream is stopped before starting a new one
+    if (streamRef.current) {
+        stopStream();
+    }
     try {
       setError(null);
       const mediaStream = await navigator.mediaDevices.getUserMedia({ 
@@ -32,16 +36,17 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage 
             facingMode: 'user'
         }
       });
-      setStream(mediaStream);
+      streamRef.current = mediaStream;
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
       }
+      setIsStreamActive(true);
     } catch (err: any) {
       console.error("Error accessing webcam:", err.message);
       // Hardcode string to avoid dependency on unstable 't' function from context, which was causing a re-render loop.
       setError("Não foi possível acessar a webcam. Por favor, verifique as permissões e tente novamente.");
     }
-  }, [setError]);
+  }, [stopStream]);
 
   useEffect(() => {
     if (!capturedImage) {
@@ -56,7 +61,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage 
   }, [capturedImage, startStream, stopStream]);
 
   const handleCapture = () => {
-    if (videoRef.current) {
+    if (videoRef.current && streamRef.current) {
       const canvas = document.createElement('canvas');
       canvas.width = videoRef.current.videoWidth;
       canvas.height = videoRef.current.videoHeight;
@@ -82,7 +87,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage 
             ) : (
                 <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" muted></video>
             )}
-             {!stream && !capturedImage && !error &&
+             {!isStreamActive && !capturedImage && !error &&
                 <div className="absolute inset-0 flex items-center justify-center">
                     <p className="text-gray-400">{t('webcam.starting')}</p>
                 </div>
@@ -102,7 +107,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage 
                 <button
                     type="button"
                     onClick={handleCapture}
-                    disabled={!stream}
+                    disabled={!isStreamActive}
                     className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed"
                 >
                     <CameraIcon className="w-5 h-5" />

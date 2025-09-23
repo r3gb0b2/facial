@@ -42,7 +42,7 @@
     "verifying": "Verificando... Comparando com os participantes.",
     "noMatch": "Nenhum participante correspondente encontrado.",
     "noOneToScan": "Não há participantes aguardando check-in.",
-    "apiPrompt": "As duas fotos a seguir são da mesma pessoa? Responda apenas 'Sim' ou 'Não'.",
+    "apiPrompt": "Você é uma IA de segurança para check-in de eventos. Sua tarefa é verificar se as duas imagens a seguir são da mesma pessoa. A primeira imagem é do banco de dados de registro e a segunda é uma foto ao vivo. Compare os rostos com atenção. Responda apenas com 'Sim' se tiver certeza de que são a mesma pessoa, ou 'Não' caso contrário.",
     "apiYes": "sim",
     "apiError": "Ocorreu um erro ao verificar o rosto. Tente novamente.",
     "apiKeyError": "Chave de API do Gemini inválida ou não configurada. Verifique a configuração do ambiente."
