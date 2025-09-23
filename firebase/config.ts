@@ -60,6 +60,8 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
+console.log("Firebase Initialized Successfully with projectId:", app.options.projectId);
+
 
 // Initialize Cloud Firestore and get a reference to the service
 const db = getFirestore(app);
