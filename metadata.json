@@ -1,0 +1,7 @@
+{
+  "name": "Facial Credentialing System",
+  "description": "A modern, web-based system for event credentialing using facial recognition. Allows attendees to register their photo and facilitates a smooth check-in process by matching their face at the event.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
