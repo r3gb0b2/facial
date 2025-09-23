@@ -3,57 +3,60 @@ import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
 // =================================================================================================
-// == ATENÇÃO: AÇÃO NECESSÁRIA! ====================================================================
-// 1. Crie um projeto no Firebase: https://console.firebase.google.com/
-// 2. Vá para as "Configurações do Projeto" > "Geral" e encontre "Seus apps".
-// 3. Registre um novo app da Web para obter seu objeto `firebaseConfig`.
-// 4. COLE o seu objeto `firebaseConfig` aqui, substituindo o objeto de exemplo abaixo.
-// 5. Vá para "Build > Firestore Database", crie um banco de dados e inicie em "modo de teste".
+// ❌❌❌ ATENÇÃO: AÇÃO OBRIGATÓRIA! ❌❌❌
+// SE VOCÊ COPIOU E COLOU ESTE ARQUIVO SEM ALTERAR AS CREDENCIAIS ABAIXO, ELE NÃO VAI FUNCIONAR.
+// A APLICAÇÃO PRECISA DAS CHAVES DO *SEU* PROJETO FIREBASE PARA SE CONECTAR.
 // =================================================================================================
-// == SOLUÇÃO DE PROBLEMAS (TROUBLESHOOTING) =======================================================
-// Se você ver o erro "Could not reach Cloud Firestore backend" ou "permission-denied":
 //
-// 1. VERIFIQUE AS CREDENCIAIS ABAIXO: Elas devem ser EXATAMENTE as que o Firebase forneceu.
-//    Um único caractere errado causará falha. Copie e cole novamente para ter certeza.
+// == CHECKLIST DE SOLUÇÃO DE PROBLEMAS ============================================================
+// Se os dados não estão sendo salvos, verifique estes 3 pontos no seu painel do Firebase:
 //
-// 2. AJUSTE AS REGRAS DE SEGURANÇA (CAUSA MAIS COMUM): Por padrão, o Firebase bloqueia
-//    todo o acesso. Você PRECISA liberar o acesso no painel do Firebase.
+// ✅ 1. AS CREDENCIAIS ESTÃO CORRETAS?
+//    - Vá para as "Configurações do Projeto" (⚙️) > "Geral".
+//    - Em "Seus apps", encontre seu app da Web.
+//    - Copie o objeto `firebaseConfig` e COLE-O AQUI, substituindo o objeto de exemplo.
 //
-//    COMO LIBERAR O ACESSO PARA DESENVOLVIMENTO:
-//    - Firestore: Vá para Build > Firestore Database > Aba "Regras". Cole o seguinte código e publique:
+// ✅ 2. O BANCO DE DADOS FOI CRIADO?
+//    - Vá para "Build > Firestore Database".
+//    - Se você vir um botão "Criar banco de dados", clique nele e inicie em "modo de teste".
+//
+// ✅ 3. AS REGRAS DE SEGURANÇA FORAM ATUALIZADAS?
+//    - Por padrão, ninguém pode ler ou escrever. Você PRECISA liberar o acesso.
+//
+//    - No Firestore (Build > Firestore Database > Aba "Regras"):
+//      Cole isto e clique em "Publicar". **LEMBRE-SE DE ATUALIZAR A DATA!**
 //      rules_version = '2';
 //      service cloud.firestore {
 //        match /databases/{database}/documents {
 //          match /{document=**} {
-//            // PERIGO: Permite acesso total por 30 dias. Altere a data!
-//            allow read, write: if request.time < timestamp.date(2025, 10, 23);
+//            // Permite acesso por 30 dias. Altere a data para o futuro!
+//            allow read, write: if request.time < timestamp.date(2025, 11, 23);
 //          }
 //        }
 //      }
 //
-//    - Storage: Vá para Build > Storage > Aba "Regras". Cole o seguinte código e publique:
+//    - No Storage (Build > Storage > Aba "Regras"):
+//      Cole isto e clique em "Publicar".
 //      rules_version = '2';
 //      service firebase.storage {
 //        match /b/{bucket}/o {
 //          match /{allPaths=**} {
-//            // Permite que qualquer pessoa leia e escreva os arquivos.
 //            allow read, write: if true;
 //          }
 //        }
 //      }
-//    - ATENÇÃO: Lembre-se de alterar a data na regra do Firestore e clicar em "Publicar".
-//
-// 3. VERIFIQUE SE O BANCO DE DADOS FOI CRIADO: No painel "Firestore Database", certifique-se
-//    de que ele foi criado (geralmente em "modo de teste" para começar).
 // =================================================================================================
+
 const firebaseConfig = {
   apiKey: "AIzaSyDlaBCtgD74608i4JdOMQYJ0433V-c0bjI",
   authDomain: "facial-244d7.firebaseapp.com",
   projectId: "facial-244d7",
+  // CORREÇÃO CRÍTICA: O formato correto do domínio é .appspot.com
   storageBucket: "facial-244d7.appspot.com",
   messagingSenderId: "979969706148",
   appId: "1:979969706148:web:14fbcd486911fe40dc3e31"
 };
+
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
