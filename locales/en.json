@@ -5,15 +5,17 @@
   },
   "nav": {
     "register": "Register",
-    "checkin": "Check-in"
+    "checkin": "Check-in",
+    "fastCheckin": "Fast Check-in",
+    "admin": "Suppliers"
   },
   "register": {
     "title": "Attendee Registration",
     "form": {
       "nameLabel": "Full Name",
-      "namePlaceholder": "e.g., Jane Doe",
-      "emailLabel": "Email Address",
-      "emailPlaceholder": "e.g., jane.doe@example.com",
+      "namePlaceholder": "e.g., John Doe",
+      "cpfLabel": "CPF / Tax ID",
+      "cpfPlaceholder": "000.000.000-00",
       "sectorLabel": "Sector",
       "sectorPlaceholder": "Select a sector",
       "button": "Complete Registration"
@@ -21,7 +23,10 @@
     "success": "Successfully registered {name}!",
     "errors": {
       "allFields": "All fields, including a photo, are required.",
-      "invalidEmail": "Please enter a valid email address."
+      "invalidCpf": "Please enter a valid CPF / Tax ID (11 digits).",
+      "duplicateCpf": "This CPF / Tax ID has already been registered.",
+      "dbConnection": "Could not connect to the database. Please check your Firebase configuration.",
+      "dbPermissionDenied": "Permission error. Please check your Firestore security rules and ensure the database has been created."
     }
   },
   "checkin": {
@@ -30,8 +35,23 @@
     "filterSectorPlaceholder": "All Sectors",
     "noAttendees": "No attendees registered yet.",
     "noAttendeesSubtitle": "Go to the \"Register\" tab to add the first attendee.",
-    "noResults": "No attendees found",
+    "noResults": "No attendees found.",
     "checkedInSuccess": "{name} has been checked in!"
+  },
+  "fastCheckin": {
+    "title": "Fast Check-in via Facial Recognition",
+    "button": "Verify Face",
+    "verifying": "Verifying... Comparing with attendees.",
+    "noMatch": "No matching attendee found.",
+    "noOneToScan": "There are no attendees awaiting check-in.",
+    "apiPrompt": {
+      "part1": "REGISTERED PHOTO:",
+      "part2": "LIVE PHOTO:",
+      "part3": "You are a high-precision facial verification system for an event. Is the person in the 'LIVE PHOTO' the same as the one in the 'REGISTERED PHOTO'? Consider variations in lighting, angle, and expression. Answer strictly with 'Yes' or 'No'."
+    },
+    "apiYes": "yes",
+    "apiError": "An error occurred while verifying the face. Please try again.",
+    "apiKeyError": "Invalid or unconfigured Gemini API key. Please check the environment setup."
   },
   "webcam": {
     "captureButton": "Capture Photo",
@@ -52,10 +72,46 @@
     "liveVerification": "Live Verification",
     "confirmButton": "Confirm Check-in"
   },
+  "connection": {
+    "connecting": "Connecting to the database...",
+    "errorTitle": "Database Connection Failed",
+    "errorInstructions": "Please check the configuration instructions in the `firebase/config.ts` file and refresh the page."
+  },
+  "supplier": {
+    "registerTitle": "Registration for {supplierName}",
+    "invalidLink": "Invalid or unfound supplier link."
+  },
+  "admin": {
+    "title": "Supplier Management",
+    "form": {
+      "title": "Add New Supplier",
+      "nameLabel": "Supplier Name",
+      "namePlaceholder": "e.g., VIP Security",
+      "sectorLabel": "Sector",
+      "sectorPlaceholder": "Select a sector",
+      "button": "Add Supplier"
+    },
+    "list": {
+      "title": "Registration Links",
+      "noSuppliers": "No suppliers registered. Add the first one using the form above."
+    },
+    "buttons": {
+      "copyLink": "Copy Link",
+      "copied": "Copied!"
+    },
+    "success": {
+      "supplierAdded": "Supplier {name} added successfully!",
+      "linkCopied": "Link copied to clipboard!"
+    },
+    "errors": {
+      "allFields": "Name and sector are required.",
+      "duplicate": "A supplier with this name already exists."
+    }
+  },
   "sectors": [
     { "value": "bar", "label": "Bar" },
-    { "value": "gate", "label": "Gate" },
-    { "value": "access", "label": "Access Control" },
-    { "value": "production", "label": "Production" }
+    { "value": "portaria", "label": "Gate Control" },
+    { "value": "acessos", "label": "Access" },
+    { "value": "producao", "label": "Production" }
   ]
 }

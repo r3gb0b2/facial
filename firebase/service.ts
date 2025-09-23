@@ -1,9 +1,10 @@
 import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDocs } from "firebase/firestore";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { db, storage } from './config';
-import { Attendee } from "../types";
+import { Attendee, Supplier } from "../types";
 
 const ATTENDEES_COLLECTION = 'attendees';
+const SUPPLIERS_COLLECTION = 'suppliers';
 
 // Function to upload a photo to Firebase Storage
 const uploadPhoto = async (photoDataUrl: string): Promise<string> => {
@@ -25,9 +26,7 @@ export const onAttendeesUpdate = (
   callback: (attendees: Attendee[]) => void,
   onError: (error: Error) => void
 ) => {
-  // Query without orderBy to avoid needing a composite index in Firestore
   const q = query(collection(db, ATTENDEES_COLLECTION));
-
   const unsubscribe = onSnapshot(q, 
     (querySnapshot) => {
         const attendees: Attendee[] = [];
@@ -41,14 +40,12 @@ export const onAttendeesUpdate = (
         onError(error);
     }
   );
-
-  return unsubscribe; // Return the unsubscribe function to stop listening
+  return unsubscribe;
 };
 
 // Function to add a new attendee
 export const addAttendee = async (attendee: Omit<Attendee, 'id'>): Promise<void> => {
     try {
-        // Check for duplicate CPF before proceeding
         const q = query(collection(db, ATTENDEES_COLLECTION), where("cpf", "==", attendee.cpf));
         const querySnapshot = await getDocs(q);
         if (!querySnapshot.empty) {
@@ -57,16 +54,8 @@ export const addAttendee = async (attendee: Omit<Attendee, 'id'>): Promise<void>
           throw error;
         }
 
-        // Upload the photo to Firebase Storage and get the URL
         const photoURL = await uploadPhoto(attendee.photo);
-
-        // Create the attendee data object with the photo URL instead of the base64 string
-        const attendeeData = {
-            ...attendee,
-            photo: photoURL,
-        };
-        
-        // Add the new attendee document to Firestore
+        const attendeeData = { ...attendee, photo: photoURL };
         await addDoc(collection(db, ATTENDEES_COLLECTION), attendeeData);
     } catch (e: any) {
         console.error('Error adding document:', e.message);
@@ -84,3 +73,45 @@ export const updateAttendee = async (id: string, updates: Partial<Attendee>): Pr
         throw e;
     }
 }
+
+// === SUPPLIER FUNCTIONS ===
+
+// Function to listen for real-time updates on the suppliers collection
+export const onSuppliersUpdate = (
+  callback: (suppliers: Supplier[]) => void,
+  onError: (error: Error) => void
+) => {
+  const q = query(collection(db, SUPPLIERS_COLLECTION));
+  const unsubscribe = onSnapshot(q,
+    (querySnapshot) => {
+      const suppliers: Supplier[] = [];
+      querySnapshot.forEach((doc) => {
+        suppliers.push({ id: doc.id, ...doc.data() } as Supplier);
+      });
+      callback(suppliers);
+    },
+    (error) => {
+      console.error('Error listening to suppliers collection:', error.message);
+      onError(error);
+    }
+  );
+  return unsubscribe;
+};
+
+// Function to add a new supplier
+export const addSupplier = async (supplier: Omit<Supplier, 'id'>): Promise<void> => {
+    try {
+        // Check for duplicate slug before adding
+        const q = query(collection(db, SUPPLIERS_COLLECTION), where("slug", "==", supplier.slug));
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+            const error: any = new Error("A supplier with this name/slug already exists.");
+            error.code = 'duplicate-slug';
+            throw error;
+        }
+        await addDoc(collection(db, SUPPLIERS_COLLECTION), supplier);
+    } catch (e: any) {
+        console.error('Error adding supplier:', e.message);
+        throw e;
+    }
+};

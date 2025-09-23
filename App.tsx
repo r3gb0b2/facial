@@ -2,16 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { Attendee, CheckinStatus, Supplier } from './types';
 import VerificationModal from './components/VerificationModal';
-import { UsersIcon, FingerPrintIcon, SparklesIcon } from './components/icons';
+import { UsersIcon, FingerPrintIcon, SparklesIcon, CogIcon } from './components/icons';
 import { useTranslation } from './hooks/useTranslation';
 import RegisterView from './components/views/RegisterView';
 import CheckinView from './components/views/CheckinView';
 import FastCheckinView from './components/views/FastCheckinView';
-import { onAttendeesUpdate, addAttendee, updateAttendee } from './firebase/service';
-import { suppliers } from './suppliers';
+import AdminView from './components/views/AdminView';
+import { onAttendeesUpdate, addAttendee, updateAttendee, onSuppliersUpdate, addSupplier } from './firebase/service';
 
-
-type View = 'register' | 'checkin' | 'fast-checkin';
+type View = 'register' | 'checkin' | 'fast-checkin' | 'admin';
 type DbConnectionStatus = 'connecting' | 'connected' | 'error';
 
 // Helper to extract base64 data from a data URL
@@ -27,7 +26,6 @@ const urlToInfo = async (url: string): Promise<{ data: string; mimeType: string 
             const dataUrl = reader.result as string;
             resolve({
                 data: dataUrl.split(',')[1],
-                // Use the blob's type, with a fallback for safety
                 mimeType: blob.type || 'image/png',
             });
         };
@@ -36,11 +34,11 @@ const urlToInfo = async (url: string): Promise<{ data: string; mimeType: string 
     });
 };
 
-
 const App: React.FC = () => {
   const { t } = useTranslation();
   const [view, setView] = useState<View>('register');
   const [attendees, setAttendees] = useState<Attendee[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
   const [selectedAttendee, setSelectedAttendee] = useState<Attendee | null>(null);
@@ -48,13 +46,22 @@ const App: React.FC = () => {
   const [currentSupplier, setCurrentSupplier] = useState<Supplier | null | undefined>(undefined);
   const [supplierError, setSupplierError] = useState<string | null>(null);
 
-  // Effect to check for supplier link on mount
+  // Effect to check for supplier link on mount, depends on suppliers list
   useEffect(() => {
+    if (suppliers.length === 0) {
+        // Wait for suppliers to be loaded before checking the URL
+        const urlParams = new URLSearchParams(window.location.search);
+        if(!urlParams.get('supplier')) {
+             setCurrentSupplier(null); // No supplier ID, normal admin mode
+        }
+        return;
+    };
+
     const urlParams = new URLSearchParams(window.location.search);
     const supplierId = urlParams.get('supplier');
 
     if (supplierId) {
-        const foundSupplier = suppliers.find(s => s.id === supplierId);
+        const foundSupplier = suppliers.find(s => s.slug === supplierId);
         if (foundSupplier) {
             setCurrentSupplier(foundSupplier);
         } else {
@@ -63,20 +70,19 @@ const App: React.FC = () => {
     } else {
         setCurrentSupplier(null); // No supplier ID, normal admin mode
     }
-  }, [t]);
+  }, [suppliers, t]);
 
 
   useEffect(() => {
     // Subscribe to real-time updates from Firestore
-    const unsubscribe = onAttendeesUpdate(
+    const unsubAttendees = onAttendeesUpdate(
       (newAttendees) => {
-        // Sort attendees by name on the client side
         const sortedAttendees = newAttendees.sort((a, b) => a.name.localeCompare(b.name));
         setAttendees(sortedAttendees);
         setDbConnectionState({ status: 'connected', message: null });
       },
       (err: any) => {
-        console.error('Firestore listener error:', err.message);
+        console.error('Firestore listener error (attendees):', err.message);
         let errorMessage = t('register.errors.dbConnection');
         if (err.code === 'permission-denied') {
           errorMessage = t('register.errors.dbPermissionDenied');
@@ -85,8 +91,18 @@ const App: React.FC = () => {
       }
     );
 
-    // Clean up the subscription on component unmount
-    return () => unsubscribe();
+    const unsubSuppliers = onSuppliersUpdate(
+        setSuppliers,
+        (err: any) => {
+            console.error('Firestore listener error (suppliers):', err.message);
+            // Don't set the main error state for this, as it might not be critical
+        }
+    );
+
+    return () => {
+        unsubAttendees();
+        unsubSuppliers();
+    };
   }, [t]);
 
 
@@ -100,7 +116,7 @@ const App: React.FC = () => {
       setSuccess(t('register.success', { name: attendee.name }));
       setTimeout(() => {
         setSuccess('');
-        if (!currentSupplier) { // Only change view in admin mode
+        if (!currentSupplier) {
           setView('checkin');
         }
       }, 2000);
@@ -114,7 +130,25 @@ const App: React.FC = () => {
             setError(t('register.errors.dbConnection'));
         }
         setTimeout(() => setError(''), 5000);
-        throw e; // Re-throw the error so the calling component knows about it
+        throw e;
+    }
+  };
+
+  const handleAddSupplier = async (name: string, sector: string) => {
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    try {
+        await addSupplier({ name, sector, slug });
+        setSuccess(t('admin.success.supplierAdded', { name }));
+        setTimeout(() => setSuccess(''), 3000);
+    } catch (e: any) {
+        console.error('Failed to add supplier:', e.message);
+        if (e.code === 'duplicate-slug') {
+            setError(t('admin.errors.duplicate'));
+        } else {
+            setError(t('register.errors.dbConnection'));
+        }
+        setTimeout(() => setError(''), 5000);
+        throw e;
     }
   };
 
@@ -157,23 +191,13 @@ const App: React.FC = () => {
         return;
       }
 
-      const liveImagePart = {
-        inlineData: {
-          mimeType: 'image/png',
-          data: getBase64(livePhoto),
-        },
-      };
+      const liveImagePart = { inlineData: { mimeType: 'image/png', data: getBase64(livePhoto) } };
 
       for (const attendee of unCheckedInAttendees) {
         if (!attendee.id) continue;
         
         const registeredPhotoInfo = await urlToInfo(attendee.photo);
-        const registeredImagePart = {
-          inlineData: {
-            mimeType: registeredPhotoInfo.mimeType,
-            data: registeredPhotoInfo.data,
-          },
-        };
+        const registeredImagePart = { inlineData: { mimeType: registeredPhotoInfo.mimeType, data: registeredPhotoInfo.data } };
 
         const response = await ai.models.generateContent({
           model: 'gemini-2.5-flash',
@@ -241,6 +265,13 @@ const App: React.FC = () => {
               <SparklesIcon className="w-5 h-5 inline-block mr-2" />
               {t('nav.fastCheckin')}
             </button>
+            <button
+              onClick={() => setView('admin')}
+              className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${view === 'admin' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+            >
+              <CogIcon className="w-5 h-5 inline-block mr-2" />
+              {t('nav.admin')}
+            </button>
           </div>
         </nav>
       )}
@@ -249,6 +280,7 @@ const App: React.FC = () => {
         {view === 'register' && <RegisterView onRegister={handleRegister} setError={setError} />}
         {view === 'checkin' && <CheckinView attendees={attendees} onSelectAttendee={handleSelectAttendee} />}
         {view === 'fast-checkin' && <FastCheckinView onVerify={handleFacialSearch} />}
+        {view === 'admin' && <AdminView suppliers={suppliers} onAddSupplier={handleAddSupplier} setSuccess={setSuccess} setError={setError} />}
       </main>
 
       {selectedAttendee && selectedAttendee.id && (
@@ -280,7 +312,6 @@ const App: React.FC = () => {
   );
 
   const renderContent = () => {
-    // Initial check for supplier URL parameter
     if (currentSupplier === undefined) {
       return (
         <div className="flex items-center justify-center min-h-screen">
@@ -299,7 +330,6 @@ const App: React.FC = () => {
       );
     }
 
-    // Main connection state handling
     switch (dbConnectionState.status) {
       case 'connecting':
         return (
@@ -339,17 +369,16 @@ const App: React.FC = () => {
             background-size: 2rem 2rem;
         }
         @keyframes fade-in-out {
-            0% { opacity: 0; transform: translate(-50%, -20px); }
-            10% { opacity: 1; transform: translate(-50%, 0); }
-            90% { opacity: 1; transform: translate(-50%, 0); }
-            100% { opacity: 0; transform: translate(-50%, -20px); }
+            0%, 100% { opacity: 0; transform: translate(-50%, -20px); }
+            10%, 90% { opacity: 1; transform: translate(-50%, 0); }
         }
         .animate-fade-in-out {
-            animation: fade-in-out 4s ease-in-out forwards;
+            animation: fade-in-out 5s ease-in-out forwards;
         }
       `}</style>
     </div>
   );
 };
 
+// FIX: Add default export to resolve module import error.
 export default App;

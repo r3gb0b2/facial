@@ -6,7 +6,8 @@
   "nav": {
     "register": "Registrar",
     "checkin": "Check-in",
-    "fastCheckin": "Check-in Rápido"
+    "fastCheckin": "Check-in Rápido",
+    "admin": "Fornecedores"
   },
   "register": {
     "title": "Registro de Participante",
@@ -79,6 +80,33 @@
   "supplier": {
     "registerTitle": "Registro para {supplierName}",
     "invalidLink": "Link de fornecedor inválido ou não encontrado."
+  },
+  "admin": {
+    "title": "Gestão de Fornecedores",
+    "form": {
+      "title": "Adicionar Novo Fornecedor",
+      "nameLabel": "Nome do Fornecedor",
+      "namePlaceholder": "Ex: Segurança VIP",
+      "sectorLabel": "Setor",
+      "sectorPlaceholder": "Selecione um setor",
+      "button": "Adicionar Fornecedor"
+    },
+    "list": {
+      "title": "Links de Cadastro",
+      "noSuppliers": "Nenhum fornecedor cadastrado. Adicione o primeiro no formulário acima."
+    },
+    "buttons": {
+      "copyLink": "Copiar Link",
+      "copied": "Copiado!"
+    },
+    "success": {
+      "supplierAdded": "Fornecedor {name} adicionado com sucesso!",
+      "linkCopied": "Link copiado para a área de transferência!"
+    },
+    "errors": {
+      "allFields": "Nome e setor são obrigatórios.",
+      "duplicate": "Um fornecedor com este nome já existe."
+    }
   },
   "sectors": [
     { "value": "bar", "label": "Bar" },
