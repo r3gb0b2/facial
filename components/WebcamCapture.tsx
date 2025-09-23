@@ -36,8 +36,8 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage 
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
       }
-    } catch (err) {
-      console.error("Error accessing webcam:", err);
+    } catch (err: any) {
+      console.error("Error accessing webcam:", err.message);
       // Hardcode string to avoid dependency on unstable 't' function from context, which was causing a re-render loop.
       setError("Não foi possível acessar a webcam. Por favor, verifique as permissões e tente novamente.");
     }
