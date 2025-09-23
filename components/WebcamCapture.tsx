@@ -5,9 +5,10 @@ import { useTranslation } from '../hooks/useTranslation';
 interface WebcamCaptureProps {
   onCapture: (imageDataUrl: string) => void;
   capturedImage: string | null;
+  disabled?: boolean;
 }
 
-const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage }) => {
+const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage, disabled = false }) => {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -98,7 +99,8 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage 
                 <button
                     type="button"
                     onClick={handleRetake}
-                    className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2"
+                    disabled={disabled}
+                    className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed"
                 >
                     <RefreshIcon className="w-5 h-5"/>
                     {t('webcam.retakeButton')}
@@ -107,7 +109,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage 
                 <button
                     type="button"
                     onClick={handleCapture}
-                    disabled={!isStreamActive}
+                    disabled={!isStreamActive || disabled}
                     className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed"
                 >
                     <CameraIcon className="w-5 h-5" />

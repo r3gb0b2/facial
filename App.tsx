@@ -90,6 +90,7 @@ const App: React.FC = () => {
             setError(t('register.errors.dbConnection'));
         }
         setTimeout(() => setError(''), 5000);
+        throw e; // Re-throw the error so the calling component knows about it
     }
   };
 
