@@ -68,6 +68,11 @@ const ptTranslations = {
     "liveVerification": "Verificação ao Vivo",
     "confirmButton": "Confirmar Check-in"
   },
+  "connection": {
+    "connecting": "Conectando ao banco de dados...",
+    "errorTitle": "Falha na Conexão com o Banco de Dados",
+    "errorInstructions": "Por favor, verifique as instruções de configuração no arquivo `firebase/config.ts` e atualize a página."
+  },
   "sectors": [
     { "value": "bar", "label": "Bar" },
     { "value": "portaria", "label": "Portaria" },
