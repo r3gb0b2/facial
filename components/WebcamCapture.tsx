@@ -1,6 +1,6 @@
-
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { CameraIcon, RefreshIcon } from './icons';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface WebcamCaptureProps {
   onCapture: (imageDataUrl: string) => void;
@@ -8,6 +8,7 @@ interface WebcamCaptureProps {
 }
 
 const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage }) => {
+  const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -27,9 +28,9 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage 
       }
     } catch (err) {
       console.error("Error accessing webcam:", err);
-      setError("Could not access webcam. Please check permissions and try again.");
+      setError(t('webcam.error'));
     }
-  }, []);
+  }, [t]);
 
   const stopStream = useCallback(() => {
     if (stream) {
@@ -48,8 +49,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage 
     return () => {
       stopStream();
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [capturedImage]);
+  }, [capturedImage, startStream, stopStream]);
 
   const handleCapture = () => {
     if (videoRef.current) {
@@ -80,7 +80,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage 
             )}
              {!stream && !capturedImage && !error &&
                 <div className="absolute inset-0 flex items-center justify-center">
-                    <p className="text-gray-400">Starting camera...</p>
+                    <p className="text-gray-400">{t('webcam.starting')}</p>
                 </div>
             }
         </div>
@@ -92,7 +92,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage 
                     className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2"
                 >
                     <RefreshIcon className="w-5 h-5"/>
-                    Retake Photo
+                    {t('webcam.retakeButton')}
                 </button>
             ) : (
                 <button
@@ -102,7 +102,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage 
                     className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed"
                 >
                     <CameraIcon className="w-5 h-5" />
-                    Capture Photo
+                    {t('webcam.captureButton')}
                 </button>
             )}
         </div>

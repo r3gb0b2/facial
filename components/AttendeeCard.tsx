@@ -1,7 +1,7 @@
-
 import React from 'react';
 import { Attendee, CheckinStatus } from '../types';
 import { CheckCircleIcon, ClockIcon } from './icons';
+import { useTranslation } from '../hooks/useTranslation';
 
 interface AttendeeCardProps {
   attendee: Attendee;
@@ -9,7 +9,9 @@ interface AttendeeCardProps {
 }
 
 const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect }) => {
+  const { t, sectors } = useTranslation();
   const isCheckedIn = attendee.status === CheckinStatus.CHECKED_IN;
+  const sectorLabel = sectors.find(s => s.value === attendee.sector)?.label || attendee.sector;
 
   return (
     <div
@@ -24,7 +26,7 @@ const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect }) => {
             <div className="absolute inset-0 bg-green-900/70 flex items-center justify-center">
                 <div className="flex flex-col items-center text-white">
                     <CheckCircleIcon className="w-12 h-12" />
-                    <p className="font-bold mt-2">Checked-in</p>
+                    <p className="font-bold mt-2">{t('attendeeCard.status.checkedIn')}</p>
                 </div>
             </div>
         )}
@@ -32,13 +34,14 @@ const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect }) => {
       <div className="p-4">
         <h3 className="text-lg font-bold text-white truncate">{attendee.name}</h3>
         <p className="text-sm text-gray-400 truncate">{attendee.email}</p>
+        {attendee.sector && <p className="text-xs text-indigo-300 mt-1">{t('attendeeCard.sectorLabel')}: {sectorLabel}</p>}
         <div className="mt-3 flex justify-between items-center text-xs">
           <span
             className={`font-semibold px-2 py-1 rounded-full ${
               isCheckedIn ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'
             }`}
           >
-            {attendee.status}
+            {isCheckedIn ? t('attendeeCard.status.checkedIn') : t('attendeeCard.status.registered')}
           </span>
           {isCheckedIn && attendee.checkinTime && (
             <span className="flex items-center gap-1 text-gray-400">

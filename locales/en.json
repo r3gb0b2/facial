@@ -1,0 +1,61 @@
+{
+  "header": {
+    "title": "Facial Credentialing System",
+    "subtitle": "Seamless & Secure Event Access"
+  },
+  "nav": {
+    "register": "Register",
+    "checkin": "Check-in"
+  },
+  "register": {
+    "title": "Attendee Registration",
+    "form": {
+      "nameLabel": "Full Name",
+      "namePlaceholder": "e.g., Jane Doe",
+      "emailLabel": "Email Address",
+      "emailPlaceholder": "e.g., jane.doe@example.com",
+      "sectorLabel": "Sector",
+      "sectorPlaceholder": "Select a sector",
+      "button": "Complete Registration"
+    },
+    "success": "Successfully registered {name}!",
+    "errors": {
+      "allFields": "All fields, including a photo, are required.",
+      "invalidEmail": "Please enter a valid email address."
+    }
+  },
+  "checkin": {
+    "title": "Event Check-in",
+    "searchPlaceholder": "Search by name...",
+    "filterSectorPlaceholder": "All Sectors",
+    "noAttendees": "No attendees registered yet.",
+    "noAttendeesSubtitle": "Go to the \"Register\" tab to add the first attendee.",
+    "noResults": "No attendees found",
+    "checkedInSuccess": "{name} has been checked in!"
+  },
+  "webcam": {
+    "captureButton": "Capture Photo",
+    "retakeButton": "Retake Photo",
+    "error": "Could not access webcam. Please check permissions and try again.",
+    "starting": "Starting camera..."
+  },
+  "attendeeCard": {
+    "status": {
+      "registered": "Registered",
+      "checkedIn": "Checked-in"
+    },
+    "sectorLabel": "Sector"
+  },
+  "verificationModal": {
+    "title": "Verification for",
+    "registeredPhoto": "Registered Photo",
+    "liveVerification": "Live Verification",
+    "confirmButton": "Confirm Check-in"
+  },
+  "sectors": [
+    { "value": "bar", "label": "Bar" },
+    { "value": "gate", "label": "Gate" },
+    { "value": "access", "label": "Access Control" },
+    { "value": "production", "label": "Production" }
+  ]
+}
