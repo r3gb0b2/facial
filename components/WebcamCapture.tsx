@@ -13,8 +13,18 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage 
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const stopStream = useCallback(() => {
+    setStream(currentStream => {
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+      }
+      return null;
+    });
+  }, []);
+
   const startStream = useCallback(async () => {
     try {
+      setError(null);
       const mediaStream = await navigator.mediaDevices.getUserMedia({ 
         video: {
             width: { ideal: 480 },
@@ -28,16 +38,10 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage 
       }
     } catch (err) {
       console.error("Error accessing webcam:", err);
-      setError(t('webcam.error'));
+      // Hardcode string to avoid dependency on unstable 't' function from context, which was causing a re-render loop.
+      setError("Não foi possível acessar a webcam. Por favor, verifique as permissões e tente novamente.");
     }
-  }, [t]);
-
-  const stopStream = useCallback(() => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
-    }
-  }, [stream]);
+  }, [setError]);
 
   useEffect(() => {
     if (!capturedImage) {
