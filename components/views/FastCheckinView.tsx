@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import WebcamCapture from '../WebcamCapture';
-import { SparklesIcon } from '../icons';
+import { SparklesIcon, FingerPrintIcon } from '../icons';
 import { useTranslation } from '../../hooks/useTranslation';
 
 interface FastCheckinViewProps {
@@ -47,14 +47,5 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ onVerify }) => {
     </div>
   );
 };
-
-// Add FingerPrintIcon here to avoid circular dependencies if it were in the main icons file
-const FingerPrintIcon: React.FC<{ className?: string }> = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M7.864 4.243A7.5 7.5 0 0 1 19.5 12c0 2.085-.85 3.978-2.243 5.392m-1.42-1.42A5.964 5.964 0 0 0 18 12c0-1.631-.63-3.138-1.687-4.243M14.25 10.5a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6.375 6.375 0 0 1-6.375-6.375 6.375 6.375 0 0 1 6.375-6.375 6.375 6.375 0 0 1 6.375 6.375a6.375 6.375 0 0 1-6.375 6.375Z" />
-    </svg>
-);
-
 
 export default FastCheckinView;

@@ -1,8 +1,24 @@
 import { collection, addDoc, onSnapshot, doc, updateDoc, query, orderBy } from "firebase/firestore";
-import { db } from './config';
+import { ref, uploadString, getDownloadURL } from "firebase/storage";
+import { db, storage } from './config';
 import { Attendee } from "../types";
 
 const ATTENDEES_COLLECTION = 'attendees';
+
+// Function to upload a photo to Firebase Storage
+const uploadPhoto = async (photoDataUrl: string): Promise<string> => {
+    // Create a unique file name for the photo
+    const fileName = `photo_${Date.now()}_${Math.random().toString(36).substring(2, 9)}.png`;
+    const storageRef = ref(storage, `attendee-photos/${fileName}`);
+
+    // Upload the photo from the data URL (base64 string)
+    const uploadResult = await uploadString(storageRef, photoDataUrl, 'data_url');
+    
+    // Get the public download URL for the uploaded file
+    const downloadURL = await getDownloadURL(uploadResult.ref);
+    return downloadURL;
+};
+
 
 // Function to listen for real-time updates on the attendees collection
 export const onAttendeesUpdate = (callback: (attendees: Attendee[]) => void) => {
@@ -22,7 +38,17 @@ export const onAttendeesUpdate = (callback: (attendees: Attendee[]) => void) => 
 // Function to add a new attendee
 export const addAttendee = async (attendee: Omit<Attendee, 'id'>): Promise<void> => {
     try {
-        await addDoc(collection(db, ATTENDEES_COLLECTION), attendee);
+        // Upload the photo to Firebase Storage and get the URL
+        const photoURL = await uploadPhoto(attendee.photo);
+
+        // Create the attendee data object with the photo URL instead of the base64 string
+        const attendeeData = {
+            ...attendee,
+            photo: photoURL,
+        };
+        
+        // Add the new attendee document to Firestore
+        await addDoc(collection(db, ATTENDEES_COLLECTION), attendeeData);
     } catch (e) {
         console.error("Error adding document: ", e);
         throw e;
