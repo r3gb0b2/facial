@@ -37,7 +37,7 @@ export const onAttendeesUpdate = (
         callback(attendees);
     },
     (error) => {
-        console.error("Error listening to attendees collection:", error);
+        console.error(`Error listening to attendees collection: ${error.message}`);
         onError(error);
     }
   );
@@ -59,8 +59,8 @@ export const addAttendee = async (attendee: Omit<Attendee, 'id'>): Promise<void>
         
         // Add the new attendee document to Firestore
         await addDoc(collection(db, ATTENDEES_COLLECTION), attendeeData);
-    } catch (e) {
-        console.error("Error adding document: ", e);
+    } catch (e: any) {
+        console.error(`Error adding document: ${e.message}`);
         throw e;
     }
 }
@@ -70,8 +70,8 @@ export const updateAttendee = async (id: string, updates: Partial<Attendee>): Pr
     const attendeeDocRef = doc(db, ATTENDEES_COLLECTION, id);
     try {
         await updateDoc(attendeeDocRef, updates);
-    } catch (e) {
-        console.error("Error updating document: ", e);
+    } catch (e: any) {
+        console.error(`Error updating document: ${e.message}`);
         throw e;
     }
 }

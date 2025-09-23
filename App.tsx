@@ -49,7 +49,7 @@ const App: React.FC = () => {
         setAttendees(sortedAttendees);
       },
       (err: any) => {
-        console.error(err);
+        console.error(`Firestore listener error: ${err.message}`);
         if (err.code === 'permission-denied') {
           setError(t('register.errors.dbPermissionDenied'));
         } else {
@@ -75,8 +75,8 @@ const App: React.FC = () => {
         setSuccess('');
         setView('checkin');
       }, 2000);
-    } catch (e) {
-        console.error("Error adding attendee: ", e);
+    } catch (e: any) {
+        console.error(`Failed to add attendee: ${e.message}`);
         setError("Failed to register attendee.");
         setTimeout(() => setError(''), 3000);
     }
@@ -103,8 +103,8 @@ const App: React.FC = () => {
         setSuccess(t('checkin.checkedInSuccess', { name: attendee.name }));
         handleCloseModal();
         setTimeout(() => setSuccess(''), 3000);
-    } catch (e) {
-        console.error("Error checking in attendee: ", e);
+    } catch (e: any) {
+        console.error(`Failed to check in attendee: ${e.message}`);
         setError("Failed to check in attendee.");
         setTimeout(() => setError(''), 3000);
     }
@@ -166,8 +166,8 @@ const App: React.FC = () => {
                 await handleCheckIn(attendee.id);
                 return; // Exit after finding the first match
             }
-        } catch (apiError) {
-            console.error("Gemini API error:", apiError);
+        } catch (apiError: any) {
+            console.error(`Gemini API error: ${apiError.message}`);
             setError(t('fastCheckin.apiError'));
             setTimeout(() => setError(''), 4000);
             return;
