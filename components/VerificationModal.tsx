@@ -28,7 +28,7 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
               <div className="text-center">
                 <h3 className="text-lg font-semibold text-gray-300 mb-2">{t('verificationModal.registeredPhoto')}</h3>
                 <img src={attendee.photo} alt="Registered" className="rounded-lg w-full aspect-square object-cover border-2 border-gray-600" />
-                <p className="text-gray-400 mt-2 text-sm">{attendee.email}</p>
+                <p className="text-gray-400 mt-2 text-sm">{attendee.cpf}</p>
               </div>
               <div className="text-center">
                 <h3 className="text-lg font-semibold text-gray-300 mb-2">{t('verificationModal.liveVerification')}</h3>

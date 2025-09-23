@@ -12,39 +12,47 @@ interface RegisterViewProps {
 const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError }) => {
   const { t, sectors } = useTranslation();
   const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
+  const [cpf, setCpf] = useState('');
   const [sector, setSector] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const clearForm = () => {
     setName('');
-    setEmail('');
+    setCpf('');
     setSector('');
     setPhoto(null);
   };
 
+  const formatCPF = (value: string) => {
+    return value
+      .replace(/\D/g, '') // Remove all non-digit characters
+      .slice(0, 11) // Limit to 11 digits
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  };
+
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !email || !photo || !sector) {
+    const rawCpf = cpf.replace(/\D/g, '');
+
+    if (!name || !rawCpf || !photo || !sector) {
       setError(t('register.errors.allFields'));
       setTimeout(() => setError(''), 3000);
       return;
     }
-    if (!/^\S+@\S+\.\S+$/.test(email)) {
-      setError(t('register.errors.invalidEmail'));
+    if (rawCpf.length !== 11) {
+      setError(t('register.errors.invalidCpf'));
       setTimeout(() => setError(''), 3000);
       return;
     }
 
     setIsSubmitting(true);
     try {
-      await onRegister({ name, email, photo, sector });
-      // The parent component handles success and navigation, so we just need to wait.
-      // We can clear the form optimistically, but it will be unmounted on success anyway.
+      await onRegister({ name, cpf: rawCpf, photo, sector });
       clearForm();
     } catch (error) {
-      // Error is handled and displayed by the parent component (App.tsx)
       console.error("Registration failed:", error);
     } finally {
       setIsSubmitting(false);
@@ -69,11 +77,11 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError }) => 
             />
           </div>
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.emailLabel')}</label>
+            <label htmlFor="cpf" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.cpfLabel')}</label>
             <input
-              type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)}
+              type="text" id="cpf" value={cpf} onChange={(e) => setCpf(formatCPF(e.target.value))}
               className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
-              placeholder={t('register.form.emailPlaceholder')}
+              placeholder={t('register.form.cpfPlaceholder')}
               disabled={isSubmitting}
             />
           </div>
@@ -88,7 +96,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError }) => 
               {sectors.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select>
           </div>
-          <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-indigo-400 disabled:cursor-wait" disabled={!name || !email || !photo || !sector || isSubmitting}>
+          <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-indigo-400 disabled:cursor-wait" disabled={!name || !cpf || !photo || !sector || isSubmitting}>
             {isSubmitting ? (
               <>
                 <SpinnerIcon className="w-5 h-5" />

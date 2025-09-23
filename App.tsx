@@ -86,6 +86,8 @@ const App: React.FC = () => {
         console.error('Failed to add attendee:', e.message);
         if (e.code === 'permission-denied') {
             setError(t('register.errors.dbPermissionDenied'));
+        } else if (e.code === 'duplicate-cpf') {
+            setError(t('register.errors.duplicateCpf'));
         } else {
             setError(t('register.errors.dbConnection'));
         }

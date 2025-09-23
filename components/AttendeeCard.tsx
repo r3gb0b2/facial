@@ -33,7 +33,7 @@ const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect }) => {
       </div>
       <div className="p-4">
         <h3 className="text-lg font-bold text-white truncate">{attendee.name}</h3>
-        <p className="text-sm text-gray-400 truncate">{attendee.email}</p>
+        <p className="text-sm text-gray-400 truncate">{attendee.cpf}</p>
         {attendee.sector && <p className="text-xs text-indigo-300 mt-1">{t('attendeeCard.sectorLabel')}: {sectorLabel}</p>}
         <div className="mt-3 flex justify-between items-center text-xs">
           <span

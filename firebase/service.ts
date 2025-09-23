@@ -1,4 +1,4 @@
-import { collection, addDoc, onSnapshot, doc, updateDoc, query } from "firebase/firestore";
+import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDocs } from "firebase/firestore";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { db, storage } from './config';
 import { Attendee } from "../types";
@@ -48,6 +48,15 @@ export const onAttendeesUpdate = (
 // Function to add a new attendee
 export const addAttendee = async (attendee: Omit<Attendee, 'id'>): Promise<void> => {
     try {
+        // Check for duplicate CPF before proceeding
+        const q = query(collection(db, ATTENDEES_COLLECTION), where("cpf", "==", attendee.cpf));
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+          const error: any = new Error("An attendee with this CPF is already registered.");
+          error.code = 'duplicate-cpf';
+          throw error;
+        }
+
         // Upload the photo to Firebase Storage and get the URL
         const photoURL = await uploadPhoto(attendee.photo);
 

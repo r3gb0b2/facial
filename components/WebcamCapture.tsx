@@ -32,8 +32,8 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
       setError(null);
       const mediaStream = await navigator.mediaDevices.getUserMedia({ 
         video: {
-            width: { ideal: 480 },
-            height: { ideal: 480 },
+            width: { ideal: 720 },
+            height: { ideal: 720 },
             facingMode: 'user'
         }
       });

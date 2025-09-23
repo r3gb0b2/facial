@@ -13,8 +13,8 @@
     "form": {
       "nameLabel": "Nome Completo",
       "namePlaceholder": "Ex: Maria da Silva",
-      "emailLabel": "Endereço de Email",
-      "emailPlaceholder": "Ex: maria.silva@exemplo.com",
+      "cpfLabel": "CPF",
+      "cpfPlaceholder": "000.000.000-00",
       "sectorLabel": "Setor",
       "sectorPlaceholder": "Selecione um setor",
       "button": "Completar Registro"
@@ -22,7 +22,8 @@
     "success": "Registrado {name} com sucesso!",
     "errors": {
       "allFields": "Todos os campos, incluindo uma foto, são obrigatórios.",
-      "invalidEmail": "Por favor, insira um endereço de email válido.",
+      "invalidCpf": "Por favor, insira um CPF válido (11 dígitos).",
+      "duplicateCpf": "Este CPF já foi cadastrado.",
       "dbConnection": "Não foi possível conectar ao banco de dados. Verifique a configuração do seu Firebase.",
       "dbPermissionDenied": "Erro de permissão. Verifique as regras de segurança do seu Firestore e se o banco de dados foi criado."
     }
@@ -42,7 +43,7 @@
     "verifying": "Verificando... Comparando com os participantes.",
     "noMatch": "Nenhum participante correspondente encontrado.",
     "noOneToScan": "Não há participantes aguardando check-in.",
-    "apiPrompt": "Você é uma IA de segurança para check-in de eventos. Sua tarefa é verificar se as duas imagens a seguir são da mesma pessoa. A primeira imagem é do banco de dados de registro e a segunda é uma foto ao vivo. Compare os rostos com atenção. Responda apenas com 'Sim' se tiver certeza de que são a mesma pessoa, ou 'Não' caso contrário.",
+    "apiPrompt": "Sua função é atuar como um sistema de verificação facial de alta precisão para a segurança de um evento. Analise as duas imagens fornecidas. A primeira é a foto oficial de registro e a segunda é uma foto tirada ao vivo. Sua única tarefa é determinar se a pessoa na foto ao vivo é a mesma da foto do registro. Leve em conta possíveis variações de iluminação, ângulo e expressão. Responda estritamente com 'Sim' se for a mesma pessoa, ou 'Não' se houver qualquer dúvida ou se forem pessoas diferentes.",
     "apiYes": "sim",
     "apiError": "Ocorreu um erro ao verificar o rosto. Tente novamente.",
     "apiKeyError": "Chave de API do Gemini inválida ou não configurada. Verifique a configuração do ambiente."
