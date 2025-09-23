@@ -45,14 +45,15 @@ const ptTranslations = {
     "title": "Check-in Rápido por Reconhecimento Facial",
     "button": "Verificar Rosto",
     "verifying": "Verificando... Comparando com os participantes.",
+    "verifyingBatch": "Analisando foto e buscando correspondência...",
     "noMatch": "Nenhum participante correspondente encontrado.",
     "noOneToScan": "Não há participantes aguardando check-in.",
-    "apiPrompt": {
-      "part1": "FOTO REGISTRADA:",
-      "part2": "FOTO AO VIVO:",
-      "part3": "Você é um sistema de verificação facial de alta precisão para um evento. A pessoa na 'FOTO AO VIVO' é a mesma da 'FOTO REGISTRADA'? Leve em conta variações de iluminação, ângulo e expressão. Responda estritamente com 'Sim' ou 'Não'."
+    "apiPromptBatch": {
+      "livePhotoHeader": "FOTO AO VIVO:",
+      "candidatesHeader": "FOTOS CANDIDATAS:",
+      "candidateIdLabel": "ID:",
+      "instruction": "Analise a FOTO AO VIVO e encontre a correspondência entre as FOTOS CANDIDATAS listadas com seus IDs. Responda APENAS com um objeto JSON contendo o ID da melhor correspondência, assim: {\"match\": \"id_do_participante_aqui\"}. Se não houver uma correspondência confiável, responda com {\"match\": null}."
     },
-    "apiYes": "sim",
     "apiError": "Ocorreu um erro ao verificar o rosto. Tente novamente.",
     "apiKeyError": "Chave de API do Gemini inválida ou não configurada. Verifique a configuração do ambiente."
   },

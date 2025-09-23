@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { Attendee, CheckinStatus, Supplier } from './types';
 import VerificationModal from './components/VerificationModal';
 import { UsersIcon, FingerPrintIcon, SparklesIcon, CogIcon } from './components/icons';
@@ -183,44 +183,70 @@ const App: React.FC = () => {
   const handleFacialSearch = async (livePhoto: string): Promise<void> => {
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
+  
       const unCheckedInAttendees = attendees.filter(a => a.status === CheckinStatus.REGISTERED);
       if (unCheckedInAttendees.length === 0) {
         setError(t('fastCheckin.noOneToScan'));
         setTimeout(() => setError(''), 3000);
         return;
       }
-
+  
+      // 1. Prepare all image data concurrently
       const liveImagePart = { inlineData: { mimeType: 'image/png', data: getBase64(livePhoto) } };
-
-      for (const attendee of unCheckedInAttendees) {
-        if (!attendee.id) continue;
-        
-        const registeredPhotoInfo = await urlToInfo(attendee.photo);
-        const registeredImagePart = { inlineData: { mimeType: registeredPhotoInfo.mimeType, data: registeredPhotoInfo.data } };
-
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: {
-            parts: [
-              { text: t('fastCheckin.apiPrompt.part1') },
-              registeredImagePart,
-              { text: t('fastCheckin.apiPrompt.part2') },
-              liveImagePart,
-              { text: t('fastCheckin.apiPrompt.part3') },
-            ],
+  
+      const registeredPhotosInfo = await Promise.all(
+        unCheckedInAttendees.map(attendee => urlToInfo(attendee.photo))
+      );
+  
+      const candidateParts = unCheckedInAttendees.flatMap((attendee, index) => {
+        if (!attendee.id) return [];
+        const photoInfo = registeredPhotosInfo[index];
+        return [
+          { text: `${t('fastCheckin.apiPromptBatch.candidateIdLabel')} ${attendee.id}` },
+          { inlineData: { mimeType: photoInfo.mimeType, data: photoInfo.data } }
+        ];
+      });
+  
+      // 2. Construct the prompt for a single batch call
+      const contents = {
+        parts: [
+          { text: t('fastCheckin.apiPromptBatch.livePhotoHeader') },
+          liveImagePart,
+          { text: t('fastCheckin.apiPromptBatch.candidatesHeader') },
+          ...candidateParts,
+          { text: t('fastCheckin.apiPromptBatch.instruction') }
+        ]
+      };
+  
+      // 3. Make the single API call with JSON mode
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash',
+        contents: contents,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              match: {
+                type: Type.STRING,
+                nullable: true
+              },
+            },
           },
-        });
-
-        const textResponse = response.text.toLowerCase().trim();
-        if (textResponse.includes(t('fastCheckin.apiYes'))) {
-          await handleCheckIn(attendee.id);
-          return;
         }
+      });
+  
+      // 4. Parse the response and handle check-in
+      const result = JSON.parse(response.text);
+      const matchedId = result.match;
+  
+      if (matchedId) {
+        await handleCheckIn(matchedId);
+      } else {
+        setError(t('fastCheckin.noMatch'));
+        setTimeout(() => setError(''), 3000);
       }
-
-      setError(t('fastCheckin.noMatch'));
-      setTimeout(() => setError(''), 3000);
+  
     } catch (e: any) {
       console.error('Gemini API Error:', e.message);
       let errorMessage = t('fastCheckin.apiError');

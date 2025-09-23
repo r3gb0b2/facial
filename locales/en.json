@@ -42,14 +42,15 @@
     "title": "Fast Check-in via Facial Recognition",
     "button": "Verify Face",
     "verifying": "Verifying... Comparing with attendees.",
+    "verifyingBatch": "Analyzing photo and searching for a match...",
     "noMatch": "No matching attendee found.",
     "noOneToScan": "There are no attendees awaiting check-in.",
-    "apiPrompt": {
-      "part1": "REGISTERED PHOTO:",
-      "part2": "LIVE PHOTO:",
-      "part3": "You are a high-precision facial verification system for an event. Is the person in the 'LIVE PHOTO' the same as the one in the 'REGISTERED PHOTO'? Consider variations in lighting, angle, and expression. Answer strictly with 'Yes' or 'No'."
+    "apiPromptBatch": {
+      "livePhotoHeader": "LIVE PHOTO:",
+      "candidatesHeader": "CANDIDATE PHOTOS:",
+      "candidateIdLabel": "ID:",
+      "instruction": "Analyze the LIVE PHOTO and find a match among the CANDIDATE PHOTOS listed with their IDs. Respond ONLY with a JSON object containing the ID of the single best match, like: {\"match\": \"attendee_id_here\"}. If there is no confident match, respond with {\"match\": null}."
     },
-    "apiYes": "yes",
     "apiError": "An error occurred while verifying the face. Please try again.",
     "apiKeyError": "Invalid or unconfigured Gemini API key. Please check the environment setup."
   },
