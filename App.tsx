@@ -119,72 +119,63 @@ const App: React.FC = () => {
   };
 
   const handleFacialSearch = async (livePhoto: string): Promise<void> => {
-    const apiKey = typeof process !== 'undefined' && process.env && process.env.API_KEY
-      ? process.env.API_KEY
-      : undefined;
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-    if (!apiKey) {
-      setError("Gemini API key is not configured.");
-      setTimeout(() => setError(''), 4000);
-      return;
-    }
-    
-    const ai = new GoogleGenAI({ apiKey });
-
-    const unCheckedInAttendees = attendees.filter(a => a.status === CheckinStatus.REGISTERED);
-    if (unCheckedInAttendees.length === 0) {
+      const unCheckedInAttendees = attendees.filter(a => a.status === CheckinStatus.REGISTERED);
+      if (unCheckedInAttendees.length === 0) {
         setError(t('fastCheckin.noOneToScan'));
         setTimeout(() => setError(''), 3000);
         return;
-    }
+      }
 
-    const liveImagePart = {
+      const liveImagePart = {
         inlineData: {
-            mimeType: 'image/png',
-            data: getBase64(livePhoto),
+          mimeType: 'image/png',
+          data: getBase64(livePhoto),
         },
-    };
+      };
 
-    for (const attendee of unCheckedInAttendees) {
+      for (const attendee of unCheckedInAttendees) {
         if (!attendee.id) continue;
-        try {
-            // Fetch the registered photo URL and convert it to base64
-            const registeredPhotoBase64 = await urlToBase64(attendee.photo);
+        
+        const registeredPhotoBase64 = await urlToBase64(attendee.photo);
+        const registeredImagePart = {
+          inlineData: {
+            mimeType: 'image/png',
+            data: registeredPhotoBase64,
+          },
+        };
 
-            const registeredImagePart = {
-                inlineData: {
-                    mimeType: 'image/png', // This might need to be dynamic if other types are stored
-                    data: registeredPhotoBase64,
-                },
-            };
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: {
+            parts: [
+              { text: t('fastCheckin.apiPrompt') },
+              registeredImagePart,
+              liveImagePart,
+            ],
+          },
+        });
 
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: {
-                    parts: [
-                        { text: t('fastCheckin.apiPrompt') },
-                        registeredImagePart,
-                        liveImagePart,
-                    ],
-                },
-            });
-
-            const textResponse = response.text.toLowerCase().trim();
-            if (textResponse.includes(t('fastCheckin.apiYes'))) {
-                await handleCheckIn(attendee.id);
-                return; // Exit after finding the first match
-            }
-        } catch (apiError: any) {
-            console.error('Gemini API error:', apiError.message);
-            setError(t('fastCheckin.apiError'));
-            setTimeout(() => setError(''), 4000);
-            return;
+        const textResponse = response.text.toLowerCase().trim();
+        if (textResponse.includes(t('fastCheckin.apiYes'))) {
+          await handleCheckIn(attendee.id);
+          return;
         }
-    }
+      }
 
-    // If loop completes without a match
-    setError(t('fastCheckin.noMatch'));
-    setTimeout(() => setError(''), 3000);
+      setError(t('fastCheckin.noMatch'));
+      setTimeout(() => setError(''), 3000);
+    } catch (e: any) {
+      console.error('Gemini API Error:', e.message);
+      let errorMessage = t('fastCheckin.apiError');
+      if (e.message && (e.message.includes('API key not valid') || e.message.includes('API key is missing'))) {
+        errorMessage = t('fastCheckin.apiKeyError');
+      }
+      setError(errorMessage);
+      setTimeout(() => setError(''), 5000);
+    }
   };
 
   const renderMainContent = () => {

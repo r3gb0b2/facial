@@ -44,7 +44,8 @@
     "noOneToScan": "Não há participantes aguardando check-in.",
     "apiPrompt": "As duas fotos a seguir são da mesma pessoa? Responda apenas 'Sim' ou 'Não'.",
     "apiYes": "sim",
-    "apiError": "Ocorreu um erro ao verificar o rosto. Tente novamente."
+    "apiError": "Ocorreu um erro ao verificar o rosto. Tente novamente.",
+    "apiKeyError": "Chave de API do Gemini inválida ou não configurada. Verifique a configuração do ambiente."
   },
   "webcam": {
     "captureButton": "Capturar Foto",
