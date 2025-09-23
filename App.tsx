@@ -1,63 +1,56 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { GoogleGenAI } from "@google/genai";
 import { Attendee, CheckinStatus } from './types';
-import WebcamCapture from './components/WebcamCapture';
-import AttendeeCard from './components/AttendeeCard';
 import VerificationModal from './components/VerificationModal';
-import { CameraIcon, CheckCircleIcon, UsersIcon, FingerPrintIcon, SearchIcon } from './components/icons';
+import { UsersIcon, FingerPrintIcon, SparklesIcon } from './components/icons';
 import { useTranslation } from './hooks/useTranslation';
+import RegisterView from './components/views/RegisterView';
+import CheckinView from './components/views/CheckinView';
+import FastCheckinView from './components/views/FastCheckinView';
+import { onAttendeesUpdate, addAttendee, updateAttendee } from './firebase/service';
 
-type View = 'register' | 'checkin';
+
+type View = 'register' | 'checkin' | 'fast-checkin';
+
+// Helper to extract base64 data from a data URL
+const getBase64 = (dataUrl: string) => dataUrl.split(',')[1];
 
 const App: React.FC = () => {
-  const { t, sectors } = useTranslation();
+  const { t } = useTranslation();
   const [view, setView] = useState<View>('register');
   const [attendees, setAttendees] = useState<Attendee[]>([]);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [sector, setSector] = useState('');
-  const [photo, setPhoto] = useState<string | null>(null);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
   const [selectedAttendee, setSelectedAttendee] = useState<Attendee | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [sectorFilter, setSectorFilter] = useState('');
 
-  const clearForm = () => {
-    setName('');
-    setEmail('');
-    setSector('');
-    setPhoto(null);
-  };
+  useEffect(() => {
+    // Subscribe to real-time updates from Firestore
+    const unsubscribe = onAttendeesUpdate((newAttendees) => {
+      setAttendees(newAttendees);
+    });
 
-  const handleRegister = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name || !email || !photo || !sector) {
-      setError(t('register.errors.allFields'));
-      setTimeout(() => setError(''), 3000);
-      return;
+    // Clean up the subscription on component unmount
+    return () => unsubscribe();
+  }, []);
+
+
+  const handleRegister = async (newAttendee: Omit<Attendee, 'id' | 'status'>) => {
+    try {
+      const attendee: Omit<Attendee, 'id'> = {
+        ...newAttendee,
+        status: CheckinStatus.REGISTERED,
+      };
+      await addAttendee(attendee);
+      setSuccess(t('register.success', { name: attendee.name }));
+      setTimeout(() => {
+        setSuccess('');
+        setView('checkin');
+      }, 2000);
+    } catch (e) {
+        console.error("Error adding attendee: ", e);
+        setError("Failed to register attendee.");
+        setTimeout(() => setError(''), 3000);
     }
-    if (!/^\S+@\S+\.\S+$/.test(email)) {
-      setError(t('register.errors.invalidEmail'));
-      setTimeout(() => setError(''), 3000);
-      return;
-    }
-
-    const newAttendee: Attendee = {
-      id: Date.now().toString(),
-      name,
-      email,
-      photo,
-      sector,
-      status: CheckinStatus.REGISTERED,
-    };
-
-    setAttendees(prev => [newAttendee, ...prev]);
-    setSuccess(t('register.success', { name }));
-    clearForm();
-    setTimeout(() => {
-      setSuccess('');
-      setView('checkin');
-    }, 2000);
   };
 
   const handleSelectAttendee = (attendee: Attendee) => {
@@ -69,123 +62,80 @@ const App: React.FC = () => {
     setSelectedAttendee(null);
   };
   
-  const handleCheckIn = (attendeeId: string) => {
-    setAttendees(prevAttendees =>
-      prevAttendees.map(att =>
-        att.id === attendeeId
-          ? { 
-              ...att, 
-              status: CheckinStatus.CHECKED_IN,
-              checkinTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-            }
-          : att
-      )
-    );
-    setSuccess(t('checkin.checkedInSuccess', { name: selectedAttendee?.name || '' }));
-    handleCloseModal();
-    setTimeout(() => setSuccess(''), 3000);
+  const handleCheckIn = async (attendeeId: string) => {
+    const attendee = attendees.find(att => att.id === attendeeId);
+    if (!attendee) return;
+
+    try {
+        await updateAttendee(attendeeId, {
+            status: CheckinStatus.CHECKED_IN,
+            checkinTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        });
+        setSuccess(t('checkin.checkedInSuccess', { name: attendee.name }));
+        handleCloseModal();
+        setTimeout(() => setSuccess(''), 3000);
+    } catch (e) {
+        console.error("Error checking in attendee: ", e);
+        setError("Failed to check in attendee.");
+        setTimeout(() => setError(''), 3000);
+    }
   };
 
-  const renderRegisterView = () => (
-    <div className="w-full max-w-4xl mx-auto bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
-      <h2 className="text-3xl font-bold text-center text-white mb-6 flex items-center justify-center gap-3">
-        <UsersIcon className="w-8 h-8"/>
-        {t('register.title')}
-      </h2>
-      <form onSubmit={handleRegister} className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-        <div className="space-y-6">
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.nameLabel')}</label>
-            <input
-              type="text" id="name" value={name} onChange={(e) => setName(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder={t('register.form.namePlaceholder')}
-            />
-          </div>
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.emailLabel')}</label>
-            <input
-              type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder={t('register.form.emailPlaceholder')}
-            />
-          </div>
-          <div>
-            <label htmlFor="sector" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.sectorLabel')}</label>
-            <select
-              id="sector" value={sector} onChange={(e) => setSector(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="" disabled>{t('register.form.sectorPlaceholder')}</option>
-              {sectors.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
-          </div>
-          <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-gray-500" disabled={!name || !email || !photo || !sector}>
-            <CheckCircleIcon className="w-5 h-5"/>
-            {t('register.form.button')}
-          </button>
-        </div>
-        <div className="flex flex-col items-center">
-            <WebcamCapture onCapture={setPhoto} capturedImage={photo} />
-        </div>
-      </form>
-    </div>
-  );
+  const handleFacialSearch = async (livePhoto: string): Promise<void> => {
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
-  const renderCheckinView = () => {
-    const filteredAttendees = attendees.filter(attendee => {
-        const nameMatch = attendee.name.toLowerCase().includes(searchTerm.toLowerCase());
-        const sectorMatch = sectorFilter ? attendee.sector === sectorFilter : true;
-        return nameMatch && sectorMatch;
-    });
+    const unCheckedInAttendees = attendees.filter(a => a.status === CheckinStatus.REGISTERED);
+    if (unCheckedInAttendees.length === 0) {
+        setError(t('fastCheckin.noOneToScan'));
+        setTimeout(() => setError(''), 3000);
+        return;
+    }
 
-    return (
-        <div className="w-full max-w-5xl mx-auto">
-            <h2 className="text-3xl font-bold text-center text-white mb-8 flex items-center justify-center gap-3">
-                <FingerPrintIcon className="w-8 h-8"/>
-                {t('checkin.title')}
-            </h2>
-            <div className="mb-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="relative md:col-span-2">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3">
-                  <SearchIcon className="w-5 h-5 text-gray-400" />
-                </span>
-                <input
-                  type="text"
-                  placeholder={t('checkin.searchPlaceholder')}
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 pl-10 pr-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
-                />
-              </div>
-               <select
-                onChange={(e) => setSectorFilter(e.target.value)}
-                value={sectorFilter}
-                className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                <option value="">{t('checkin.filterSectorPlaceholder')}</option>
-                {sectors.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
-            </div>
-            {attendees.length === 0 ? (
-                <div className="text-center text-gray-400 bg-gray-800/50 p-8 rounded-2xl border border-gray-700">
-                    <p className="text-lg">{t('checkin.noAttendees')}</p>
-                    <p>{t('checkin.noAttendeesSubtitle')}</p>
-                </div>
-            ) : filteredAttendees.length === 0 ? (
-                <div className="text-center text-gray-400 bg-gray-800/50 p-8 rounded-2xl border border-gray-700">
-                    <p className="text-lg">{t('checkin.noResults')}</p>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {filteredAttendees.map(attendee => (
-                        <AttendeeCard key={attendee.id} attendee={attendee} onSelect={handleSelectAttendee} />
-                    ))}
-                </div>
-            )}
-        </div>
-    );
-  }
+    const liveImagePart = {
+        inlineData: {
+            mimeType: 'image/png',
+            data: getBase64(livePhoto),
+        },
+    };
+
+    for (const attendee of unCheckedInAttendees) {
+        if (!attendee.id) continue;
+        try {
+            const registeredImagePart = {
+                inlineData: {
+                    mimeType: 'image/png',
+                    data: getBase64(attendee.photo),
+                },
+            };
+
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: {
+                    parts: [
+                        { text: t('fastCheckin.apiPrompt') },
+                        registeredImagePart,
+                        liveImagePart,
+                    ],
+                },
+            });
+
+            const textResponse = response.text.toLowerCase().trim();
+            if (textResponse.includes(t('fastCheckin.apiYes'))) {
+                await handleCheckIn(attendee.id);
+                return; // Exit after finding the first match
+            }
+        } catch (apiError) {
+            console.error("Gemini API error:", apiError);
+            setError(t('fastCheckin.apiError'));
+            setTimeout(() => setError(''), 4000);
+            return;
+        }
+    }
+
+    // If loop completes without a match
+    setError(t('fastCheckin.noMatch'));
+    setTimeout(() => setError(''), 3000);
+  };
 
   return (
     <div className="min-h-screen bg-gray-900 text-white font-sans bg-grid-pattern">
@@ -199,18 +149,27 @@ const App: React.FC = () => {
         </header>
 
         <nav className="flex justify-center mb-8">
-          <div className="bg-gray-800 p-1 rounded-full border border-gray-700">
+          <div className="bg-gray-800 p-1 rounded-full border border-gray-700 flex flex-wrap justify-center">
             <button
               onClick={() => setView('register')}
-              className={`px-6 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${view === 'register' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+              className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${view === 'register' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
             >
+              <UsersIcon className="w-5 h-5 inline-block mr-2" />
               {t('nav.register')}
             </button>
             <button
               onClick={() => setView('checkin')}
-              className={`px-6 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${view === 'checkin' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+              className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${view === 'checkin' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
             >
+               <FingerPrintIcon className="w-5 h-5 inline-block mr-2" />
               {t('nav.checkin')}
+            </button>
+             <button
+              onClick={() => setView('fast-checkin')}
+              className={`px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${view === 'fast-checkin' ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+            >
+              <SparklesIcon className="w-5 h-5 inline-block mr-2" />
+              {t('nav.fastCheckin')}
             </button>
           </div>
         </nav>
@@ -219,14 +178,16 @@ const App: React.FC = () => {
         {success && <div className="fixed top-5 left-1/2 -translate-x-1/2 bg-green-500 text-white py-2 px-4 rounded-lg shadow-lg animate-fade-in-out z-50">{success}</div>}
 
         <main className="container mx-auto px-4 pb-12">
-            {view === 'register' ? renderRegisterView() : renderCheckinView()}
+            {view === 'register' && <RegisterView onRegister={handleRegister} setError={setError} />}
+            {view === 'checkin' && <CheckinView attendees={attendees} onSelectAttendee={handleSelectAttendee} />}
+            {view === 'fast-checkin' && <FastCheckinView onVerify={handleFacialSearch} />}
         </main>
         
-        {selectedAttendee && (
+        {selectedAttendee && selectedAttendee.id && (
             <VerificationModal 
                 attendee={selectedAttendee}
                 onClose={handleCloseModal}
-                onConfirm={handleCheckIn}
+                onConfirm={() => handleCheckIn(selectedAttendee.id!)}
             />
         )}
       </div>

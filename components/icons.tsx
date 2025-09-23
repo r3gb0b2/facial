@@ -53,3 +53,10 @@ export const SearchIcon: React.FC<IconProps> = ({ className }) => (
       <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
     </svg>
 );
+
+export const SparklesIcon: React.FC<IconProps> = ({ className }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className={className}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="m12.012 2.253 2.285 4.628 5.103.742a.75.75 0 0 1 .416 1.28l-3.69 3.6-8.625-8.625Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 12.75 2.25 21.75m10.512-9.253 2.285 4.628 5.103.742a.75.75 0 0 1 .416 1.28l-3.69 3.6-3.69-3.6a.75.75 0 0 1 .416-1.28l5.103-.742 2.285-4.628m-8.625 8.625 2.285 4.628 5.103.742a.75.75 0 0 1 .416 1.28l-3.69 3.6-3.69-3.6a.75.75 0 0 1 .416-1.28l5.103-.742 2.285-4.628" />
+    </svg>
+);

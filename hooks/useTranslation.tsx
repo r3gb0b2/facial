@@ -8,7 +8,8 @@ const ptTranslations = {
   },
   "nav": {
     "register": "Registrar",
-    "checkin": "Check-in"
+    "checkin": "Check-in",
+    "fastCheckin": "Check-in Rápido"
   },
   "register": {
     "title": "Registro de Participante",
@@ -35,6 +36,16 @@ const ptTranslations = {
     "noAttendeesSubtitle": "Vá para a aba \"Registrar\" para adicionar o primeiro participante.",
     "noResults": "Nenhum participante encontrado",
     "checkedInSuccess": "{name} fez o check-in!"
+  },
+  "fastCheckin": {
+    "title": "Check-in Rápido por Reconhecimento Facial",
+    "button": "Verificar Rosto",
+    "verifying": "Verificando... Comparando com os participantes.",
+    "noMatch": "Nenhum participante correspondente encontrado.",
+    "noOneToScan": "Não há participantes aguardando check-in.",
+    "apiPrompt": "As duas fotos a seguir são da mesma pessoa? Responda apenas 'Sim' ou 'Não'.",
+    "apiYes": "sim",
+    "apiError": "Ocorreu um erro ao verificar o rosto. Tente novamente."
   },
   "webcam": {
     "captureButton": "Capturar Foto",

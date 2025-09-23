@@ -4,7 +4,7 @@ export enum CheckinStatus {
 }
 
 export interface Attendee {
-  id: string;
+  id?: string; // ID will be assigned by Firestore
   name: string;
   email: string;
   photo: string; // base64 data URL
