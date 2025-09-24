@@ -11,6 +11,12 @@ interface CheckinViewProps {
   onStatusUpdate: (attendee: Attendee, newStatus: CheckinStatus) => void;
 }
 
+// Helper function to normalize strings for accent-insensitive search
+const normalizeString = (str: string): string => {
+  if (!str) return '';
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+};
+
 const CheckinView: React.FC<CheckinViewProps> = ({ attendees, sectors, onStatusUpdate }) => {
   const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
@@ -35,8 +41,8 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, sectors, onStatusU
   };
 
   const filteredAttendees = attendees.filter(attendee => {
-    const lowerCaseSearchTerm = searchTerm.toLowerCase();
-    const nameMatch = attendee.name.toLowerCase().includes(lowerCaseSearchTerm);
+    const normalizedSearchTerm = normalizeString(searchTerm);
+    const nameMatch = normalizeString(attendee.name).includes(normalizedSearchTerm);
     const cpfMatch = attendee.cpf.includes(searchTerm.replace(/\D/g, ''));
     const sectorMatch = sectorFilter ? attendee.sector === sectorFilter : true;
     return (nameMatch || cpfMatch) && sectorMatch;
