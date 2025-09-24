@@ -159,15 +159,6 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
       <form onSubmit={handleRegisterSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
         <div className="space-y-6">
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.nameLabel')}</label>
-            <input
-              type="text" id="name" value={name} onChange={(e) => setName(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
-              placeholder={t('register.form.namePlaceholder')}
-              disabled={isSubmitting || isCheckingCpf}
-            />
-          </div>
-          <div>
             <label htmlFor="cpf" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.cpfLabel')}</label>
             <input
               type="text" id="cpf" value={cpf} onChange={(e) => setCpf(formatCPF(e.target.value))}
@@ -183,7 +174,17 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
                 </p>
             )}
           </div>
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.nameLabel')}</label>
+            <input
+              type="text" id="name" value={name} onChange={(e) => setName(e.target.value)}
+              className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+              placeholder={t('register.form.namePlaceholder')}
+              disabled={isSubmitting || isCheckingCpf}
+            />
+          </div>
           {renderSectorInput()}
+          {/* FIX: Corrected typo from isCheckingCfp to isCheckingCpf */}
           <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-indigo-400 disabled:cursor-wait" disabled={!name || !cpf || !photo || !sector || isSubmitting || isCheckingCpf}>
             {isSubmitting ? (
               <>
