@@ -21,6 +21,7 @@ export interface Supplier {
   name: string;
   sector: string[]; // Supplier can have access to multiple sectors
   slug: string; // URL-friendly identifier
+  isRegistrationEnabled?: boolean;
 }
 
 export interface Event {

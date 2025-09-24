@@ -75,7 +75,9 @@
       },
       "buttons": {
           "copyLink": "Copy Link",
-          "copied": "Copied!"
+          "copied": "Copied!",
+          "disableRegistration": "Disable",
+          "enableRegistration": "Enable"
       },
       "errors": {
           "allFields": "Name and at least one sector are required.",
@@ -84,7 +86,8 @@
       },
       "success": {
           "supplierAdded": "Supplier added successfully!",
-          "linkCopied": "Link copied to clipboard!"
+          "linkCopied": "Link copied to clipboard!",
+          "statusUpdated": "Supplier status updated successfully."
       }
   },
   "events": {
@@ -109,5 +112,9 @@
       "passwordPlaceholder": "Enter admin password",
       "button": "Login",
       "error": "Incorrect password."
+  },
+  "supplierRegistration": {
+      "closedTitle": "Registration Closed",
+      "closedMessage": "Registrations for this supplier have been closed by the event administrator."
   }
 }

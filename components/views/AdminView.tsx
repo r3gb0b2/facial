@@ -7,11 +7,12 @@ interface AdminViewProps {
   eventId: string;
   suppliers: Supplier[];
   onAddSupplier: (name: string, sectors: string[]) => Promise<void>;
+  onUpdateSupplierStatus: (supplierId: string, isEnabled: boolean) => void;
   setSuccess: (message: string) => void;
   setError: (message: string) => void;
 }
 
-const AdminView: React.FC<AdminViewProps> = ({ eventId, suppliers, onAddSupplier, setSuccess, setError }) => {
+const AdminView: React.FC<AdminViewProps> = ({ eventId, suppliers, onAddSupplier, onUpdateSupplierStatus, setSuccess, setError }) => {
   const { t, sectors } = useTranslation();
   const [newSupplierName, setNewSupplierName] = useState('');
   const [newSupplierSectors, setNewSupplierSectors] = useState<string[]>([]);
@@ -115,23 +116,34 @@ const AdminView: React.FC<AdminViewProps> = ({ eventId, suppliers, onAddSupplier
           <p className="text-center text-gray-400">{t('admin.list.noSuppliers')}</p>
         ) : (
           <ul className="space-y-4">
-            {suppliers.sort((a,b) => a.name.localeCompare(b.name)).map(supplier => (
-              <li key={supplier.id} className="bg-gray-900/70 p-4 rounded-lg flex items-center justify-between flex-wrap gap-2">
+            {suppliers.sort((a,b) => a.name.localeCompare(b.name)).map(supplier => {
+              const isEnabled = supplier.isRegistrationEnabled !== false; // Default to true if undefined
+              return (
+              <li key={supplier.id} className={`bg-gray-900/70 p-4 rounded-lg flex items-center justify-between flex-wrap gap-4 transition-opacity ${!isEnabled ? 'opacity-60' : ''}`}>
                 <div>
                   <p className="font-semibold text-white">{supplier.name}</p>
                   <p className="text-sm text-gray-400">
                     Setor(es): {supplier.sector.map(s => sectors.find(opt => opt.value === s)?.label || s).join(', ')}
                   </p>
                 </div>
-                <button
-                  onClick={() => handleCopyLink(supplier.slug)}
-                  className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors flex items-center gap-2 ${copiedSlug === supplier.slug ? 'bg-green-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-200'}`}
-                >
-                  {copiedSlug === supplier.slug ? <CheckCircleIcon className="w-5 h-5" /> : <ClipboardIcon className="w-5 h-5" />}
-                  {copiedSlug === supplier.slug ? t('admin.buttons.copied') : t('admin.buttons.copyLink')}
-                </button>
+                <div className="flex items-center gap-2">
+                    <button
+                        onClick={() => onUpdateSupplierStatus(supplier.id!, !isEnabled)}
+                        className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${isEnabled ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-green-600 hover:bg-green-700 text-white'}`}
+                    >
+                        {isEnabled ? t('admin.buttons.disableRegistration') : t('admin.buttons.enableRegistration')}
+                    </button>
+                    <button
+                      onClick={() => handleCopyLink(supplier.slug)}
+                      disabled={!isEnabled}
+                      className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors flex items-center gap-2 ${copiedSlug === supplier.slug ? 'bg-green-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-200'} disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed`}
+                    >
+                      {copiedSlug === supplier.slug ? <CheckCircleIcon className="w-5 h-5" /> : <ClipboardIcon className="w-5 h-5" />}
+                      {copiedSlug === supplier.slug ? t('admin.buttons.copied') : t('admin.buttons.copyLink')}
+                    </button>
+                </div>
               </li>
-            ))}
+            )})}
           </ul>
         )}
       </div>

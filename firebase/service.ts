@@ -145,9 +145,19 @@ export const addSupplier = async (eventId: string, supplier: Omit<Supplier, 'id'
             error.code = 'duplicate-slug';
             throw error;
         }
-        await addDoc(suppliersColRef, supplier);
+        await addDoc(suppliersColRef, { ...supplier, isRegistrationEnabled: true });
     } catch (e: any) {
         console.error('Error adding supplier:', e.message);
+        throw e;
+    }
+};
+
+export const updateSupplier = async (eventId: string, supplierId: string, updates: Partial<Supplier>): Promise<void> => {
+    const supplierDocRef = doc(db, EVENTS_COLLECTION, eventId, SUPPLIERS_COLLECTION, supplierId);
+    try {
+        await updateDoc(supplierDocRef, updates);
+    } catch (e: any) {
+        console.error('Error updating supplier:', e.message);
         throw e;
     }
 };

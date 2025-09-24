@@ -5,6 +5,7 @@ import CheckinView from './components/views/CheckinView';
 import AdminView from './components/views/AdminView';
 import LoginView from './components/views/LoginView';
 import EventSelectionView from './components/views/EventSelectionView';
+import RegistrationClosedView from './components/views/RegistrationClosedView';
 import EventModal from './components/EventModal';
 
 import { Attendee, CheckinStatus, Supplier, Event } from './types';
@@ -41,6 +42,7 @@ const App: React.FC = () => {
   const [isEventModalOpen, setEventModalOpen] = useState(false);
   const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
   const [predefinedSector, setPredefinedSector] = useState<string | string[] | undefined>(undefined);
+  const [registrationClosed, setRegistrationClosed] = useState(false);
 
   const clearMessages = () => {
     setError('');
@@ -103,8 +105,12 @@ const App: React.FC = () => {
         if (supplierSlug) {
           const supplier = fetchedSuppliers.find(s => s.slug === supplierSlug);
           if (supplier) {
-            setPredefinedSector(supplier.sector);
-            setCurrentView('register');
+            if (supplier.isRegistrationEnabled === false) {
+              setRegistrationClosed(true);
+            } else {
+              setPredefinedSector(supplier.sector);
+              setCurrentView('register');
+            }
           }
         }
     }, (err) => {
@@ -183,6 +189,17 @@ const App: React.FC = () => {
     }
   };
 
+  const handleUpdateSupplierStatus = async (supplierId: string, isEnabled: boolean) => {
+    if (!selectedEvent?.id || !supplierId) return;
+    try {
+      await FirebaseService.updateSupplier(selectedEvent.id, supplierId, { isRegistrationEnabled: isEnabled });
+      showSuccess(t('admin.success.statusUpdated'));
+    } catch (err) {
+      console.error(err);
+      showError("Erro ao atualizar o status do fornecedor.");
+    }
+  };
+
   const handleEventSave = async (name: string, eventId?: string) => {
     try {
         if (eventId) {
@@ -209,9 +226,12 @@ const App: React.FC = () => {
     }
   }
   
-  const isSupplierView = !!predefinedSector;
+  const isSupplierView = !!predefinedSector || registrationClosed;
 
   const renderView = () => {
+    if (registrationClosed) {
+      return <RegistrationClosedView />;
+    }
     if (currentView === 'register') {
       return <RegisterView onRegister={handleRegister} setError={showError} predefinedSector={predefinedSector} />;
     }
@@ -219,7 +239,7 @@ const App: React.FC = () => {
       return <CheckinView attendees={attendees} onStatusUpdate={handleStatusUpdate} />;
     }
     if (currentView === 'admin' && selectedEvent?.id) {
-      return <AdminView eventId={selectedEvent.id} suppliers={suppliers} onAddSupplier={handleAddSupplier} setSuccess={showSuccess} setError={showError}/>;
+      return <AdminView eventId={selectedEvent.id} suppliers={suppliers} onAddSupplier={handleAddSupplier} onUpdateSupplierStatus={handleUpdateSupplierStatus} setSuccess={showSuccess} setError={showError}/>;
     }
     return null;
   };
@@ -240,6 +260,16 @@ const App: React.FC = () => {
     );
   }
   
+  if (isSupplierView && registrationClosed) {
+    return (
+        <div className="bg-gray-900 text-white min-h-screen font-sans">
+             <main className="container mx-auto px-4 py-12">
+                <RegistrationClosedView />
+            </main>
+        </div>
+    );
+  }
+
   if (!selectedEvent) {
     return (
         <div className="bg-gray-900 text-white min-h-screen">

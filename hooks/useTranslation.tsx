@@ -79,7 +79,9 @@ const translations = {
         },
         buttons: {
             copyLink: "Copiar Link",
-            copied: "Copiado!"
+            copied: "Copiado!",
+            disableRegistration: "Desativar",
+            enableRegistration: "Ativar",
         },
         errors: {
             allFields: "Nome e ao menos um setor são obrigatórios.",
@@ -88,7 +90,8 @@ const translations = {
         },
         success: {
             supplierAdded: "Fornecedor adicionado com sucesso!",
-            linkCopied: "Link copiado para a área de transferência!"
+            linkCopied: "Link copiado para a área de transferência!",
+            statusUpdated: "Status do fornecedor atualizado com sucesso."
         }
     },
     events: {
@@ -113,6 +116,10 @@ const translations = {
         passwordPlaceholder: "Digite a senha do admin",
         button: "Entrar",
         error: "Senha incorreta."
+    },
+    supplierRegistration: {
+        closedTitle: "Cadastro Encerrado",
+        closedMessage: "As inscrições para este fornecedor foram encerradas pelo administrador do evento."
     }
   },
 };
