@@ -69,6 +69,15 @@ export const deleteEvent = async (eventId: string): Promise<void> => {
 
 
 // Attendee Functions
+
+// Check if a CPF is already registered for a specific event to prevent duplicates.
+export const isCpfRegisteredInEvent = async (eventId: string, cpf: string): Promise<boolean> => {
+    const attendeesRef = db.collection(EVENTS_COLLECTION).doc(eventId).collection(ATTENDEES_COLLECTION);
+    const q = attendeesRef.where('cpf', '==', cpf).limit(1);
+    const querySnapshot = await q.get();
+    return !querySnapshot.empty;
+};
+
 export const getAttendees = async (eventId: string): Promise<Attendee[]> => {
   const attendeesRef = db.collection(EVENTS_COLLECTION).doc(eventId).collection(ATTENDEES_COLLECTION);
   const q = attendeesRef.orderBy('name', 'asc');

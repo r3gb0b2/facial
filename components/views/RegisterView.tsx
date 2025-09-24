@@ -21,6 +21,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, prede
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCheckingCpf, setIsCheckingCpf] = useState(false);
   const [cpfCheckMessage, setCpfCheckMessage] = useState('');
+  const [existingAttendeeFound, setExistingAttendeeFound] = useState(false);
   
   const isSupplierWithMultipleSectors = Array.isArray(predefinedSector);
   const isSupplierWithSingleSector = typeof predefinedSector === 'string';
@@ -41,6 +42,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, prede
     setCpf('');
     setPhoto(null);
     setCpfCheckMessage('');
+    setExistingAttendeeFound(false);
     if (!predefinedSector) {
       setSector('');
     } else if (isSupplierWithMultipleSectors) {
@@ -68,6 +70,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, prede
     setCpfCheckMessage(t('register.checkingCpf'));
     setPhoto(null);
     setName('');
+    setExistingAttendeeFound(false);
 
     try {
         const existingAttendee = await api.findAttendeeByCpf(rawCpf);
@@ -75,6 +78,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, prede
             setName(existingAttendee.name);
             setPhoto(existingAttendee.photo);
             setCpfCheckMessage(t('register.cpfFound'));
+            setExistingAttendeeFound(true);
         } else {
             setCpfCheckMessage(t('register.cpfNotFound'));
         }
@@ -192,7 +196,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, prede
           </button>
         </div>
         <div className="flex flex-col items-center">
-            <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting || isCheckingCpf} />
+            <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting || isCheckingCpf || existingAttendeeFound} />
         </div>
       </form>
     </div>

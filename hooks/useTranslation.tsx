@@ -23,6 +23,7 @@ const translations = {
         invalidCpf: 'CPF inválido. Deve conter 11 dígitos.',
         cpfCheckError: 'Erro ao verificar CPF. Tente novamente.',
         cpfCheckIndexError: 'Erro de configuração no Firebase. É necessário criar um índice para a busca de CPF. Veja as instruções em firebase/service.ts.',
+        cpfAlreadyRegisteredInEvent: 'Este CPF já está registrado neste evento.',
       },
       form: {
         nameLabel: 'Nome Completo',

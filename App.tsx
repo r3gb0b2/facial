@@ -164,6 +164,14 @@ const App: React.FC = () => {
 
   const handleRegister = async (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => {
     if (!currentEvent) return;
+
+    // Check for duplicates within the current event
+    const alreadyExists = await api.isCpfRegisteredInEvent(currentEvent.id, newAttendee.cpf);
+    if (alreadyExists) {
+      showError('Este CPF já está registrado neste evento.');
+      return;
+    }
+
     try {
       await api.addAttendee(currentEvent.id, newAttendee);
       showSuccess(`${newAttendee.name} registrado com sucesso!`);
@@ -175,6 +183,14 @@ const App: React.FC = () => {
 
   const handleSupplierRegister = async (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => {
     if (!supplierConfig) return;
+
+    // Check for duplicates within the current event
+    const alreadyExists = await api.isCpfRegisteredInEvent(supplierConfig.event.id, newAttendee.cpf);
+    if (alreadyExists) {
+      showError('Este CPF já está registrado neste evento.');
+      throw new Error('CPF already registered in this event.');
+    }
+
     try {
       await api.addAttendee(supplierConfig.event.id, newAttendee);
       showSuccess(`${newAttendee.name} registrado com sucesso!`);
