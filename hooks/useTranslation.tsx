@@ -1,193 +1,177 @@
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useState, ReactNode } from 'react';
 
-// The content of pt.json is now embedded directly to avoid import assertion issues.
-const ptTranslations = {
-  "header": {
-    "title": "Sistema de Credenciamento Facial",
-    "subtitle": "Acesso a Eventos Contínuo e Seguro"
-  },
-  "nav": {
-    "register": "Registrar",
-    "checkin": "Check-in",
-    "fastCheckin": "Check-in Rápido",
-    "admin": "Fornecedores",
-    "backToEvents": "Voltar aos Eventos"
-  },
-  "events": {
-    "title": "Gerenciador de Eventos",
-    "noEvents": "Nenhum evento criado ainda.",
-    "noEventsSubtitle": "Clique no botão abaixo para criar seu primeiro evento.",
-    "createButton": "Criar Novo Evento",
-    "modal": {
-      "createTitle": "Criar Novo Evento",
-      "editTitle": "Editar Evento",
-      "nameLabel": "Nome do Evento",
-      "namePlaceholder": "Ex: Conferência de Tecnologia 2024",
-      "saveButton": "Salvar Evento",
-      "createButton": "Criar Evento",
-      "error": "O nome do evento não pode estar em branco."
-    },
-    "deleteConfirm": "Você tem certeza que deseja remover o evento \"{eventName}\"? Esta ação não pode ser desfeita.",
-    "success": {
-      "created": "Evento \"{eventName}\" criado com sucesso!",
-      "updated": "Evento \"{eventName}\" atualizado com sucesso!",
-      "deleted": "Evento removido com sucesso."
-    }
-  },
-  "register": {
-    "title": "Registro de Participante",
-    "form": {
-      "nameLabel": "Nome Completo",
-      "namePlaceholder": "Ex: Maria da Silva",
-      "cpfLabel": "CPF",
-      "cpfPlaceholder": "000.000.000-00",
-      "sectorLabel": "Setor",
-      "sectorPlaceholder": "Selecione um setor",
-      "button": "Completar Registro"
-    },
-    "success": "Registrado {name} com sucesso!",
-    "errors": {
-      "allFields": "Todos os campos, incluindo uma foto, são obrigatórios.",
-      "invalidCpf": "Por favor, insira um CPF válido (11 dígitos).",
-      "duplicateCpf": "Este CPF já foi cadastrado.",
-      "dbConnection": "Não foi possível conectar ao banco de dados. Verifique a configuração do seu Firebase.",
-      "dbPermissionDenied": "Erro de permissão. Verifique as regras de segurança do seu Firestore e se o banco de dados foi criado."
-    }
-  },
-  "checkin": {
-    "title": "Check-in do Evento",
-    "searchPlaceholder": "Buscar por nome...",
-    "filterSectorPlaceholder": "Todos os Setores",
-    "noAttendees": "Nenhum participante registrado ainda.",
-    "noAttendeesSubtitle": "Vá para a aba \"Registrar\" para adicionar o primeiro participante.",
-    "noResults": "Nenhum participante encontrado",
-    "checkedInSuccess": "{name} fez o check-in!"
-  },
-  "fastCheckin": {
-    "title": "Check-in Rápido por Reconhecimento Facial",
-    "button": "Verificar Rosto",
-    "verifying": "Verificando... Comparando com os participantes.",
-    "verifyingBatch": "Analisando foto e buscando correspondência...",
-    "noMatch": "Nenhum participante correspondente encontrado.",
-    "noOneToScan": "Não há participantes aguardando check-in.",
-    "apiPromptBatch": {
-      "livePhotoHeader": "FOTO AO VIVO:",
-      "candidatesHeader": "FOTOS CANDIDATAS:",
-      "candidateIdLabel": "ID:",
-      "instruction": "Analise a FOTO AO VIVO e encontre a correspondência entre as FOTOS CANDIDATAS listadas com seus IDs. Responda APENAS com um objeto JSON contendo o ID da melhor correspondência, assim: {\"match\": \"id_do_participante_aqui\"}. Se não houver uma correspondência confiável, responda com {\"match\": null}."
-    },
-    "apiError": "Ocorreu um erro ao verificar o rosto. Tente novamente.",
-    "apiKeyError": "Chave de API do Gemini inválida ou não configurada. Verifique a configuração do ambiente."
-  },
-  "webcam": {
-    "captureButton": "Capturar Foto",
-    "retakeButton": "Tirar Novamente",
-    "error": "Não foi possível acessar a webcam. Por favor, verifique as permissões e tente novamente.",
-    "starting": "Iniciando câmera..."
-  },
-  "attendeeCard": {
-    "status": {
-      "registered": "Registrado",
-      "checkedIn": "Check-in Realizado"
-    },
-    "sectorLabel": "Setor"
-  },
-  "verificationModal": {
-    "title": "Verificação para",
-    "registeredPhoto": "Foto Registrada",
-    "liveVerification": "Verificação ao Vivo",
-    "confirmButton": "Confirmar Check-in"
-  },
-  "connection": {
-    "connecting": "Conectando ao banco de dados...",
-    "errorTitle": "Falha na Conexão com o Banco de Dados",
-    "errorInstructions": "Por favor, verifique as instruções de configuração no arquivo `firebase/config.ts` e atualize a página."
-  },
-  "supplier": {
-    "registerTitle": "Registro para {supplierName}",
-    "invalidLink": "Link de fornecedor inválido ou não encontrado."
-  },
-  "admin": {
-    "title": "Gestão de Fornecedores",
-    "form": {
-      "title": "Adicionar Novo Fornecedor",
-      "nameLabel": "Nome do Fornecedor",
-      "namePlaceholder": "Ex: Segurança VIP",
-      "sectorLabel": "Setor",
-      "sectorPlaceholder": "Selecione um setor",
-      "button": "Adicionar Fornecedor"
-    },
-    "list": {
-      "title": "Links de Cadastro",
-      "noSuppliers": "Nenhum fornecedor cadastrado. Adicione o primeiro no formulário acima."
-    },
-    "buttons": {
-      "copyLink": "Copiar Link",
-      "copied": "Copiado!"
-    },
-    "success": {
-      "supplierAdded": "Fornecedor {name} adicionado com sucesso!",
-      "linkCopied": "Link copiado para a área de transferência!"
-    },
-    "errors": {
-      "allFields": "Nome e setor são obrigatórios.",
-      "duplicate": "Um fornecedor com este nome já existe."
-    }
-  },
-  "sectors": [
-    { "value": "bar", "label": "Bar" },
-    { "value": "portaria", "label": "Portaria" },
-    { "value": "acessos", "label": "Acessos" },
-    { "value": "producao", "label": "Produção" }
-  ]
-};
-
+// For simplicity, we'll keep translations in this file. In a larger app, they would be in separate JSON files.
 const translations = {
-  pt: ptTranslations,
+  ptBR: {
+    header: {
+      title: "Check-in Facial",
+      subtitle: "Gestão de Eventos Simplificada",
+    },
+    nav: {
+      register: "Cadastrar",
+      checkin: "Check-in",
+      fastcheckin: "Check-in Rápido",
+      admin: "Admin",
+      backToEvents: "Voltar para Eventos"
+    },
+    webcam: {
+      starting: "Iniciando câmera...",
+      captureButton: "Capturar Foto",
+      retakeButton: "Tirar Outra Foto",
+    },
+    register: {
+      title: "Cadastro de Participante",
+      form: {
+        nameLabel: "Nome Completo",
+        namePlaceholder: "Ex: João da Silva",
+        cpfLabel: "CPF",
+        cpfPlaceholder: "000.000.000-00",
+        sectorLabel: "Setor",
+        sectorPlaceholder: "Selecione um setor",
+        button: "Cadastrar Participante"
+      },
+      errors: {
+        allFields: "Todos os campos, incluindo a foto, são obrigatórios.",
+        invalidCpf: "O CPF informado é inválido.",
+        duplicateCpf: "Já existe um participante com este CPF neste evento.",
+        generic: "Ocorreu um erro ao cadastrar. Tente novamente."
+      },
+      success: "Participante cadastrado com sucesso!"
+    },
+    checkin: {
+      title: "Lista de Participantes",
+      searchPlaceholder: "Buscar por nome ou CPF...",
+      filterSectorPlaceholder: "Filtrar por setor",
+      noAttendees: "Nenhum participante cadastrado.",
+      noAttendeesSubtitle: "Use a aba 'Cadastrar' para adicionar o primeiro.",
+      noResults: "Nenhum participante encontrado com os filtros atuais."
+    },
+    attendeeCard: {
+        sectorLabel: "Setor",
+        status: {
+            checkedIn: "Check-in realizado",
+            registered: "Registrado"
+        }
+    },
+    verificationModal: {
+        title: "Verificação de Check-in:",
+        registeredPhoto: "Foto do Cadastro",
+        liveVerification: "Verificação ao Vivo",
+        confirmButton: "Confirmar Check-in"
+    },
+    fastCheckin: {
+        title: "Check-in Rápido por Reconhecimento",
+        button: "Verificar e Fazer Check-in",
+        verifying: "Verificando...",
+        verifyingBatch: "Verificando, aguarde...",
+        success: (name: string) => `Check-in de ${name} realizado com sucesso!`,
+        failure: "Participante não encontrado ou já realizou o check-in.",
+        error: "Erro na verificação. Tente novamente.",
+    },
+    admin: {
+        title: "Painel Administrativo",
+        form: {
+            title: "Adicionar Fornecedor",
+            nameLabel: "Nome do Fornecedor/Empresa",
+            namePlaceholder: "Ex: Fotografia VIP",
+            sectorLabel: "Setor de Acesso",
+            sectorPlaceholder: "Selecione o setor",
+            button: "Adicionar Fornecedor"
+        },
+        list: {
+            title: "Links de Cadastro para Fornecedores",
+            noSuppliers: "Nenhum fornecedor cadastrado ainda."
+        },
+        buttons: {
+            copyLink: "Copiar Link",
+            copied: "Copiado!"
+        },
+        errors: {
+            allFields: "Nome e setor são obrigatórios.",
+            duplicate: "Já existe um fornecedor com este nome/link.",
+            generic: "Erro ao adicionar fornecedor."
+        },
+        success: {
+            supplierAdded: "Fornecedor adicionado com sucesso!",
+            linkCopied: "Link copiado para a área de transferência!"
+        }
+    },
+    events: {
+        title: "Seletor de Eventos",
+        noEvents: "Nenhum evento encontrado.",
+        noEventsSubtitle: "Crie seu primeiro evento para começar.",
+        createButton: "Criar Novo Evento",
+        modal: {
+            createTitle: "Criar Novo Evento",
+            editTitle: "Editar Evento",
+            nameLabel: "Nome do Evento",
+            namePlaceholder: "Ex: Conferência de Tecnologia 2024",
+            createButton: "Criar Evento",
+            saveButton: "Salvar Alterações",
+            error: "O nome do evento não pode estar em branco."
+        },
+        deleteConfirm: (name: string) => `Você tem certeza que quer excluir o evento "${name}"? Esta ação não pode ser desfeita.`
+    },
+    login: {
+        title: "Acesso Restrito",
+        passwordLabel: "Senha",
+        passwordPlaceholder: "Digite a senha do admin",
+        button: "Entrar",
+        error: "Senha incorreta."
+    }
+  },
 };
 
-type Sector = { value: string; label: string };
+const sectors = [
+    { value: 'pista', label: 'Pista' },
+    { value: 'pista-premium', label: 'Pista Premium' },
+    { value: 'camarote', label: 'Camarote' },
+    { value: 'backstage', label: 'Backstage' },
+    { value: 'staff', label: 'Staff' },
+];
+
+type Translations = typeof translations.ptBR;
 
 interface LanguageContextType {
-  t: (key: string, replacements?: { [key: string]: string }) => string;
-  sectors: Sector[];
+  language: string;
+  setLanguage: (language: string) => void;
+  t: (key: string, ...args: any[]) => string;
+  sectors: typeof sectors;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  
-  const getNestedValue = (obj: any, key: string): any => {
-    return key.split('.').reduce((o, i) => (o ? o[i] : undefined), obj);
-  };
+export const LanguageProvider = ({ children }: { children: ReactNode }) => {
+  const [language, setLanguage] = useState('ptBR');
 
-  const t = (key: string, replacements?: { [key: string]: string }): string => {
-    let translation = getNestedValue(translations['pt'], key);
-    if (!translation) {
+  const t = (key: string, ...args: any[]): string => {
+    const keys = key.split('.');
+    let result: any = translations[language as keyof typeof translations];
+    for (const k of keys) {
+      result = result?.[k];
+      if (result === undefined) {
+        console.warn(`Translation key not found: ${key}`);
         return key;
+      }
     }
-
-    if (replacements) {
-      Object.keys(replacements).forEach(placeholder => {
-        translation = String(translation).replace(`{${placeholder}}`, replacements[placeholder]);
-      });
+    if (typeof result === 'function') {
+        return result(...args);
     }
-
-    return String(translation);
+    return result;
   };
 
-  const sectors: Sector[] = getNestedValue(translations['pt'], 'sectors') || [];
+  const value = { language, setLanguage, t, sectors };
 
   return (
-    <LanguageContext.Provider value={{ t, sectors }}>
+    <LanguageContext.Provider value={value}>
       {children}
     </LanguageContext.Provider>
   );
 };
 
-export const useTranslation = (): LanguageContextType => {
+export const useTranslation = () => {
   const context = useContext(LanguageContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useTranslation must be used within a LanguageProvider');
   }
   return context;

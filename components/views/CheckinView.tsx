@@ -15,9 +15,11 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, onSelectAttendee }
   const [sectorFilter, setSectorFilter] = useState('');
 
   const filteredAttendees = attendees.filter(attendee => {
-    const nameMatch = attendee.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const lowerCaseSearchTerm = searchTerm.toLowerCase();
+    const nameMatch = attendee.name.toLowerCase().includes(lowerCaseSearchTerm);
+    const cpfMatch = attendee.cpf.includes(searchTerm.replace(/\D/g, '')); // Search by numbers in CPF
     const sectorMatch = sectorFilter ? attendee.sector === sectorFilter : true;
-    return nameMatch && sectorMatch;
+    return (nameMatch || cpfMatch) && sectorMatch;
   });
 
   return (
