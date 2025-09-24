@@ -10,7 +10,7 @@ import EventModal from './components/EventModal.tsx';
 import { SpinnerIcon } from './components/icons.tsx';
 
 // Simple password check (replace with real auth in a real app)
-const ADMIN_PASSWORD = "admin";
+const ADMIN_PASSWORD = "12345";
 
 const App: React.FC = () => {
     // App State
