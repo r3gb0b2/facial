@@ -2,11 +2,9 @@ import React, { useState, useEffect, useCallback } from 'react';
 
 import RegisterView from './components/views/RegisterView';
 import CheckinView from './components/views/CheckinView';
-import FastCheckinView from './components/views/FastCheckinView';
 import AdminView from './components/views/AdminView';
 import LoginView from './components/views/LoginView';
 import EventSelectionView from './components/views/EventSelectionView';
-import VerificationModal from './components/VerificationModal';
 import EventModal from './components/EventModal';
 
 import { Attendee, CheckinStatus, Supplier, Event } from './types';
@@ -16,7 +14,7 @@ import { CheckCircleIcon, XMarkIcon } from './components/icons';
 
 const ADMIN_PASSWORD = "12345"; // In a real app, this would not be in the source code
 
-type View = 'register' | 'checkin' | 'fast-checkin' | 'admin';
+type View = 'register' | 'checkin' | 'admin';
 
 const App: React.FC = () => {
   const { t } = useTranslation();
@@ -36,11 +34,9 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [isVerificationModalOpen, setVerificationModalOpen] = useState(false);
-  const [attendeeToVerify, setAttendeeToVerify] = useState<Attendee | null>(null);
   const [isEventModalOpen, setEventModalOpen] = useState(false);
   const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
-  const [predefinedSector, setPredefinedSector] = useState<string | undefined>(undefined);
+  const [predefinedSector, setPredefinedSector] = useState<string | string[] | undefined>(undefined);
 
   const clearMessages = () => {
     setError('');
@@ -140,32 +136,22 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSelectAttendee = (attendee: Attendee) => {
+  const handleManualCheckin = async (attendee: Attendee) => {
     if (attendee.status === CheckinStatus.CHECKED_IN) return;
-    setAttendeeToVerify(attendee);
-    setVerificationModalOpen(true);
-  };
-
-  const handleConfirmCheckin = async () => {
-    if (!attendeeToVerify || !selectedEvent?.id) return;
-    try {
-      await FirebaseService.updateAttendee(selectedEvent.id, attendeeToVerify.id!, {
-        status: CheckinStatus.CHECKED_IN,
-        checkinTime: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-      });
-      showSuccess(t('fastCheckin.success', attendeeToVerify.name));
-    } catch (err) {
-      console.error(err);
-      showError("Erro ao confirmar check-in.");
-    } finally {
-      setVerificationModalOpen(false);
-      setAttendeeToVerify(null);
+    if (window.confirm(t('checkin.manualConfirm', attendee.name))) {
+        if (!selectedEvent?.id || !attendee.id) return;
+        try {
+            await FirebaseService.updateAttendee(selectedEvent.id, attendee.id, {
+                status: CheckinStatus.CHECKED_IN,
+                checkinTime: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+            });
+            showSuccess(t('checkin.success', attendee.name));
+        } catch (err) {
+            console.error(err);
+            showError("Erro ao confirmar check-in.");
+        }
     }
   };
-  
-  const handleFastCheckinVerify = async (photo: string) => {
-      showError("Funcionalidade de reconhecimento facial não implementada.");
-  }
   
   const handleLogin = (password: string) => {
     if (password === ADMIN_PASSWORD) {
@@ -177,11 +163,11 @@ const App: React.FC = () => {
     }
   };
 
-  const handleAddSupplier = async (name: string, sector: string) => {
+  const handleAddSupplier = async (name: string, sectors: string[]) => {
     if (!selectedEvent?.id) return;
     const slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
     try {
-      await FirebaseService.addSupplier(selectedEvent.id, { name, sector, slug });
+      await FirebaseService.addSupplier(selectedEvent.id, { name, sector: sectors, slug });
       showSuccess(t('admin.success.supplierAdded'));
     } catch (err: any) {
         if(err.code === 'duplicate-slug') {
@@ -224,10 +210,7 @@ const App: React.FC = () => {
       return <RegisterView onRegister={handleRegister} setError={showError} predefinedSector={predefinedSector} />;
     }
     if (currentView === 'checkin') {
-      return <CheckinView attendees={attendees} onSelectAttendee={handleSelectAttendee} />;
-    }
-    if (currentView === 'fast-checkin') {
-        return <FastCheckinView onVerify={handleFastCheckinVerify} />
+      return <CheckinView attendees={attendees} onCheckin={handleManualCheckin} />;
     }
     if (currentView === 'admin') {
       return <AdminView eventId={selectedEvent!.id!} suppliers={suppliers} onAddSupplier={handleAddSupplier} setSuccess={showSuccess} setError={showError}/>;
@@ -291,7 +274,7 @@ const App: React.FC = () => {
 
       {!isSupplierView && (
         <nav className="flex justify-center mb-8 bg-black/20 p-2 rounded-full max-w-lg mx-auto">
-          {(['register', 'checkin', 'fast-checkin', 'admin'] as View[]).map(view => (
+          {(['register', 'checkin', 'admin'] as View[]).map(view => (
             <button
               key={view}
               onClick={() => setCurrentView(view)}
@@ -307,13 +290,6 @@ const App: React.FC = () => {
         {renderView()}
       </main>
 
-      {isVerificationModalOpen && attendeeToVerify && (
-        <VerificationModal
-          attendee={attendeeToVerify}
-          onClose={() => setVerificationModalOpen(false)}
-          onConfirm={handleConfirmCheckin}
-        />
-      )}
     </div>
   );
 };

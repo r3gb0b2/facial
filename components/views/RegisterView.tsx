@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Attendee } from '../../types';
 import WebcamCapture from '../WebcamCapture';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -7,16 +7,30 @@ import { UsersIcon, CheckCircleIcon, SpinnerIcon } from '../icons';
 interface RegisterViewProps {
   onRegister: (newAttendee: Omit<Attendee, 'id' | 'status'>) => Promise<void>;
   setError: (message: string) => void;
-  predefinedSector?: string;
+  predefinedSector?: string | string[];
 }
 
 const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, predefinedSector }) => {
   const { t, sectors } = useTranslation();
   const [name, setName] = useState('');
   const [cpf, setCpf] = useState('');
-  const [sector, setSector] = useState(predefinedSector || '');
+  const [sector, setSector] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const isSupplierWithMultipleSectors = Array.isArray(predefinedSector);
+  const isSupplierWithSingleSector = typeof predefinedSector === 'string';
+
+  useEffect(() => {
+    let initialSector = '';
+    if (isSupplierWithSingleSector) {
+      initialSector = predefinedSector as string;
+    } else if (isSupplierWithMultipleSectors) {
+      initialSector = (predefinedSector as string[])[0] || '';
+    }
+    setSector(initialSector);
+  }, [predefinedSector, isSupplierWithSingleSector, isSupplierWithMultipleSectors]);
+  
 
   const clearForm = () => {
     setName('');
@@ -24,6 +38,8 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, prede
     setPhoto(null);
     if (!predefinedSector) {
       setSector('');
+    } else if (isSupplierWithMultipleSectors) {
+      setSector((predefinedSector as string[])[0] || '');
     }
   };
 
@@ -61,6 +77,31 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, prede
       setIsSubmitting(false);
     }
   };
+  
+  const renderSectorInput = () => {
+    if (isSupplierWithSingleSector) {
+      return null; // Sector is predefined and hidden
+    }
+
+    let sectorOptions = sectors;
+    if (isSupplierWithMultipleSectors) {
+        sectorOptions = sectors.filter(s => (predefinedSector as string[]).includes(s.value));
+    }
+
+    return (
+        <div>
+          <label htmlFor="sector" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.sectorLabel')}</label>
+          <select
+            id="sector" value={sector} onChange={(e) => setSector(e.target.value)}
+            className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+            disabled={isSubmitting}
+          >
+            {isSupplierWithMultipleSectors ? null : <option value="" disabled>{t('register.form.sectorPlaceholder')}</option>}
+            {sectorOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+          </select>
+        </div>
+    );
+  };
 
   return (
     <div className="w-full max-w-4xl mx-auto bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
@@ -88,19 +129,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, prede
               disabled={isSubmitting}
             />
           </div>
-          {!predefinedSector && (
-            <div>
-              <label htmlFor="sector" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.sectorLabel')}</label>
-              <select
-                id="sector" value={sector} onChange={(e) => setSector(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
-                disabled={isSubmitting}
-              >
-                <option value="" disabled>{t('register.form.sectorPlaceholder')}</option>
-                {sectors.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
-            </div>
-          )}
+          {renderSectorInput()}
           <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-indigo-400 disabled:cursor-wait" disabled={!name || !cpf || !photo || !sector || isSubmitting}>
             {isSubmitting ? (
               <>

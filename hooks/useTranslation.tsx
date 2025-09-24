@@ -10,7 +10,6 @@ const translations = {
     nav: {
       register: "Cadastrar",
       checkin: "Check-in",
-      fastcheckin: "Check-in Rápido",
       admin: "Admin",
       backToEvents: "Voltar para Eventos"
     },
@@ -44,7 +43,9 @@ const translations = {
       filterSectorPlaceholder: "Filtrar por setor",
       noAttendees: "Nenhum participante cadastrado.",
       noAttendeesSubtitle: "Use a aba 'Cadastrar' para adicionar o primeiro.",
-      noResults: "Nenhum participante encontrado com os filtros atuais."
+      noResults: "Nenhum participante encontrado com os filtros atuais.",
+      manualConfirm: (name: string) => `Deseja confirmar o check-in de ${name}?`,
+      success: (name: string) => `Check-in de ${name} realizado com sucesso!`,
     },
     attendeeCard: {
         sectorLabel: "Setor",
@@ -53,29 +54,13 @@ const translations = {
             registered: "Registrado"
         }
     },
-    verificationModal: {
-        title: "Verificação de Check-in:",
-        registeredPhoto: "Foto do Cadastro",
-        liveVerification: "Verificação ao Vivo",
-        confirmButton: "Confirmar Check-in"
-    },
-    fastCheckin: {
-        title: "Check-in Rápido por Reconhecimento",
-        button: "Verificar e Fazer Check-in",
-        verifying: "Verificando...",
-        verifyingBatch: "Verificando, aguarde...",
-        success: (name: string) => `Check-in de ${name} realizado com sucesso!`,
-        failure: "Participante não encontrado ou já realizou o check-in.",
-        error: "Erro na verificação. Tente novamente.",
-    },
     admin: {
         title: "Painel Administrativo",
         form: {
             title: "Adicionar Fornecedor",
             nameLabel: "Nome do Fornecedor/Empresa",
             namePlaceholder: "Ex: Fotografia VIP",
-            sectorLabel: "Setor de Acesso",
-            sectorPlaceholder: "Selecione o setor",
+            sectorLabel: "Setor(es) de Acesso",
             button: "Adicionar Fornecedor"
         },
         list: {
@@ -87,7 +72,7 @@ const translations = {
             copied: "Copiado!"
         },
         errors: {
-            allFields: "Nome e setor são obrigatórios.",
+            allFields: "Nome e ao menos um setor são obrigatórios.",
             duplicate: "Já existe um fornecedor com este nome/link.",
             generic: "Erro ao adicionar fornecedor."
         },

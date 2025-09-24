@@ -6,7 +6,7 @@ import { CogIcon, ClipboardIcon, CheckCircleIcon, SpinnerIcon } from '../icons';
 interface AdminViewProps {
   eventId: string;
   suppliers: Supplier[];
-  onAddSupplier: (name: string, sector: string) => Promise<void>;
+  onAddSupplier: (name: string, sectors: string[]) => Promise<void>;
   setSuccess: (message: string) => void;
   setError: (message: string) => void;
 }
@@ -14,22 +14,30 @@ interface AdminViewProps {
 const AdminView: React.FC<AdminViewProps> = ({ eventId, suppliers, onAddSupplier, setSuccess, setError }) => {
   const { t, sectors } = useTranslation();
   const [newSupplierName, setNewSupplierName] = useState('');
-  const [newSupplierSector, setNewSupplierSector] = useState('');
+  const [newSupplierSectors, setNewSupplierSectors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
 
+  const handleSectorChange = (sectorValue: string) => {
+    setNewSupplierSectors(prev => 
+      prev.includes(sectorValue) 
+        ? prev.filter(s => s !== sectorValue) 
+        : [...prev, sectorValue]
+    );
+  };
+
   const handleAddSupplier = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSupplierName || !newSupplierSector) {
+    if (!newSupplierName || newSupplierSectors.length === 0) {
       setError(t('admin.errors.allFields'));
       setTimeout(() => setError(''), 3000);
       return;
     }
     setIsSubmitting(true);
     try {
-      await onAddSupplier(newSupplierName, newSupplierSector);
+      await onAddSupplier(newSupplierName, newSupplierSectors);
       setNewSupplierName('');
-      setNewSupplierSector('');
+      setNewSupplierSectors([]);
     } catch (error) {
         // Error is already set in the parent component
     } finally {
@@ -58,8 +66,8 @@ const AdminView: React.FC<AdminViewProps> = ({ eventId, suppliers, onAddSupplier
       {/* Add Supplier Form */}
       <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
         <h3 className="text-xl font-bold text-white mb-6">{t('admin.form.title')}</h3>
-        <form onSubmit={handleAddSupplier} className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
-          <div className="md:col-span-1">
+        <form onSubmit={handleAddSupplier} className="space-y-6">
+          <div>
             <label htmlFor="supplierName" className="block text-sm font-medium text-gray-300 mb-1">{t('admin.form.nameLabel')}</label>
             <input
               type="text" id="supplierName" value={newSupplierName} onChange={(e) => setNewSupplierName(e.target.value)}
@@ -68,18 +76,26 @@ const AdminView: React.FC<AdminViewProps> = ({ eventId, suppliers, onAddSupplier
               disabled={isSubmitting}
             />
           </div>
-          <div className="md:col-span-1">
-            <label htmlFor="supplierSector" className="block text-sm font-medium text-gray-300 mb-1">{t('admin.form.sectorLabel')}</label>
-            <select
-              id="supplierSector" value={newSupplierSector} onChange={(e) => setNewSupplierSector(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              disabled={isSubmitting}
-            >
-              <option value="" disabled>{t('admin.form.sectorPlaceholder')}</option>
-              {sectors.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </select>
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">{t('admin.form.sectorLabel')}</label>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 bg-gray-900/50 p-4 rounded-lg">
+                {sectors.map(s => (
+                    <label key={s.value} htmlFor={s.value} className="flex items-center space-x-2 cursor-pointer text-sm text-gray-200">
+                        <input
+                            type="checkbox"
+                            id={s.value}
+                            value={s.value}
+                            checked={newSupplierSectors.includes(s.value)}
+                            onChange={() => handleSectorChange(s.value)}
+                            disabled={isSubmitting}
+                            className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
+                        />
+                        <span>{s.label}</span>
+                    </label>
+                ))}
+            </div>
           </div>
-          <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-indigo-400 disabled:cursor-wait" disabled={!newSupplierName || !newSupplierSector || isSubmitting}>
+          <button type="submit" className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-indigo-400 disabled:cursor-wait" disabled={!newSupplierName || newSupplierSectors.length === 0 || isSubmitting}>
             {isSubmitting ? (
               <>
                 <SpinnerIcon className="w-5 h-5" />
@@ -100,10 +116,12 @@ const AdminView: React.FC<AdminViewProps> = ({ eventId, suppliers, onAddSupplier
         ) : (
           <ul className="space-y-4">
             {suppliers.sort((a,b) => a.name.localeCompare(b.name)).map(supplier => (
-              <li key={supplier.id} className="bg-gray-900/70 p-4 rounded-lg flex items-center justify-between">
+              <li key={supplier.id} className="bg-gray-900/70 p-4 rounded-lg flex items-center justify-between flex-wrap gap-2">
                 <div>
                   <p className="font-semibold text-white">{supplier.name}</p>
-                  <p className="text-sm text-gray-400">Setor: {sectors.find(s => s.value === supplier.sector)?.label || supplier.sector}</p>
+                  <p className="text-sm text-gray-400">
+                    Setor(es): {supplier.sector.map(s => sectors.find(opt => opt.value === s)?.label || s).join(', ')}
+                  </p>
                 </div>
                 <button
                   onClick={() => handleCopyLink(supplier.slug)}

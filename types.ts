@@ -16,7 +16,7 @@ export interface Attendee {
 export interface Supplier {
   id?: string; // ID from Firestore
   name: string;
-  sector: string;
+  sector: string[]; // Supplier can have access to multiple sectors
   slug: string; // URL-friendly identifier
 }
 

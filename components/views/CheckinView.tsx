@@ -6,10 +6,10 @@ import { useTranslation } from '../../hooks/useTranslation';
 
 interface CheckinViewProps {
   attendees: Attendee[];
-  onSelectAttendee: (attendee: Attendee) => void;
+  onCheckin: (attendee: Attendee) => void;
 }
 
-const CheckinView: React.FC<CheckinViewProps> = ({ attendees, onSelectAttendee }) => {
+const CheckinView: React.FC<CheckinViewProps> = ({ attendees, onCheckin }) => {
   const { t, sectors } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [sectorFilter, setSectorFilter] = useState('');
@@ -62,7 +62,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, onSelectAttendee }
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredAttendees.map(attendee => (
-            <AttendeeCard key={attendee.id} attendee={attendee} onSelect={onSelectAttendee} />
+            <AttendeeCard key={attendee.id} attendee={attendee} onSelect={onCheckin} />
           ))}
         </div>
       )}
