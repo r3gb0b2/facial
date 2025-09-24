@@ -108,20 +108,26 @@ const translations = {
       cancelled: 'Cancelado',
       substitution: 'Substituído',
       missed: 'Ausente',
+    },
+    sectors: {
+      title: "Gerenciar Setores",
+      createButton: "Criar Novo Setor",
+      noSectors: "Nenhum setor cadastrado para este evento.",
+      noSectorsSubtitle: "Crie o primeiro setor para organizar seus participantes.",
+      deleteConfirm: "Tem certeza que deseja deletar o setor \"%s\"? Esta ação não pode ser desfeita.",
+      deleteErrorInUse: "Não é possível deletar o setor \"%s\" pois ele está em uso por participantes ou fornecedores.",
+      modal: {
+        createTitle: "Criar Novo Setor",
+        editTitle: "Editar Setor",
+        labelLabel: "Nome do Setor",
+        labelPlaceholder: "Ex: Staff",
+        createButton: "Criar Setor",
+        saveButton: "Salvar Alterações",
+        error: "O nome do setor não pode ser vazio."
+      }
     }
   },
 };
-
-const sectors = [
-  { value: 'staff', label: 'Staff' },
-  { value: 'security', label: 'Segurança' },
-  { value: 'catering', label: 'Buffet' },
-  { value: 'cleaning', label: 'Limpeza' },
-  { value: 'press', label: 'Imprensa' },
-  { value: 'artist', label: 'Artista' },
-  { value: 'production', label: 'Produção' },
-  { value: 'guest', label: 'Convidado' },
-];
 
 type Language = 'ptBR';
 
@@ -129,7 +135,6 @@ interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
   t: (key: string, ...args: any[]) => string;
-  sectors: typeof sectors;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -151,7 +156,7 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
   };
 
-  const value = { language, setLanguage: () => {}, t, sectors };
+  const value = { language, setLanguage: () => {}, t };
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 };

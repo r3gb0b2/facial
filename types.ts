@@ -31,3 +31,8 @@ export interface Supplier {
   sectors: string[];
   active: boolean;
 }
+
+export interface Sector {
+  id: string; // e.g., 'staff'
+  label: string; // e.g., 'Staff'
+}

@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Attendee } from '../../types';
+import { Attendee, Sector } from '../../types';
 import WebcamCapture from '../WebcamCapture';
 import { useTranslation } from '../../hooks/useTranslation';
 import { UsersIcon, CheckCircleIcon, SpinnerIcon } from '../icons';
 import * as api from '../../firebase/service';
 
 interface RegisterViewProps {
-  // FIX: Correctly type `newAttendee` by omitting properties not available in this component.
   onRegister: (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => Promise<void>;
   setError: (message: string) => void;
+  sectors: Sector[];
   predefinedSector?: string | string[];
 }
 
-const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, predefinedSector }) => {
-  const { t, sectors } = useTranslation();
+const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, sectors, predefinedSector }) => {
+  const { t } = useTranslation();
   const [name, setName] = useState('');
   const [cpf, setCpf] = useState('');
   const [sector, setSector] = useState('');
@@ -31,10 +31,12 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, prede
     if (isSupplierWithSingleSector) {
       initialSector = predefinedSector as string;
     } else if (isSupplierWithMultipleSectors) {
-      initialSector = (predefinedSector as string[])[0] || '';
+       // Find the full sector object from the list of available sectors
+      const availableSectors = sectors.filter(s => (predefinedSector as string[]).includes(s.id));
+      initialSector = availableSectors.length > 0 ? availableSectors[0].id : '';
     }
     setSector(initialSector);
-  }, [predefinedSector, isSupplierWithSingleSector, isSupplierWithMultipleSectors]);
+  }, [predefinedSector, isSupplierWithSingleSector, isSupplierWithMultipleSectors, sectors]);
   
 
   const clearForm = () => {
@@ -46,7 +48,8 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, prede
     if (!predefinedSector) {
       setSector('');
     } else if (isSupplierWithMultipleSectors) {
-      setSector((predefinedSector as string[])[0] || '');
+      const availableSectors = sectors.filter(s => (predefinedSector as string[]).includes(s.id));
+      setSector(availableSectors.length > 0 ? availableSectors[0].id : '');
     }
   };
 
@@ -129,7 +132,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, prede
 
     let sectorOptions = sectors;
     if (isSupplierWithMultipleSectors) {
-        sectorOptions = sectors.filter(s => (predefinedSector as string[]).includes(s.value));
+        sectorOptions = sectors.filter(s => (predefinedSector as string[]).includes(s.id));
     }
 
     return (
@@ -141,7 +144,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, prede
             disabled={isSubmitting || isCheckingCpf}
           >
             {isSupplierWithMultipleSectors ? null : <option value="" disabled>{t('register.form.sectorPlaceholder')}</option>}
-            {sectorOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+            {sectorOptions.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
         </div>
     );

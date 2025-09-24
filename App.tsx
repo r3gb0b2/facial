@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as api from './firebase/service';
-import { Attendee, CheckinStatus, Event, Supplier } from './types';
+import { Attendee, CheckinStatus, Event, Supplier, Sector } from './types';
 
 import EventSelectionView from './components/views/EventSelectionView';
 import AdminView from './components/views/AdminView';
@@ -21,6 +21,7 @@ const App: React.FC = () => {
   const [currentEvent, setCurrentEvent] = useState<Event | null>(null);
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [sectors, setSectors] = useState<Sector[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
@@ -106,17 +107,19 @@ const App: React.FC = () => {
     }
   };
 
-  const loadAttendees = async (eventId: string, showLoader = true) => {
+  const loadEventData = async (eventId: string, showLoader = true) => {
     if (showLoader) setLoading(true);
     try {
-      const [attendeesData, suppliersData] = await Promise.all([
+      const [attendeesData, suppliersData, sectorsData] = await Promise.all([
           api.getAttendees(eventId),
-          api.getSuppliersForEvent(eventId)
+          api.getSuppliersForEvent(eventId),
+          api.getSectors(eventId)
       ]);
       setAttendees(attendeesData);
       setSuppliers(suppliersData);
+      setSectors(sectorsData);
     } catch (e) {
-      showError('Falha ao carregar participantes.');
+      showError('Falha ao carregar dados do evento.');
     } finally {
       if (showLoader) setLoading(false);
     }
@@ -124,13 +127,14 @@ const App: React.FC = () => {
 
   const handleSelectEvent = (event: Event) => {
     setCurrentEvent(event);
-    loadAttendees(event.id, true);
+    loadEventData(event.id, true);
   };
   
   const handleBackToEvents = () => {
     setCurrentEvent(null);
     setAttendees([]);
     setSuppliers([]);
+    setSectors([]);
   };
 
   const handleSaveEvent = async (name: string, eventId?: string) => {
@@ -175,7 +179,7 @@ const App: React.FC = () => {
     try {
       await api.addAttendee(currentEvent.id, newAttendee);
       showSuccess(`${newAttendee.name} registrado com sucesso!`);
-      loadAttendees(currentEvent.id, false); // silent reload
+      loadEventData(currentEvent.id, false); // silent reload
     } catch (e) {
       showError('Falha ao registrar participante.');
     }
@@ -206,7 +210,7 @@ const App: React.FC = () => {
       await api.updateAttendeeStatus(currentEvent.id, attendee.id, newStatus);
       showSuccess(`Status de ${attendee.name} atualizado.`);
       // Reload attendees without showing the full-page loader
-      loadAttendees(currentEvent.id, false); 
+      loadEventData(currentEvent.id, false); 
     } catch (e) {
       showError('Falha ao atualizar status.');
     }
@@ -217,7 +221,7 @@ const App: React.FC = () => {
       try {
           await api.addSupplier(currentEvent.id, name, sectors);
           showSuccess('Link de fornecedor gerado com sucesso!');
-          loadAttendees(currentEvent.id, false); // silent reload
+          loadEventData(currentEvent.id, false); // silent reload
       } catch (e) {
           showError('Falha ao gerar link.');
       }
@@ -228,10 +232,44 @@ const App: React.FC = () => {
       try {
           await api.updateSupplierStatus(currentEvent.id, supplierId, active);
           showSuccess('Status do link atualizado.');
-          loadAttendees(currentEvent.id, false); // silent reload
+          loadEventData(currentEvent.id, false); // silent reload
       } catch (e) {
           showError('Falha ao atualizar status do link.');
       }
+  };
+
+  // Sector Handlers
+  const handleAddSector = async (label: string) => {
+    if (!currentEvent) return;
+    try {
+      await api.addSector(currentEvent.id, label);
+      showSuccess('Setor criado com sucesso!');
+      loadEventData(currentEvent.id, false);
+    } catch (e: any) {
+      showError(e.message || 'Falha ao criar setor.');
+    }
+  };
+
+  const handleUpdateSector = async (sectorId: string, label: string) => {
+    if (!currentEvent) return;
+    try {
+      await api.updateSector(currentEvent.id, sectorId, label);
+      showSuccess('Setor atualizado com sucesso!');
+      loadEventData(currentEvent.id, false);
+    } catch (e) {
+      showError('Falha ao atualizar setor.');
+    }
+  };
+
+  const handleDeleteSector = async (sector: Sector) => {
+    if (!currentEvent) return;
+    try {
+      await api.deleteSector(currentEvent.id, sector.id);
+      showSuccess('Setor deletado com sucesso!');
+      loadEventData(currentEvent.id, false);
+    } catch (e) {
+      throw e; // Re-throw to be handled by the component
+    }
   };
 
 
@@ -251,6 +289,7 @@ const App: React.FC = () => {
           <RegisterView 
             onRegister={handleSupplierRegister} 
             setError={showError}
+            sectors={[]} // Supplier registration view doesn't need all sectors, it gets them from the link
             predefinedSector={supplierConfig.supplier.sectors.length === 1 ? supplierConfig.supplier.sectors[0] : supplierConfig.supplier.sectors}
           />
         </div>;
@@ -268,10 +307,14 @@ const App: React.FC = () => {
         eventName={currentEvent.name}
         attendees={attendees}
         suppliers={suppliers}
+        sectors={sectors}
         onRegister={handleRegister}
         onStatusUpdate={handleStatusUpdate}
         onAddSupplier={handleAddSupplier}
         onSupplierStatusUpdate={handleSupplierStatusUpdate}
+        onAddSector={handleAddSector}
+        onUpdateSector={handleUpdateSector}
+        onDeleteSector={handleDeleteSector}
         onBack={handleBackToEvents}
         setError={showError}
       />;

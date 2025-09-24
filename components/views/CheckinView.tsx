@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Attendee, CheckinStatus } from '../../types';
+import { Attendee, CheckinStatus, Sector } from '../../types';
 import AttendeeCard from '../AttendeeCard';
 import { FingerPrintIcon, SearchIcon } from '../icons';
 import { useTranslation } from '../../hooks/useTranslation';
@@ -7,11 +7,12 @@ import StatusUpdateModal from '../StatusUpdateModal';
 
 interface CheckinViewProps {
   attendees: Attendee[];
+  sectors: Sector[];
   onStatusUpdate: (attendee: Attendee, newStatus: CheckinStatus) => void;
 }
 
-const CheckinView: React.FC<CheckinViewProps> = ({ attendees, onStatusUpdate }) => {
-  const { t, sectors } = useTranslation();
+const CheckinView: React.FC<CheckinViewProps> = ({ attendees, sectors, onStatusUpdate }) => {
+  const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [sectorFilter, setSectorFilter] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -66,7 +67,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, onStatusUpdate }) 
           className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
         >
           <option value="">{t('checkin.filterSectorPlaceholder')}</option>
-          {sectors.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+          {sectors.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
         </select>
       </div>
       {attendees.length === 0 ? (

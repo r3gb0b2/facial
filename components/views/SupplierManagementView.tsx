@@ -1,28 +1,29 @@
 import React, { useState } from 'react';
-import { Supplier } from '../../types';
+import { Supplier, Sector } from '../../types';
 import { useTranslation } from '../../hooks/useTranslation';
 import { LinkIcon, ClipboardDocumentIcon, NoSymbolIcon, CheckCircleIcon } from '../icons';
 
 interface SupplierManagementViewProps {
     currentEventId: string;
     suppliers: Supplier[];
+    sectors: Sector[];
     onAddSupplier: (name: string, sectors: string[]) => Promise<void>;
     onSupplierStatusUpdate: (supplierId: string, active: boolean) => Promise<void>;
     setError: (message: string) => void;
 }
 
-const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ currentEventId, suppliers, onAddSupplier, onSupplierStatusUpdate, setError }) => {
-    const { t, sectors } = useTranslation();
+const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ currentEventId, suppliers, sectors, onAddSupplier, onSupplierStatusUpdate, setError }) => {
+    const { t } = useTranslation();
     const [supplierName, setSupplierName] = useState('');
     const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [copiedLink, setCopiedLink] = useState<string | null>(null);
 
-    const handleSectorChange = (sectorValue: string) => {
+    const handleSectorChange = (sectorId: string) => {
         setSelectedSectors(prev =>
-            prev.includes(sectorValue)
-                ? prev.filter(s => s !== sectorValue)
-                : [...prev, sectorValue]
+            prev.includes(sectorId)
+                ? prev.filter(s => s !== sectorId)
+                : [...prev, sectorId]
         );
     };
 
@@ -53,9 +54,9 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
         setTimeout(() => setCopiedLink(null), 2000);
     };
     
-    const getSectorLabel = (value: string) => {
-        const sector = sectors.find(s => s.value === value);
-        return sector ? sector.label : value;
+    const getSectorLabel = (id: string) => {
+        const sector = sectors.find(s => s.id === id);
+        return sector ? sector.label : id;
     };
 
     return (
@@ -83,11 +84,11 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                         <label className="block text-sm font-medium text-gray-300 mb-2">{t('suppliers.sectorsLabel')}</label>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             {sectors.map(sector => (
-                                <label key={sector.value} className="flex items-center space-x-2 text-white cursor-pointer">
+                                <label key={sector.id} className="flex items-center space-x-2 text-white cursor-pointer">
                                     <input
                                         type="checkbox"
-                                        checked={selectedSectors.includes(sector.value)}
-                                        onChange={() => handleSectorChange(sector.value)}
+                                        checked={selectedSectors.includes(sector.id)}
+                                        onChange={() => handleSectorChange(sector.id)}
                                         className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
                                         disabled={isSubmitting}
                                     />

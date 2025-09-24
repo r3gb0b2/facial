@@ -2,11 +2,12 @@
 // This ensures the application works correctly with older versions of the Firebase SDK.
 import firebase from 'firebase/compat/app';
 import { db, storage } from './config';
-import { Attendee, CheckinStatus, Event, Supplier } from '../types';
+import { Attendee, CheckinStatus, Event, Supplier, Sector } from '../types';
 
 const EVENTS_COLLECTION = 'events';
 const ATTENDEES_COLLECTION = 'attendees';
 const SUPPLIERS_COLLECTION = 'suppliers';
+const SECTORS_COLLECTION = 'sectors';
 
 
 // Event Functions
@@ -59,6 +60,13 @@ export const deleteEvent = async (eventId: string): Promise<void> => {
   for (const supplierDoc of suppliersSnapshot.docs) {
       batch.delete(supplierDoc.ref);
   }
+  
+  // Delete all sectors
+  const sectorsQuery = db.collection(EVENTS_COLLECTION).doc(eventId).collection(SECTORS_COLLECTION);
+  const sectorsSnapshot = await sectorsQuery.get();
+  for (const sectorDoc of sectorsSnapshot.docs) {
+      batch.delete(sectorDoc.ref);
+  }
 
   await batch.commit();
 
@@ -97,7 +105,7 @@ export const getAttendees = async (eventId: string): Promise<Attendee[]> => {
 // === COMO RESOLVER (AÇÃO MANUAL NO PAINEL DO FIREBASE): ===
 //
 // 1. ABRA SEU PROJETO NO FIREBASE CONSOLE: https://console.firebase.google.com/
-// 2. NAVEGUE ATÉ "BUILD" > "FIRESTORE DATABASE".
+// 2. NAVEGE ATÉ "BUILD" > "FIRESTORE DATABASE".
 // 3. CLIQUE NA ABA "ÍNDICES" (INDEXES) NA PARTE SUPERIOR.
 // 4. CLIQUE EM "CRIAR ÍNDICE".
 //
@@ -182,4 +190,66 @@ export const addSupplier = (eventId: string, name: string, sectors: string[]): P
 export const updateSupplierStatus = (eventId: string, supplierId: string, active: boolean): Promise<void> => {
     const supplierDoc = db.collection(EVENTS_COLLECTION).doc(eventId).collection(SUPPLIERS_COLLECTION).doc(supplierId);
     return supplierDoc.update({ active });
+};
+
+// Sector Functions
+export const getSectors = async (eventId: string): Promise<Sector[]> => {
+    const sectorsRef = db.collection(EVENTS_COLLECTION).doc(eventId).collection(SECTORS_COLLECTION);
+    const q = sectorsRef.orderBy('label', 'asc');
+    const querySnapshot = await q.get();
+    return querySnapshot.docs.map(doc => ({ id: doc.id, label: doc.data().label } as Sector));
+};
+
+const slugify = (text: string) => {
+  return text
+    .toString()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/[^\w\-]+/g, '')
+    .replace(/\-\-+/g, '-');
+};
+
+export const addSector = async (eventId: string, label: string): Promise<void> => {
+  const sectorId = slugify(label);
+  if (!sectorId) {
+      throw new Error("Sector name cannot be empty or invalid.");
+  }
+  const sectorRef = db.collection(EVENTS_COLLECTION).doc(eventId).collection(SECTORS_COLLECTION).doc(sectorId);
+  const doc = await sectorRef.get();
+  if (doc.exists) {
+    throw new Error(`O setor '${label}' já existe.`);
+  }
+  await sectorRef.set({ label });
+};
+
+export const updateSector = (eventId: string, sectorId: string, label: string): Promise<void> => {
+  const sectorDoc = db.collection(EVENTS_COLLECTION).doc(eventId).collection(SECTORS_COLLECTION).doc(sectorId);
+  return sectorDoc.update({ label });
+};
+
+const isSectorInUse = async (eventId: string, sectorId: string): Promise<boolean> => {
+    const attendeesRef = db.collection(EVENTS_COLLECTION).doc(eventId).collection(ATTENDEES_COLLECTION);
+    const suppliersRef = db.collection(EVENTS_COLLECTION).doc(eventId).collection(SUPPLIERS_COLLECTION);
+
+    const attendeeQuery = attendeesRef.where('sector', '==', sectorId).limit(1);
+    const supplierQuery = suppliersRef.where('sectors', 'array-contains', sectorId).limit(1);
+
+    const [attendeeSnapshot, supplierSnapshot] = await Promise.all([
+        attendeeQuery.get(),
+        supplierQuery.get()
+    ]);
+
+    return !attendeeSnapshot.empty || !supplierSnapshot.empty;
+};
+
+export const deleteSector = async (eventId: string, sectorId: string): Promise<void> => {
+  const inUse = await isSectorInUse(eventId, sectorId);
+  if (inUse) {
+    throw new Error('Sector is in use and cannot be deleted.');
+  }
+  const sectorDoc = db.collection(EVENTS_COLLECTION).doc(eventId).collection(SECTORS_COLLECTION).doc(sectorId);
+  await sectorDoc.delete();
 };

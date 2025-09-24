@@ -1,34 +1,43 @@
 import React, { useState } from 'react';
-import { Attendee, CheckinStatus, Supplier } from '../../types';
+import { Attendee, CheckinStatus, Supplier, Sector } from '../../types';
 import RegisterView from './RegisterView';
 import CheckinView from './CheckinView';
 import SupplierManagementView from './SupplierManagementView';
-import { UsersIcon, FingerPrintIcon, ArrowLeftOnRectangleIcon, LinkIcon } from '../icons';
+import SectorManagementView from './SectorManagementView';
+import { UsersIcon, FingerPrintIcon, ArrowLeftOnRectangleIcon, LinkIcon, TagIcon } from '../icons';
 
 interface AdminViewProps {
   currentEventId: string;
   eventName: string;
   attendees: Attendee[];
   suppliers: Supplier[];
+  sectors: Sector[];
   onRegister: (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => Promise<void>;
   onStatusUpdate: (attendee: Attendee, newStatus: CheckinStatus) => void;
   onAddSupplier: (name: string, sectors: string[]) => Promise<void>;
   onSupplierStatusUpdate: (supplierId: string, active: boolean) => Promise<void>;
+  onAddSector: (label: string) => Promise<void>;
+  onUpdateSector: (sectorId: string, label: string) => Promise<void>;
+  onDeleteSector: (sector: Sector) => Promise<void>;
   onBack: () => void;
   setError: (message: string) => void;
 }
 
-type Tab = 'register' | 'checkin' | 'suppliers';
+type Tab = 'register' | 'checkin' | 'suppliers' | 'sectors';
 
 const AdminView: React.FC<AdminViewProps> = ({
   currentEventId,
   eventName,
   attendees,
   suppliers,
+  sectors,
   onRegister,
   onStatusUpdate,
   onAddSupplier,
   onSupplierStatusUpdate,
+  onAddSector,
+  onUpdateSector,
+  onDeleteSector,
   onBack,
   setError,
 }) => {
@@ -38,6 +47,7 @@ const AdminView: React.FC<AdminViewProps> = ({
     { id: 'register', label: 'Registrar', icon: UsersIcon },
     { id: 'checkin', label: 'Check-in', icon: FingerPrintIcon },
     { id: 'suppliers', label: 'Fornecedores', icon: LinkIcon },
+    { id: 'sectors', label: 'Setores', icon: TagIcon },
   ];
 
   return (
@@ -76,17 +86,27 @@ const AdminView: React.FC<AdminViewProps> = ({
 
       <main>
         {activeTab === 'register' && (
-          <RegisterView onRegister={onRegister} setError={setError} />
+          <RegisterView onRegister={onRegister} setError={setError} sectors={sectors} />
         )}
         {activeTab === 'checkin' && (
-          <CheckinView attendees={attendees} onStatusUpdate={onStatusUpdate} />
+          <CheckinView attendees={attendees} onStatusUpdate={onStatusUpdate} sectors={sectors} />
         )}
         {activeTab === 'suppliers' && (
             <SupplierManagementView
                 currentEventId={currentEventId}
                 suppliers={suppliers} 
+                sectors={sectors}
                 onAddSupplier={onAddSupplier}
                 onSupplierStatusUpdate={onSupplierStatusUpdate}
+                setError={setError}
+            />
+        )}
+        {activeTab === 'sectors' && (
+            <SectorManagementView
+                sectors={sectors}
+                onAddSector={onAddSector}
+                onUpdateSector={onUpdateSector}
+                onDeleteSector={onDeleteSector}
                 setError={setError}
             />
         )}
