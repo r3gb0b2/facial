@@ -40,7 +40,7 @@ const App: React.FC = () => {
   const [success, setSuccess] = useState('');
   const [isEventModalOpen, setEventModalOpen] = useState(false);
   const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
-  const [predefinedColors, setPredefinedColors] = useState<string[] | undefined>(undefined);
+  const [predefinedSector, setPredefinedSector] = useState<string | string[] | undefined>(undefined);
 
   const clearMessages = () => {
     setError('');
@@ -103,7 +103,7 @@ const App: React.FC = () => {
         if (supplierSlug) {
           const supplier = fetchedSuppliers.find(s => s.slug === supplierSlug);
           if (supplier) {
-            setPredefinedColors(supplier.braceletColors);
+            setPredefinedSector(supplier.sector);
             setCurrentView('register');
           }
         }
@@ -167,11 +167,11 @@ const App: React.FC = () => {
     }
   };
 
-  const handleAddSupplier = async (name: string, colors: string[]) => {
+  const handleAddSupplier = async (name: string, sectors: string[]) => {
     if (!selectedEvent?.id) return;
     const slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
     try {
-      await FirebaseService.addSupplier(selectedEvent.id, { name, braceletColors: colors, slug });
+      await FirebaseService.addSupplier(selectedEvent.id, { name, sector: sectors, slug });
       showSuccess(t('admin.success.supplierAdded'));
     } catch (err: any) {
         if(err.code === 'duplicate-slug') {
@@ -209,22 +209,17 @@ const App: React.FC = () => {
     }
   }
   
-  const isSupplierView = !!predefinedColors;
+  const isSupplierView = !!predefinedSector;
 
   const renderView = () => {
     if (currentView === 'register') {
-      return <RegisterView onRegister={handleRegister} setError={showError} predefinedColors={predefinedColors} />;
+      return <RegisterView onRegister={handleRegister} setError={showError} predefinedSector={predefinedSector} />;
     }
     if (currentView === 'checkin') {
       return <CheckinView attendees={attendees} onCheckin={handleManualCheckin} />;
     }
     if (currentView === 'admin') {
-      // Safeguard to prevent crash if selectedEvent or its ID is missing.
-      // This state should ideally not be reachable due to the outer check, but this makes it robust.
-      if (!selectedEvent?.id) {
-        return null;
-      }
-      return <AdminView eventId={selectedEvent.id} suppliers={suppliers} onAddSupplier={handleAddSupplier} setSuccess={showSuccess} setError={showError}/>;
+      return <AdminView eventId={selectedEvent!.id!} suppliers={suppliers} onAddSupplier={handleAddSupplier} setSuccess={showSuccess} setError={showError}/>;
     }
     return null;
   };

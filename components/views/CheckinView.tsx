@@ -10,16 +10,16 @@ interface CheckinViewProps {
 }
 
 const CheckinView: React.FC<CheckinViewProps> = ({ attendees, onCheckin }) => {
-  const { t, braceletColors } = useTranslation();
+  const { t, sectors } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
-  const [colorFilter, setColorFilter] = useState('');
+  const [sectorFilter, setSectorFilter] = useState('');
 
   const filteredAttendees = attendees.filter(attendee => {
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
     const nameMatch = attendee.name.toLowerCase().includes(lowerCaseSearchTerm);
     const cpfMatch = attendee.cpf.includes(searchTerm.replace(/\D/g, '')); // Search by numbers in CPF
-    const colorMatch = colorFilter ? attendee.braceletColor === colorFilter : true;
-    return (nameMatch || cpfMatch) && colorMatch;
+    const sectorMatch = sectorFilter ? attendee.sector === sectorFilter : true;
+    return (nameMatch || cpfMatch) && sectorMatch;
   });
 
   return (
@@ -42,12 +42,12 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, onCheckin }) => {
           />
         </div>
         <select
-          onChange={(e) => setColorFilter(e.target.value)}
-          value={colorFilter}
+          onChange={(e) => setSectorFilter(e.target.value)}
+          value={sectorFilter}
           className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
         >
-          <option value="">{t('checkin.filterColorPlaceholder')}</option>
-          {braceletColors.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+          <option value="">{t('checkin.filterSectorPlaceholder')}</option>
+          {sectors.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
         </select>
       </div>
       {attendees.length === 0 ? (

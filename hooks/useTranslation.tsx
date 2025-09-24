@@ -25,8 +25,8 @@ const translations = {
         namePlaceholder: "Ex: João da Silva",
         cpfLabel: "CPF",
         cpfPlaceholder: "000.000.000-00",
-        braceletColorLabel: "Cor da Pulseira",
-        braceletColorPlaceholder: "Selecione uma cor",
+        sectorLabel: "Setor",
+        sectorPlaceholder: "Selecione um setor",
         button: "Cadastrar Participante"
       },
       errors: {
@@ -40,7 +40,7 @@ const translations = {
     checkin: {
       title: "Lista de Participantes",
       searchPlaceholder: "Buscar por nome ou CPF...",
-      filterColorPlaceholder: "Filtrar por cor",
+      filterSectorPlaceholder: "Filtrar por setor",
       noAttendees: "Nenhum participante cadastrado.",
       noAttendeesSubtitle: "Use a aba 'Cadastrar' para adicionar o primeiro.",
       noResults: "Nenhum participante encontrado com os filtros atuais.",
@@ -48,7 +48,7 @@ const translations = {
       success: (name: string) => `Check-in de ${name} realizado com sucesso!`,
     },
     attendeeCard: {
-        braceletColorLabel: "Pulseira",
+        sectorLabel: "Setor",
         status: {
             checkedIn: "Check-in realizado",
             registered: "Registrado"
@@ -60,7 +60,7 @@ const translations = {
             title: "Adicionar Fornecedor",
             nameLabel: "Nome do Fornecedor/Empresa",
             namePlaceholder: "Ex: Fotografia VIP",
-            braceletColorLabel: "Cor(es) da Pulseira",
+            sectorLabel: "Setor(es) de Acesso",
             button: "Adicionar Fornecedor"
         },
         list: {
@@ -72,7 +72,7 @@ const translations = {
             copied: "Copiado!"
         },
         errors: {
-            allFields: "Nome e ao menos uma cor de pulseira são obrigatórios.",
+            allFields: "Nome e ao menos um setor são obrigatórios.",
             duplicate: "Já existe um fornecedor com este nome/link.",
             generic: "Erro ao adicionar fornecedor."
         },
@@ -107,17 +107,13 @@ const translations = {
   },
 };
 
-const braceletColors = [
-    { value: 'blue', label: 'Azul', hex: '#3b82f6' },
-    { value: 'green', label: 'Verde', hex: '#22c55e' },
-    { value: 'red', label: 'Vermelha', hex: '#ef4444' },
-    { value: 'yellow', label: 'Amarela', hex: '#eab308' },
-    { value: 'orange', label: 'Laranja', hex: '#f97316' },
-    { value: 'purple', label: 'Roxa', hex: '#a855f7' },
-    { value: 'white', label: 'Branca', hex: '#ffffff' },
-    { value: 'black', label: 'Preta', hex: '#1f2937' },
+const sectors = [
+    { value: 'pista', label: 'Pista' },
+    { value: 'pista-premium', label: 'Pista Premium' },
+    { value: 'camarote', label: 'Camarote' },
+    { value: 'backstage', label: 'Backstage' },
+    { value: 'staff', label: 'Staff' },
 ];
-
 
 type Translations = typeof translations.ptBR;
 
@@ -125,7 +121,7 @@ interface LanguageContextType {
   language: string;
   setLanguage: (language: string) => void;
   t: (key: string, ...args: any[]) => string;
-  braceletColors: typeof braceletColors;
+  sectors: typeof sectors;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -149,7 +145,7 @@ export const LanguageProvider = ({ children }: { children: ReactNode }) => {
     return result;
   };
 
-  const value = { language, setLanguage, t, braceletColors };
+  const value = { language, setLanguage, t, sectors };
 
   return (
     <LanguageContext.Provider value={value}>

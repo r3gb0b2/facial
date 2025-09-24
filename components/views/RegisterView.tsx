@@ -7,36 +7,39 @@ import { UsersIcon, CheckCircleIcon, SpinnerIcon } from '../icons';
 interface RegisterViewProps {
   onRegister: (newAttendee: Omit<Attendee, 'id' | 'status'>) => Promise<void>;
   setError: (message: string) => void;
-  predefinedColors?: string[];
+  predefinedSector?: string | string[];
 }
 
-const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, predefinedColors }) => {
-  const { t, braceletColors } = useTranslation();
+const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, predefinedSector }) => {
+  const { t, sectors } = useTranslation();
   const [name, setName] = useState('');
   const [cpf, setCpf] = useState('');
-  const [braceletColor, setBraceletColor] = useState('');
+  const [sector, setSector] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const isSupplierView = Array.isArray(predefinedColors);
+  const isSupplierWithMultipleSectors = Array.isArray(predefinedSector);
+  const isSupplierWithSingleSector = typeof predefinedSector === 'string';
 
   useEffect(() => {
-    let initialColor = '';
-    if (isSupplierView) {
-      initialColor = (predefinedColors as string[])[0] || '';
+    let initialSector = '';
+    if (isSupplierWithSingleSector) {
+      initialSector = predefinedSector as string;
+    } else if (isSupplierWithMultipleSectors) {
+      initialSector = (predefinedSector as string[])[0] || '';
     }
-    setBraceletColor(initialColor);
-  }, [predefinedColors, isSupplierView]);
+    setSector(initialSector);
+  }, [predefinedSector, isSupplierWithSingleSector, isSupplierWithMultipleSectors]);
   
 
   const clearForm = () => {
     setName('');
     setCpf('');
     setPhoto(null);
-    if (!predefinedColors) {
-      setBraceletColor('');
-    } else if (isSupplierView) {
-        setBraceletColor((predefinedColors as string[])[0] || '');
+    if (!predefinedSector) {
+      setSector('');
+    } else if (isSupplierWithMultipleSectors) {
+      setSector((predefinedSector as string[])[0] || '');
     }
   };
 
@@ -53,7 +56,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, prede
     e.preventDefault();
     const rawCpf = cpf.replace(/\D/g, '');
 
-    if (!name || !rawCpf || !photo || !braceletColor) {
+    if (!name || !rawCpf || !photo || !sector) {
       setError(t('register.errors.allFields'));
       setTimeout(() => setError(''), 3000);
       return;
@@ -66,7 +69,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, prede
 
     setIsSubmitting(true);
     try {
-      await onRegister({ name, cpf: rawCpf, photo, braceletColor });
+      await onRegister({ name, cpf: rawCpf, photo, sector });
       clearForm();
     } catch (error) {
       console.error("Registration failed:", error);
@@ -75,22 +78,26 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, prede
     }
   };
   
-  const renderColorInput = () => {
-    let colorOptions = braceletColors;
-    if (isSupplierView) {
-        colorOptions = braceletColors.filter(c => (predefinedColors as string[]).includes(c.value));
+  const renderSectorInput = () => {
+    if (isSupplierWithSingleSector) {
+      return null; // Sector is predefined and hidden
+    }
+
+    let sectorOptions = sectors;
+    if (isSupplierWithMultipleSectors) {
+        sectorOptions = sectors.filter(s => (predefinedSector as string[]).includes(s.value));
     }
 
     return (
         <div>
-          <label htmlFor="braceletColor" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.braceletColorLabel')}</label>
+          <label htmlFor="sector" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.sectorLabel')}</label>
           <select
-            id="braceletColor" value={braceletColor} onChange={(e) => setBraceletColor(e.target.value)}
+            id="sector" value={sector} onChange={(e) => setSector(e.target.value)}
             className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
             disabled={isSubmitting}
           >
-            {isSupplierView && colorOptions.length > 1 ? null : <option value="" disabled>{t('register.form.braceletColorPlaceholder')}</option>}
-            {colorOptions.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+            {isSupplierWithMultipleSectors ? null : <option value="" disabled>{t('register.form.sectorPlaceholder')}</option>}
+            {sectorOptions.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
         </div>
     );
@@ -122,8 +129,8 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, prede
               disabled={isSubmitting}
             />
           </div>
-          {renderColorInput()}
-          <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-indigo-400 disabled:cursor-wait" disabled={!name || !cpf || !photo || !braceletColor || isSubmitting}>
+          {renderSectorInput()}
+          <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-indigo-400 disabled:cursor-wait" disabled={!name || !cpf || !photo || !sector || isSubmitting}>
             {isSubmitting ? (
               <>
                 <SpinnerIcon className="w-5 h-5" />

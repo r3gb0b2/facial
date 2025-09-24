@@ -6,38 +6,38 @@ import { CogIcon, ClipboardIcon, CheckCircleIcon, SpinnerIcon } from '../icons';
 interface AdminViewProps {
   eventId: string;
   suppliers: Supplier[];
-  onAddSupplier: (name: string, colors: string[]) => Promise<void>;
+  onAddSupplier: (name: string, sectors: string[]) => Promise<void>;
   setSuccess: (message: string) => void;
   setError: (message: string) => void;
 }
 
 const AdminView: React.FC<AdminViewProps> = ({ eventId, suppliers, onAddSupplier, setSuccess, setError }) => {
-  const { t, braceletColors } = useTranslation();
+  const { t, sectors } = useTranslation();
   const [newSupplierName, setNewSupplierName] = useState('');
-  const [newSupplierColors, setNewSupplierColors] = useState<string[]>([]);
+  const [newSupplierSectors, setNewSupplierSectors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
 
-  const handleColorChange = (colorValue: string) => {
-    setNewSupplierColors(prev => 
-      prev.includes(colorValue) 
-        ? prev.filter(c => c !== colorValue) 
-        : [...prev, colorValue]
+  const handleSectorChange = (sectorValue: string) => {
+    setNewSupplierSectors(prev => 
+      prev.includes(sectorValue) 
+        ? prev.filter(s => s !== sectorValue) 
+        : [...prev, sectorValue]
     );
   };
 
   const handleAddSupplier = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSupplierName || newSupplierColors.length === 0) {
+    if (!newSupplierName || newSupplierSectors.length === 0) {
       setError(t('admin.errors.allFields'));
       setTimeout(() => setError(''), 3000);
       return;
     }
     setIsSubmitting(true);
     try {
-      await onAddSupplier(newSupplierName, newSupplierColors);
+      await onAddSupplier(newSupplierName, newSupplierSectors);
       setNewSupplierName('');
-      setNewSupplierColors([]);
+      setNewSupplierSectors([]);
     } catch (error) {
         // Error is already set in the parent component
     } finally {
@@ -77,25 +77,25 @@ const AdminView: React.FC<AdminViewProps> = ({ eventId, suppliers, onAddSupplier
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">{t('admin.form.braceletColorLabel')}</label>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 bg-gray-900/50 p-4 rounded-lg">
-                {braceletColors.map(c => (
-                    <label key={c.value} htmlFor={c.value} className="flex items-center space-x-2 cursor-pointer text-sm text-gray-200">
+            <label className="block text-sm font-medium text-gray-300 mb-2">{t('admin.form.sectorLabel')}</label>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 bg-gray-900/50 p-4 rounded-lg">
+                {sectors.map(s => (
+                    <label key={s.value} htmlFor={s.value} className="flex items-center space-x-2 cursor-pointer text-sm text-gray-200">
                         <input
                             type="checkbox"
-                            id={c.value}
-                            value={c.value}
-                            checked={newSupplierColors.includes(c.value)}
-                            onChange={() => handleColorChange(c.value)}
+                            id={s.value}
+                            value={s.value}
+                            checked={newSupplierSectors.includes(s.value)}
+                            onChange={() => handleSectorChange(s.value)}
                             disabled={isSubmitting}
                             className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
                         />
-                        <span>{c.label}</span>
+                        <span>{s.label}</span>
                     </label>
                 ))}
             </div>
           </div>
-          <button type="submit" className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-indigo-400 disabled:cursor-wait" disabled={!newSupplierName || newSupplierColors.length === 0 || isSubmitting}>
+          <button type="submit" className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-indigo-400 disabled:cursor-wait" disabled={!newSupplierName || newSupplierSectors.length === 0 || isSubmitting}>
             {isSubmitting ? (
               <>
                 <SpinnerIcon className="w-5 h-5" />
@@ -120,7 +120,7 @@ const AdminView: React.FC<AdminViewProps> = ({ eventId, suppliers, onAddSupplier
                 <div>
                   <p className="font-semibold text-white">{supplier.name}</p>
                   <p className="text-sm text-gray-400">
-                    Cor(es): {supplier.braceletColors.map(c => braceletColors.find(opt => opt.value === c)?.label || c).join(', ')}
+                    Setor(es): {supplier.sector.map(s => sectors.find(opt => opt.value === s)?.label || s).join(', ')}
                   </p>
                 </div>
                 <button

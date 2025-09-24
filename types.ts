@@ -10,13 +10,13 @@ export interface Attendee {
   photo: string; // This will be a URL from Firebase Storage, not base64
   status: CheckinStatus;
   checkinTime?: string;
-  braceletColor?: string;
+  sector?: string;
 }
 
 export interface Supplier {
   id?: string; // ID from Firestore
   name: string;
-  braceletColors: string[]; // Supplier can have access to multiple sectors
+  sector: string[]; // Supplier can have access to multiple sectors
   slug: string; // URL-friendly identifier
 }
 

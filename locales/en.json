@@ -21,8 +21,8 @@
       "namePlaceholder": "Ex: John Doe",
       "cpfLabel": "ID / CPF",
       "cpfPlaceholder": "000.000.000-00",
-      "braceletColorLabel": "Bracelet Color",
-      "braceletColorPlaceholder": "Select a color",
+      "sectorLabel": "Sector",
+      "sectorPlaceholder": "Select a sector",
       "button": "Register Attendee"
     },
     "errors": {
@@ -36,7 +36,7 @@
   "checkin": {
     "title": "Attendee List",
     "searchPlaceholder": "Search by name or ID/CPF...",
-    "filterColorPlaceholder": "Filter by color",
+    "filterSectorPlaceholder": "Filter by sector",
     "noAttendees": "No attendees registered.",
     "noAttendeesSubtitle": "Use the 'Register' tab to add the first one.",
     "noResults": "No attendees found with the current filters.",
@@ -44,7 +44,7 @@
     "success": "Check-in for {} completed successfully!"
   },
   "attendeeCard": {
-      "braceletColorLabel": "Bracelet",
+      "sectorLabel": "Sector",
       "status": {
           "checkedIn": "Checked-in",
           "registered": "Registered"
@@ -56,7 +56,7 @@
           "title": "Add Supplier",
           "nameLabel": "Supplier/Company Name",
           "namePlaceholder": "Ex: VIP Photography",
-          "braceletColorLabel": "Bracelet Color(s)",
+          "sectorLabel": "Access Sector(s)",
           "button": "Add Supplier"
       },
       "list": {
@@ -68,7 +68,7 @@
           "copied": "Copied!"
       },
       "errors": {
-          "allFields": "Name and at least one bracelet color are required.",
+          "allFields": "Name and at least one sector are required.",
           "duplicate": "A supplier with this name/link already exists.",
           "generic": "Error adding supplier."
       },
