@@ -85,11 +85,14 @@ const translations = {
     'suppliers.disableButton': 'Desativar',
     'suppliers.enableButton': 'Ativar',
     'suppliers.editButton': 'Editar',
+    'suppliers.deleteButton': 'Deletar',
     'suppliers.cancelButton': 'Cancelar',
     'suppliers.saveButton': 'Salvar',
     'suppliers.noNameError': 'O nome do fornecedor é obrigatório.',
     'suppliers.noSectorsError': 'Selecione ao menos um setor.',
     'suppliers.noLimitError': 'O limite de cadastro deve ser um número maior que zero.',
+    'suppliers.deleteConfirm': (name: string) => `Tem certeza que deseja deletar o fornecedor "${name}"? Esta ação não pode ser desfeita.`,
+    'suppliers.deleteErrorInUse': (name: string) => `O fornecedor "${name}" não pode ser excluído pois já possui participantes cadastrados.`,
 
     // Sectors
     'sectors.title': 'Gerenciar Setores',

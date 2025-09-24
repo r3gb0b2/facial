@@ -56,22 +56,29 @@ const App: React.FC = () => {
         return () => unsubscribe();
     }, [isLoggedIn]);
 
+    // This effect manages the real-time data listeners for the admin view.
     useEffect(() => {
-        if (!currentEvent || currentView !== 'admin') {
-            setAttendees([]);
-            setSuppliers([]);
-            setSectors([]);
+        // If we are not in the admin view or there's no selected event, we should not have any listeners active.
+        // The cleanup function from the previous render will handle detaching them.
+        if (currentView !== 'admin' || !currentEvent) {
             return;
         }
 
+        // We are in the admin view with an event selected, so attach the listeners.
         const unsubAttendees = api.getAttendees(currentEvent.id, setAttendees);
         const unsubSuppliers = api.getSuppliers(currentEvent.id, setSuppliers);
         const unsubSectors = api.getSectors(currentEvent.id, setSectors);
         
+        // This cleanup function is crucial. It runs when the dependencies change (e.g., when the user
+        // navigates away from the admin view by changing `currentView` or `currentEvent`).
         return () => {
             unsubAttendees();
             unsubSuppliers();
             unsubSectors();
+            // Clear the data to ensure no stale data flashes on the screen when returning to the admin view later.
+            setAttendees([]);
+            setSuppliers([]);
+            setSectors([]);
         };
     }, [currentEvent, currentView]);
 
@@ -190,6 +197,11 @@ const App: React.FC = () => {
         return api.updateSupplier(currentEvent.id, supplierId, data);
     };
 
+    const handleDeleteSupplier = (supplier: Supplier) => {
+        if (!currentEvent) return Promise.reject();
+        return api.deleteSupplier(currentEvent.id, supplier.id);
+    };
+
     const handleSupplierStatusUpdate = (supplierId: string, active: boolean) => {
         if (!currentEvent) return Promise.reject();
         return api.updateSupplier(currentEvent.id, supplierId, { active });
@@ -244,6 +256,7 @@ const App: React.FC = () => {
                     onImportAttendees={handleImportAttendees}
                     onAddSupplier={handleAddSupplier}
                     onUpdateSupplier={handleUpdateSupplier}
+                    onDeleteSupplier={handleDeleteSupplier}
                     onSupplierStatusUpdate={handleSupplierStatusUpdate}
                     onAddSector={handleAddSector}
                     onUpdateSector={handleUpdateSector}

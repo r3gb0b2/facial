@@ -302,3 +302,13 @@ export const updateSupplier = async (eventId: string, supplierId: string, data: 
     const eventRef = db.collection('events').doc(ensureEventId(eventId));
     await eventRef.collection('suppliers').doc(supplierId).update(data);
 };
+
+export const deleteSupplier = async (eventId: string, supplierId: string): Promise<void> => {
+    const eventRef = db.collection('events').doc(ensureEventId(eventId));
+    // Safety check: prevent deletion if the supplier has registered attendees.
+    const attendeesSnapshot = await eventRef.collection('attendees').where('supplierId', '==', supplierId).limit(1).get();
+    if (!attendeesSnapshot.empty) {
+        throw new Error('Supplier has registered attendees and cannot be deleted.');
+    }
+    await eventRef.collection('suppliers').doc(supplierId).delete();
+};

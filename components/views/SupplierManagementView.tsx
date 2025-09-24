@@ -11,11 +11,12 @@ interface SupplierManagementViewProps {
     sectors: Sector[];
     onAddSupplier: (name: string, sectors: string[], registrationLimit: number) => Promise<void>;
     onUpdateSupplier: (supplierId: string, data: Partial<Supplier>) => Promise<void>;
+    onDeleteSupplier: (supplier: Supplier) => Promise<void>;
     onSupplierStatusUpdate: (supplierId: string, active: boolean) => Promise<void>;
     setError: (message: string) => void;
 }
 
-const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ currentEventId, suppliers, attendees, sectors, onAddSupplier, onUpdateSupplier, onSupplierStatusUpdate, setError }) => {
+const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ currentEventId, suppliers, attendees, sectors, onAddSupplier, onUpdateSupplier, onDeleteSupplier, onSupplierStatusUpdate, setError }) => {
     const { t } = useTranslation();
     
     // State for the creation form
@@ -112,6 +113,20 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
         navigator.clipboard.writeText(url);
         setCopiedLink(supplier.id);
         setTimeout(() => setCopiedLink(null), 2000);
+    };
+
+    const handleDelete = async (supplier: Supplier) => {
+        if (window.confirm(t('suppliers.deleteConfirm', supplier.name))) {
+            try {
+                await onDeleteSupplier(supplier);
+            } catch (e: any) {
+                 if (e.message.includes("cannot be deleted")) {
+                    setError(t('suppliers.deleteErrorInUse', supplier.name));
+                } else {
+                    setError(e.message || 'Falha ao deletar o fornecedor.');
+                }
+            }
+        }
     };
     
     const getSectorLabel = (id: string) => {
@@ -232,6 +247,9 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                         <button onClick={() => handleEditClick(supplier)} className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-3 rounded-lg flex items-center gap-2">
                                             <PencilIcon className="w-4 h-4" />
                                             {t('suppliers.editButton')}
+                                        </button>
+                                         <button onClick={() => handleDelete(supplier)} className="bg-red-600 hover:bg-red-700 text-white font-bold p-2.5 rounded-lg flex items-center gap-2">
+                                            <TrashIcon className="w-4 h-4" />
                                         </button>
                                     </div>
                                 </div>
