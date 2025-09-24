@@ -21,8 +21,8 @@
       "namePlaceholder": "Ex: João da Silva",
       "cpfLabel": "CPF",
       "cpfPlaceholder": "000.000.000-00",
-      "sectorLabel": "Setor",
-      "sectorPlaceholder": "Selecione um setor",
+      "braceletColorLabel": "Cor da Pulseira",
+      "braceletColorPlaceholder": "Selecione uma cor",
       "button": "Cadastrar Participante"
     },
     "errors": {
@@ -36,7 +36,7 @@
   "checkin": {
     "title": "Lista de Participantes",
     "searchPlaceholder": "Buscar por nome ou CPF...",
-    "filterSectorPlaceholder": "Filtrar por setor",
+    "filterColorPlaceholder": "Filtrar por cor",
     "noAttendees": "Nenhum participante cadastrado.",
     "noAttendeesSubtitle": "Use a aba 'Cadastrar' para adicionar o primeiro.",
     "noResults": "Nenhum participante encontrado com os filtros atuais.",
@@ -44,7 +44,7 @@
     "success": "Check-in de {} realizado com sucesso!"
   },
   "attendeeCard": {
-      "sectorLabel": "Setor",
+      "braceletColorLabel": "Pulseira",
       "status": {
           "checkedIn": "Check-in realizado",
           "registered": "Registrado"
@@ -56,7 +56,7 @@
           "title": "Adicionar Fornecedor",
           "nameLabel": "Nome do Fornecedor/Empresa",
           "namePlaceholder": "Ex: Fotografia VIP",
-          "sectorLabel": "Setor(es) de Acesso",
+          "braceletColorLabel": "Cor(es) da Pulseira",
           "button": "Adicionar Fornecedor"
       },
       "list": {
@@ -68,7 +68,7 @@
           "copied": "Copiado!"
       },
       "errors": {
-          "allFields": "Nome e ao menos um setor são obrigatórios.",
+          "allFields": "Nome e ao menos uma cor de pulseira são obrigatórios.",
           "duplicate": "Já existe um fornecedor com este nome/link.",
           "generic": "Erro ao adicionar fornecedor."
       },

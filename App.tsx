@@ -40,7 +40,7 @@ const App: React.FC = () => {
   const [success, setSuccess] = useState('');
   const [isEventModalOpen, setEventModalOpen] = useState(false);
   const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
-  const [predefinedSector, setPredefinedSector] = useState<string | string[] | undefined>(undefined);
+  const [predefinedColors, setPredefinedColors] = useState<string[] | undefined>(undefined);
 
   const clearMessages = () => {
     setError('');
@@ -103,7 +103,7 @@ const App: React.FC = () => {
         if (supplierSlug) {
           const supplier = fetchedSuppliers.find(s => s.slug === supplierSlug);
           if (supplier) {
-            setPredefinedSector(supplier.sector);
+            setPredefinedColors(supplier.braceletColors);
             setCurrentView('register');
           }
         }
@@ -167,11 +167,11 @@ const App: React.FC = () => {
     }
   };
 
-  const handleAddSupplier = async (name: string, sectors: string[]) => {
+  const handleAddSupplier = async (name: string, colors: string[]) => {
     if (!selectedEvent?.id) return;
     const slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
     try {
-      await FirebaseService.addSupplier(selectedEvent.id, { name, sector: sectors, slug });
+      await FirebaseService.addSupplier(selectedEvent.id, { name, braceletColors: colors, slug });
       showSuccess(t('admin.success.supplierAdded'));
     } catch (err: any) {
         if(err.code === 'duplicate-slug') {
@@ -209,11 +209,11 @@ const App: React.FC = () => {
     }
   }
   
-  const isSupplierView = !!predefinedSector;
+  const isSupplierView = !!predefinedColors;
 
   const renderView = () => {
     if (currentView === 'register') {
-      return <RegisterView onRegister={handleRegister} setError={showError} predefinedSector={predefinedSector} />;
+      return <RegisterView onRegister={handleRegister} setError={showError} predefinedColors={predefinedColors} />;
     }
     if (currentView === 'checkin') {
       return <CheckinView attendees={attendees} onCheckin={handleManualCheckin} />;

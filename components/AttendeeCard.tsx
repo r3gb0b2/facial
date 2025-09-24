@@ -9,9 +9,10 @@ interface AttendeeCardProps {
 }
 
 const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect }) => {
-  const { t, sectors } = useTranslation();
+  const { t, braceletColors } = useTranslation();
   const isCheckedIn = attendee.status === CheckinStatus.CHECKED_IN;
-  const sectorLabel = sectors.find(s => s.value === attendee.sector)?.label || attendee.sector;
+  const colorInfo = braceletColors.find(c => c.value === attendee.braceletColor);
+  const colorLabel = colorInfo?.label || attendee.braceletColor;
 
   return (
     <div
@@ -34,7 +35,16 @@ const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect }) => {
       <div className="p-4">
         <h3 className="text-lg font-bold text-white truncate">{attendee.name}</h3>
         <p className="text-sm text-gray-400 truncate">{attendee.cpf}</p>
-        {attendee.sector && <p className="text-xs text-indigo-300 mt-1">{t('attendeeCard.sectorLabel')}: {sectorLabel}</p>}
+        {attendee.braceletColor && (
+          <p className="text-xs text-indigo-300 mt-1 flex items-center gap-2">
+            {t('attendeeCard.braceletColorLabel')}: 
+            <span 
+                className="w-3 h-3 rounded-full inline-block border border-gray-500" 
+                style={{ backgroundColor: colorInfo?.hex || 'transparent' }}
+            ></span>
+            {colorLabel}
+          </p>
+        )}
         <div className="mt-3 flex justify-between items-center text-xs">
           <span
             className={`font-semibold px-2 py-1 rounded-full ${
