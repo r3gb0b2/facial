@@ -27,7 +27,11 @@ const App: React.FC = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   
   // Auth State
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(() => {
+    // Bypass login if it's a supplier link
+    const params = new URLSearchParams(window.location.search);
+    return params.has('eventId') && params.has('supplier');
+  });
   const [loginError, setLoginError] = useState<string | null>(null);
 
   // UI State
@@ -205,6 +209,8 @@ const App: React.FC = () => {
     }
   }
   
+  const isSupplierView = !!predefinedSector;
+
   const renderView = () => {
     if (currentView === 'register') {
       return <RegisterView onRegister={handleRegister} setError={showError} predefinedSector={predefinedSector} />;
@@ -254,8 +260,6 @@ const App: React.FC = () => {
     );
   }
   
-  const isSupplierView = !!predefinedSector;
-
   return (
     <div className="bg-gray-900 text-white min-h-screen font-sans">
       {(error || success) && (
@@ -266,7 +270,10 @@ const App: React.FC = () => {
       )}
 
       <header className="py-6 text-center">
-        <h1 onClick={() => { window.history.pushState({}, '', window.location.pathname); setSelectedEvent(null); }} className="text-4xl md:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500 cursor-pointer">
+        <h1 
+          onClick={!isSupplierView ? () => { window.history.pushState({}, '', window.location.pathname); setSelectedEvent(null); } : undefined} 
+          className={`text-4xl md:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500 ${!isSupplierView ? 'cursor-pointer' : ''}`}
+        >
           {t('header.title')}
         </h1>
         <p className="text-gray-400 mt-2">{selectedEvent.name}</p>
