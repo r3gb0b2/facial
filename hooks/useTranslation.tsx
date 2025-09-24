@@ -44,14 +44,24 @@ const translations = {
       noAttendees: "Nenhum participante cadastrado.",
       noAttendeesSubtitle: "Use a aba 'Cadastrar' para adicionar o primeiro.",
       noResults: "Nenhum participante encontrado com os filtros atuais.",
-      manualConfirm: (name: string) => `Deseja confirmar o check-in de ${name}?`,
+      statusModal: {
+        title: (name: string) => `Alterar Status de ${name}`,
+        checkinButton: "Realizar Check-in",
+        cancelButton: "Cancelar Inscrição",
+        substituteButton: "Substituir",
+        missedButton: "Marcar como Faltou"
+      },
+      statusUpdateSuccess: (name: string) => `Status de ${name} atualizado com sucesso!`,
       success: (name: string) => `Check-in de ${name} realizado com sucesso!`,
     },
     attendeeCard: {
         sectorLabel: "Setor",
         status: {
             checkedIn: "Check-in realizado",
-            registered: "Registrado"
+            registered: "Registrado",
+            cancelled: "Cancelado",
+            substitution: "Substituição",
+            missed: "Faltou"
         }
     },
     admin: {

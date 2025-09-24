@@ -40,14 +40,24 @@
     "noAttendees": "Nenhum participante cadastrado.",
     "noAttendeesSubtitle": "Use a aba 'Cadastrar' para adicionar o primeiro.",
     "noResults": "Nenhum participante encontrado com os filtros atuais.",
-    "manualConfirm": "Deseja confirmar o check-in de {}?",
+    "statusModal": {
+      "title": "Alterar Status de {}",
+      "checkinButton": "Realizar Check-in",
+      "cancelButton": "Cancelar Inscrição",
+      "substituteButton": "Substituir",
+      "missedButton": "Marcar como Faltou"
+    },
+    "statusUpdateSuccess": "Status de {} atualizado com sucesso!",
     "success": "Check-in de {} realizado com sucesso!"
   },
   "attendeeCard": {
       "sectorLabel": "Setor",
       "status": {
           "checkedIn": "Check-in realizado",
-          "registered": "Registrado"
+          "registered": "Registrado",
+          "cancelled": "Cancelado",
+          "substitution": "Substituição",
+          "missed": "Faltou"
       }
   },
   "admin": {

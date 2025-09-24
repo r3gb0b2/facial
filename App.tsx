@@ -140,20 +140,20 @@ const App: React.FC = () => {
     }
   };
 
-  const handleManualCheckin = async (attendee: Attendee) => {
-    if (attendee.status === CheckinStatus.CHECKED_IN) return;
-    if (window.confirm(t('checkin.manualConfirm', attendee.name))) {
-        if (!selectedEvent?.id || !attendee.id) return;
-        try {
-            await FirebaseService.updateAttendee(selectedEvent.id, attendee.id, {
-                status: CheckinStatus.CHECKED_IN,
-                checkinTime: new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
-            });
-            showSuccess(t('checkin.success', attendee.name));
-        } catch (err) {
-            console.error(err);
-            showError("Erro ao confirmar check-in.");
+  const handleStatusUpdate = async (attendee: Attendee, newStatus: CheckinStatus) => {
+    if (!selectedEvent?.id || !attendee.id) return;
+    try {
+        const updates: Partial<Attendee> = { status: newStatus };
+        if (newStatus === CheckinStatus.CHECKED_IN) {
+            updates.checkinTime = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+        } else {
+            updates.checkinTime = '';
         }
+        await FirebaseService.updateAttendee(selectedEvent.id, attendee.id, updates);
+        showSuccess(t('checkin.statusUpdateSuccess', attendee.name));
+    } catch (err) {
+        console.error(err);
+        showError("Erro ao atualizar status do participante.");
     }
   };
   
@@ -216,10 +216,10 @@ const App: React.FC = () => {
       return <RegisterView onRegister={handleRegister} setError={showError} predefinedSector={predefinedSector} />;
     }
     if (currentView === 'checkin') {
-      return <CheckinView attendees={attendees} onCheckin={handleManualCheckin} />;
+      return <CheckinView attendees={attendees} onStatusUpdate={handleStatusUpdate} />;
     }
-    if (currentView === 'admin') {
-      return <AdminView eventId={selectedEvent!.id!} suppliers={suppliers} onAddSupplier={handleAddSupplier} setSuccess={showSuccess} setError={showError}/>;
+    if (currentView === 'admin' && selectedEvent?.id) {
+      return <AdminView eventId={selectedEvent.id} suppliers={suppliers} onAddSupplier={handleAddSupplier} setSuccess={showSuccess} setError={showError}/>;
     }
     return null;
   };

@@ -40,14 +40,24 @@
     "noAttendees": "No attendees registered.",
     "noAttendeesSubtitle": "Use the 'Register' tab to add the first one.",
     "noResults": "No attendees found with the current filters.",
-    "manualConfirm": "Do you want to confirm the check-in for {}?",
+    "statusModal": {
+      "title": "Update Status for {}",
+      "checkinButton": "Check In",
+      "cancelButton": "Cancel Registration",
+      "substituteButton": "Substitute",
+      "missedButton": "Mark as Missed"
+    },
+    "statusUpdateSuccess": "Successfully updated status for {}.",
     "success": "Check-in for {} completed successfully!"
   },
   "attendeeCard": {
       "sectorLabel": "Sector",
       "status": {
           "checkedIn": "Checked-in",
-          "registered": "Registered"
+          "registered": "Registered",
+          "cancelled": "Cancelled",
+          "substitution": "Substitution",
+          "missed": "Missed"
       }
   },
   "admin": {

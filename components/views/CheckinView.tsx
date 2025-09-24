@@ -1,23 +1,43 @@
 import React, { useState } from 'react';
-import { Attendee } from '../../types';
+import { Attendee, CheckinStatus } from '../../types';
 import AttendeeCard from '../AttendeeCard';
 import { FingerPrintIcon, SearchIcon } from '../icons';
 import { useTranslation } from '../../hooks/useTranslation';
+import StatusUpdateModal from '../StatusUpdateModal';
 
 interface CheckinViewProps {
   attendees: Attendee[];
-  onCheckin: (attendee: Attendee) => void;
+  onStatusUpdate: (attendee: Attendee, newStatus: CheckinStatus) => void;
 }
 
-const CheckinView: React.FC<CheckinViewProps> = ({ attendees, onCheckin }) => {
+const CheckinView: React.FC<CheckinViewProps> = ({ attendees, onStatusUpdate }) => {
   const { t, sectors } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [sectorFilter, setSectorFilter] = useState('');
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedAttendee, setSelectedAttendee] = useState<Attendee | null>(null);
+
+  const handleOpenModal = (attendee: Attendee) => {
+    if (attendee.status !== CheckinStatus.REGISTERED) return;
+    setSelectedAttendee(attendee);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedAttendee(null);
+  };
+
+  const handleUpdate = (newStatus: CheckinStatus) => {
+    if (selectedAttendee) {
+      onStatusUpdate(selectedAttendee, newStatus);
+    }
+  };
 
   const filteredAttendees = attendees.filter(attendee => {
     const lowerCaseSearchTerm = searchTerm.toLowerCase();
     const nameMatch = attendee.name.toLowerCase().includes(lowerCaseSearchTerm);
-    const cpfMatch = attendee.cpf.includes(searchTerm.replace(/\D/g, '')); // Search by numbers in CPF
+    const cpfMatch = attendee.cpf.includes(searchTerm.replace(/\D/g, ''));
     const sectorMatch = sectorFilter ? attendee.sector === sectorFilter : true;
     return (nameMatch || cpfMatch) && sectorMatch;
   });
@@ -62,10 +82,16 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, onCheckin }) => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredAttendees.map(attendee => (
-            <AttendeeCard key={attendee.id} attendee={attendee} onSelect={onCheckin} />
+            <AttendeeCard key={attendee.id} attendee={attendee} onSelect={handleOpenModal} />
           ))}
         </div>
       )}
+      <StatusUpdateModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onUpdate={handleUpdate}
+        attendee={selectedAttendee}
+      />
     </div>
   );
 };

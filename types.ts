@@ -1,6 +1,9 @@
 export enum CheckinStatus {
   REGISTERED = 'Registered',
   CHECKED_IN = 'Checked-in',
+  CANCELLED = 'Cancelled',
+  SUBSTITUTION = 'Substitution',
+  MISSED = 'Missed',
 }
 
 export interface Attendee {
