@@ -1,4 +1,5 @@
-// FIX: Provided full content for `types.ts` to define application-wide types.
+import { Timestamp } from "firebase/firestore";
+
 export enum CheckinStatus {
   PENDING = 'PENDING',
   CHECKED_IN = 'CHECKED_IN',
@@ -11,29 +12,29 @@ export interface Attendee {
   id: string;
   name: string;
   cpf: string;
-  photo: string; // URL to the photo in storage
-  sector: string; // Sector ID
+  photo: string; // This is a URL to the image in Firebase Storage
+  sector: string;
   status: CheckinStatus;
   eventId: string;
-  createdAt: any; // Firestore Timestamp
-}
-
-export interface Sector {
-  id: string;
-  label: string;
-  eventId: string;
+  createdAt: Timestamp;
+  supplierId?: string; // To track which supplier registered the attendee
 }
 
 export interface Event {
   id: string;
   name: string;
-  createdAt: any; // Firestore Timestamp
+  createdAt: Timestamp;
 }
 
 export interface Supplier {
   id: string;
   name: string;
-  sectors: string[]; // array of sector IDs
-  password?: string; // used for login
-  eventId: string;
+  sectors: string[];
+  active: boolean;
+  registrationLimit: number;
+}
+
+export interface Sector {
+  id: string; // e.g., 'staff'
+  label: string; // e.g., 'Staff'
 }

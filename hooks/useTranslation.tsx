@@ -1,109 +1,172 @@
-// FIX: Provided full content for `hooks/useTranslation.tsx` to implement a translation context.
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, ReactNode } from 'react';
 
-// Simple dictionary for translations
 const translations = {
-  pt: {
-    "header.title": "Check-in Facial",
-    "header.subtitle": "Gestão de Eventos e Credenciamento",
-    "login.title": "Acesso Restrito",
-    "login.passwordLabel": "Senha de Acesso",
-    "login.passwordPlaceholder": "Digite a senha",
-    "login.button": "Entrar",
-    "events.title": "Selecione o Evento",
-    "events.noEvents": "Nenhum evento encontrado.",
-    "events.noEventsSubtitle": "Crie um novo evento para começar a gerenciar os participantes.",
-    "events.createButton": "Criar Novo Evento",
-    "events.modal.createTitle": "Criar Novo Evento",
-    "events.modal.editTitle": "Editar Evento",
-    "events.modal.nameLabel": "Nome do Evento",
-    "events.modal.namePlaceholder": "Ex: Conferência de Tecnologia 2024",
-    "events.modal.error": "O nome do evento não pode ficar em branco.",
-    "events.modal.saveButton": "Salvar Alterações",
-    "events.modal.createButton": "Criar Evento",
-    "sectors.title": "Gerenciar Setores",
-    "sectors.noSectors": "Nenhum setor cadastrado.",
-    "sectors.noSectorsSubtitle": "Crie setores para organizar os participantes.",
-    "sectors.createButton": "Adicionar Setor",
-    "sectors.deleteConfirm": "Tem certeza que deseja deletar o setor \"{0}\"? Esta ação não pode ser desfeita.",
-    "sectors.deleteErrorInUse": "O setor \"{0}\" não pode ser deletado pois está em uso por participantes ou fornecedores.",
-    "sectors.modal.createTitle": "Criar Novo Setor",
-    "sectors.modal.editTitle": "Editar Setor",
-    "sectors.modal.labelLabel": "Nome do Setor",
-    "sectors.modal.labelPlaceholder": "Ex: Pista, Camarote, Staff",
-    "sectors.modal.error": "O nome do setor não pode ficar em branco.",
-    "sectors.modal.saveButton": "Salvar",
-    "sectors.modal.createButton": "Criar",
-    "register.title": "Registro de Participante",
-    "register.checkingCpf": "Verificando CPF...",
-    "register.cpfFound": "CPF encontrado. Dados carregados.",
-    "register.cpfNotFound": "CPF não encontrado. Preencha os dados.",
-    "register.errors.cpfCheckError": "Erro ao verificar o CPF. Tente novamente.",
-    "register.errors.cpfCheckIndexError": "Erro de configuração do banco de dados (índice ausente). Contate o suporte.",
-    "register.errors.allFields": "Todos os campos, incluindo a foto, são obrigatórios.",
-    "register.errors.invalidCpf": "CPF inválido. Deve conter 11 dígitos.",
-    "register.form.cpfLabel": "CPF",
-    "register.form.cpfPlaceholder": "000.000.000-00",
-    "register.form.nameLabel": "Nome Completo",
-    "register.form.namePlaceholder": "Digite o nome completo",
-    "register.form.sectorLabel": "Setor",
-    "register.form.sectorPlaceholder": "Selecione um setor",
-    "register.form.button": "Registrar Participante",
-    "checkin.title": "Lista de Participantes",
-    "checkin.searchPlaceholder": "Buscar por nome ou CPF...",
-    "checkin.filterSectorPlaceholder": "Todos os setores",
-    "checkin.noAttendees": "Nenhum participante registrado neste evento ainda.",
-    "checkin.noAttendeesSubtitle": "Use a aba 'Registrar' para adicionar novos participantes.",
-    "checkin.noResults": "Nenhum participante encontrado com os filtros aplicados.",
-    "checkin.statusModal.title": "Atualizar Status: {0}",
-    "checkin.statusModal.checkinButton": "Confirmar Check-in",
-    "checkin.statusModal.cancelButton": "Cancelar Credencial",
-    "checkin.statusModal.substituteButton": "Realizar Substituição",
-    "checkin.statusModal.missedButton": "Marcar como Ausente (No-show)",
-    "verificationModal.title": "Verificação Facial de",
-    "verificationModal.registeredPhoto": "Foto Cadastrada",
-    "verificationModal.liveVerification": "Verificação ao Vivo",
-    "verificationModal.confirmButton": "Confirmar Check-in",
-    "webcam.starting": "Iniciando câmera...",
-    "webcam.captureButton": "Capturar Foto",
-    "webcam.retakeButton": "Tirar Outra Foto",
-    "status.pending": "Pendente",
-    "status.checked_in": "Checked-in",
-    "status.cancelled": "Cancelado",
-    "status.substitution": "Substituição",
-    "status.missed": "Ausente",
+  ptBR: {
+    header: {
+      subtitle: "Gestão de Credenciamento Facial"
+    },
+    webcam: {
+      starting: 'Iniciando câmera...',
+      captureButton: 'Capturar Foto',
+      retakeButton: 'Tirar Outra Foto',
+    },
+    verificationModal: {
+      title: 'Verificar',
+      registeredPhoto: 'Foto de Cadastro',
+      liveVerification: 'Verificação ao Vivo',
+      confirmButton: 'Confirmar Verificação',
+    },
+    register: {
+      title: 'Registrar Novo Participante',
+      errors: {
+        allFields: 'Todos os campos, incluindo a foto, são obrigatórios.',
+        invalidCpf: 'CPF inválido. Deve conter 11 dígitos.',
+        cpfCheckError: 'Erro ao verificar CPF. Tente novamente.',
+        cpfCheckIndexError: 'Erro de configuração no Firebase. É necessário criar um índice para a busca de CPF. Veja as instruções em firebase/service.ts.',
+        cpfAlreadyRegisteredInEvent: 'Este CPF já está registrado neste evento.',
+      },
+      form: {
+        nameLabel: 'Nome Completo',
+        namePlaceholder: 'Ex: João da Silva',
+        cpfLabel: 'CPF',
+        cpfPlaceholder: '000.000.000-00',
+        sectorLabel: 'Setor',
+        sectorPlaceholder: 'Selecione um setor',
+        button: 'Registrar',
+      },
+      cpfFound: "CPF encontrado. Usando foto e nome existentes.",
+      checkingCpf: "Verificando CPF...",
+      cpfNotFound: "CPF não encontrado. Prossiga com um novo registro.",
+    },
+    checkin: {
+      title: 'Controle de Acesso',
+      searchPlaceholder: 'Buscar por nome ou CPF...',
+      filterSectorPlaceholder: 'Filtrar por setor',
+      noAttendees: 'Nenhum participante registrado ainda.',
+      noAttendeesSubtitle: 'Comece registrando um participante na aba "Registrar".',
+      noResults: 'Nenhum resultado encontrado para sua busca.',
+      statusModal: {
+        title: 'Atualizar Status de %s',
+        checkinButton: 'Confirmar Check-in',
+        cancelButton: 'Cancelar Credencial',
+        substituteButton: 'Realizar Substituição',
+        missedButton: 'Marcar como Ausente',
+      }
+    },
+    suppliers: {
+      title: 'Gerenciar Fornecedores',
+      generateTitle: 'Gerar Novo Link de Registro',
+      nameLabel: 'Nome do Fornecedor',
+      namePlaceholder: 'Ex: Empresa de Limpeza ABC',
+      sectorsLabel: 'Setores Permitidos',
+      limitLabel: 'Limite de Registros',
+      limitPlaceholder: 'Ex: 10',
+      generateButton: 'Gerar Link',
+      noSectorsError: 'Selecione pelo menos um setor.',
+      noNameError: 'O nome do fornecedor é obrigatório.',
+      noLimitError: 'O limite de registros deve ser um número maior que zero.',
+      existingLinks: 'Links Gerados',
+      noLinks: 'Nenhum link de fornecedor gerado para este evento ainda.',
+      copyButton: 'Copiar Link',
+      copiedButton: 'Copiado!',
+      disableButton: 'Desativar',
+      enableButton: 'Ativar',
+      editButton: 'Editar',
+      saveButton: 'Salvar',
+      cancelButton: 'Cancelar',
+      statusLabel: 'Status',
+      registrations: 'Registros',
+      active: 'Ativo',
+      inactive: 'Inativo',
+    },
+    fastCheckin: {
+      title: 'Check-in Rápido por Face',
+      button: 'Verificar Rosto',
+      verifyingBatch: 'Verificando em lote...',
+    },
+    events: {
+      title: "Selecione o Evento",
+      createButton: "Criar Novo Evento",
+      noEvents: "Nenhum evento encontrado.",
+      noEventsSubtitle: "Crie seu primeiro evento para começar a gerenciar os participantes.",
+      modal: {
+        createTitle: "Criar Novo Evento",
+        editTitle: "Editar Evento",
+        nameLabel: "Nome do Evento",
+        namePlaceholder: "Ex: Conferência Anual 2024",
+        createButton: "Criar Evento",
+        saveButton: "Salvar Alterações",
+        error: "O nome do evento não pode ser vazio.",
+      }
+    },
+    login: {
+      title: 'Acesso Restrito',
+      passwordLabel: 'Senha de Acesso',
+      passwordPlaceholder: '********',
+      button: 'Entrar',
+    },
+    supplierRegistration: {
+        closedTitle: "Registros Encerrados",
+        closedMessage: "O período de registro para este fornecedor foi encerrado. Entre em contato com a organização do evento.",
+        limitReachedMessage: "O limite de inscrições para este link foi atingido. Entre em contato com a organização do evento."
+    },
+    status: {
+      pending: 'Pendente',
+      checked_in: 'Check-in',
+      cancelled: 'Cancelado',
+      substitution: 'Substituído',
+      missed: 'Ausente',
+    },
+    sectors: {
+      title: "Gerenciar Setores",
+      createButton: "Criar Novo Setor",
+      noSectors: "Nenhum setor cadastrado para este evento.",
+      noSectorsSubtitle: "Crie o primeiro setor para organizar seus participantes.",
+      deleteConfirm: "Tem certeza que deseja deletar o setor \"%s\"? Esta ação não pode ser desfeita.",
+      deleteErrorInUse: "Não é possível deletar o setor \"%s\" pois ele está em uso por participantes ou fornecedores.",
+      modal: {
+        createTitle: "Criar Novo Setor",
+        editTitle: "Editar Setor",
+        labelLabel: "Nome do Setor",
+        labelPlaceholder: "Ex: Staff",
+        createButton: "Criar Setor",
+        saveButton: "Salvar Alterações",
+        error: "O nome do setor não pode ser vazio."
+      }
+    }
   },
 };
 
-type Language = keyof typeof translations;
-export type TranslationKey = keyof typeof translations['pt'];
+type Language = 'ptBR';
 
 interface LanguageContextType {
   language: Language;
-  setLanguage: (language: Language) => void;
-  t: (key: TranslationKey, ...args: (string | number)[]) => string;
+  setLanguage: (lang: Language) => void;
+  t: (key: string, ...args: any[]) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguage] = useState<Language>('pt');
+export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [language] = useState<Language>('ptBR');
 
-  const t = useCallback((key: TranslationKey, ...args: (string | number)[]) => {
-    let translation = translations[language][key] || key;
-    if (args.length > 0) {
-        args.forEach((arg, index) => {
-            translation = translation.replace(`{${index}}`, String(arg));
-        });
+  const t = (key: string, ...args: any[]) => {
+    const keyParts = key.split('.');
+    let translation = translations[language] as any;
+    try {
+      for (const part of keyParts) {
+        translation = translation[part];
+      }
+      if (typeof translation !== 'string') return key;
+      return translation.replace(/%s/g, () => args.shift() || '');
+    } catch (e) {
+      return key;
     }
-    return translation;
-  }, [language]);
+  };
 
-  return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
-      {children}
-    </LanguageContext.Provider>
-  );
+  const value = { language, setLanguage: () => {}, t };
+
+  return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;
 };
 
 export const useTranslation = () => {
