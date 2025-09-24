@@ -14,7 +14,7 @@ import * as FirebaseService from './firebase/service';
 import { useTranslation } from './hooks/useTranslation';
 import { CheckCircleIcon, XMarkIcon } from './components/icons';
 
-const ADMIN_PASSWORD = "admin"; // In a real app, this would not be in the source code
+const ADMIN_PASSWORD = "12345"; // In a real app, this would not be in the source code
 
 type View = 'register' | 'checkin' | 'fast-checkin' | 'admin';
 
@@ -61,14 +61,16 @@ const App: React.FC = () => {
   
   // Effects
   useEffect(() => {
+    if (!isAuthenticated) return;
     const unsubscribe = FirebaseService.onEventsUpdate(setEvents, (err) => {
         console.error(err);
         showError("Não foi possível carregar os eventos.");
     });
     return () => unsubscribe();
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     const params = new URLSearchParams(window.location.search);
     const eventId = params.get('eventId');
 
@@ -79,41 +81,42 @@ const App: React.FC = () => {
       }
     }
     setIsLoading(false);
-  }, [events]);
+  }, [events, isAuthenticated]);
 
 
   useEffect(() => {
+    if (!isAuthenticated || !selectedEvent?.id) return;
+
     let unsubscribeAttendees: () => void = () => {};
     let unsubscribeSuppliers: () => void = () => {};
 
-    if (selectedEvent?.id) {
-        const eventId = selectedEvent.id;
-        unsubscribeAttendees = FirebaseService.onAttendeesUpdate(eventId, setAttendees, (err) => {
-            console.error(err);
-            showError("Erro ao carregar participantes.");
-        });
-        unsubscribeSuppliers = FirebaseService.onSuppliersUpdate(eventId, (fetchedSuppliers) => {
-            setSuppliers(fetchedSuppliers);
-            // Check for supplier slug in URL after suppliers are loaded
-            const params = new URLSearchParams(window.location.search);
-            const supplierSlug = params.get('supplier');
-            if (supplierSlug) {
-              const supplier = fetchedSuppliers.find(s => s.slug === supplierSlug);
-              if (supplier) {
-                setPredefinedSector(supplier.sector);
-                setCurrentView('register');
-              }
-            }
-        }, (err) => {
-            console.error(err);
-            showError("Erro ao carregar fornecedores.");
-        });
-    }
+    const eventId = selectedEvent.id;
+    unsubscribeAttendees = FirebaseService.onAttendeesUpdate(eventId, setAttendees, (err) => {
+        console.error(err);
+        showError("Erro ao carregar participantes.");
+    });
+    unsubscribeSuppliers = FirebaseService.onSuppliersUpdate(eventId, (fetchedSuppliers) => {
+        setSuppliers(fetchedSuppliers);
+        // Check for supplier slug in URL after suppliers are loaded
+        const params = new URLSearchParams(window.location.search);
+        const supplierSlug = params.get('supplier');
+        if (supplierSlug) {
+          const supplier = fetchedSuppliers.find(s => s.slug === supplierSlug);
+          if (supplier) {
+            setPredefinedSector(supplier.sector);
+            setCurrentView('register');
+          }
+        }
+    }, (err) => {
+        console.error(err);
+        showError("Erro ao carregar fornecedores.");
+    });
+    
     return () => {
       unsubscribeAttendees();
       unsubscribeSuppliers();
     };
-  }, [selectedEvent]);
+  }, [selectedEvent, isAuthenticated]);
 
 
   // Handlers
@@ -170,6 +173,7 @@ const App: React.FC = () => {
       setLoginError(null);
     } else {
       setLoginError(t('login.error'));
+      setTimeout(() => setLoginError(null), 3000);
     }
   };
 
@@ -226,11 +230,18 @@ const App: React.FC = () => {
         return <FastCheckinView onVerify={handleFastCheckinVerify} />
     }
     if (currentView === 'admin') {
-      if (!isAuthenticated) return <LoginView onLogin={handleLogin} error={loginError} />;
       return <AdminView eventId={selectedEvent!.id!} suppliers={suppliers} onAddSupplier={handleAddSupplier} setSuccess={showSuccess} setError={showError}/>;
     }
     return null;
   };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="bg-gray-900 text-white min-h-screen flex items-center justify-center p-4">
+        <LoginView onLogin={handleLogin} error={loginError} />
+      </div>
+    );
+  }
   
   if (isLoading) {
     return (
