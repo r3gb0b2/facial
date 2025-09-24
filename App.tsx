@@ -1,332 +1,288 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
+import * as api from './firebase/service';
+import { Attendee, CheckinStatus, Event, Supplier } from './types';
 
-import RegisterView from './components/views/RegisterView';
-import CheckinView from './components/views/CheckinView';
-import AdminView from './components/views/AdminView';
-import LoginView from './components/views/LoginView';
 import EventSelectionView from './components/views/EventSelectionView';
-import RegistrationClosedView from './components/views/RegistrationClosedView';
+import AdminView from './components/views/AdminView';
 import EventModal from './components/EventModal';
-
-import { Attendee, CheckinStatus, Supplier, Event } from './types';
-import * as FirebaseService from './firebase/service';
-import { useTranslation } from './hooks/useTranslation';
-import { CheckCircleIcon, XMarkIcon } from './components/icons';
-
-const ADMIN_PASSWORD = "12345"; // In a real app, this would not be in the source code
-
-type View = 'register' | 'checkin' | 'admin';
+import LoginView from './components/views/LoginView';
+import RegisterView from './components/views/RegisterView';
+import RegistrationClosedView from './components/views/RegistrationClosedView';
+import { SpinnerIcon } from './components/icons';
 
 const App: React.FC = () => {
-  const { t } = useTranslation();
-  
-  // App State
-  const [currentView, setCurrentView] = useState<View>('register');
+  // Common state
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>('');
+  const [success, setSuccess] = useState<string>('');
+
+  // Admin flow state
   const [events, setEvents] = useState<Event[]>([]);
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
+  const [currentEvent, setCurrentEvent] = useState<Event | null>(null);
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  
-  // Auth State
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    // Bypass login if it's a supplier link
-    const params = new URLSearchParams(window.location.search);
-    return params.has('eventId') && params.has('supplier');
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
-
-  // UI State
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [isEventModalOpen, setEventModalOpen] = useState(false);
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
-  const [predefinedSector, setPredefinedSector] = useState<string | string[] | undefined>(undefined);
-  const [registrationClosed, setRegistrationClosed] = useState(false);
-
-  const clearMessages = () => {
-    setError('');
-    setSuccess('');
-  };
-
-  const showSuccess = (message: string) => {
-    clearMessages();
-    setSuccess(message);
-    setTimeout(() => setSuccess(''), 3000);
-  }
-
-  const showError = (message: string) => {
-    clearMessages();
-    setError(message);
-    setTimeout(() => setError(''), 4000);
-  }
   
+  // Supplier registration flow state
+  const [isSupplierView, setIsSupplierView] = useState(false);
+  const [supplierConfig, setSupplierConfig] = useState<{event: Event, supplier: Supplier} | null>(null);
+
   // Effects
   useEffect(() => {
-    if (!isAuthenticated) return;
-    const unsubscribe = FirebaseService.onEventsUpdate(setEvents, (err) => {
-        console.error(err);
-        showError("Não foi possível carregar os eventos.");
-    });
-    return () => unsubscribe();
-  }, [isAuthenticated]);
-
-  useEffect(() => {
-    if (!isAuthenticated) return;
     const params = new URLSearchParams(window.location.search);
     const eventId = params.get('eventId');
+    const supplierId = params.get('supplierId');
 
-    if (eventId && events.length > 0) {
-      const event = events.find(e => e.id === eventId);
-      if (event) {
-        setSelectedEvent(event);
-      }
+    if (eventId && supplierId) {
+      loadSupplierData(eventId, supplierId);
+    } else {
+      setIsSupplierView(false); // Not a supplier link
+      setLoading(false); // Stop loading if not a supplier link
     }
-    setIsLoading(false);
-  }, [events, isAuthenticated]);
+  }, []);
+
+  const loadSupplierData = async (eventId: string, supplierId: string) => {
+    setLoading(true);
+    setIsSupplierView(true);
+    try {
+      const [event, supplier] = await Promise.all([
+        api.getEvent(eventId),
+        api.getSupplier(eventId, supplierId)
+      ]);
+
+      if (event && supplier && supplier.active) {
+        setSupplierConfig({ event, supplier });
+      } else {
+        setSupplierConfig(null); // Will render RegistrationClosedView
+      }
+    } catch (e) {
+      console.error(e);
+      setError("Failed to load registration information.");
+      setSupplierConfig(null);
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
   useEffect(() => {
-    if (!isAuthenticated || !selectedEvent?.id) return;
+    if (isAuthenticated) {
+      loadEvents();
+    }
+  }, [isAuthenticated]);
 
-    let unsubscribeAttendees: () => void = () => {};
-    let unsubscribeSuppliers: () => void = () => {};
+  const showSuccess = (message: string) => {
+    setSuccess(message);
+    setTimeout(() => setSuccess(''), 3000);
+  };
 
-    const eventId = selectedEvent.id;
-    unsubscribeAttendees = FirebaseService.onAttendeesUpdate(eventId, setAttendees, (err) => {
-        console.error(err);
-        showError("Erro ao carregar participantes.");
-    });
-    unsubscribeSuppliers = FirebaseService.onSuppliersUpdate(eventId, (fetchedSuppliers) => {
-        setSuppliers(fetchedSuppliers);
-        // Check for supplier slug in URL after suppliers are loaded
-        const params = new URLSearchParams(window.location.search);
-        const supplierSlug = params.get('supplier');
-        if (supplierSlug) {
-          const supplier = fetchedSuppliers.find(s => s.slug === supplierSlug);
-          if (supplier) {
-            if (supplier.isRegistrationEnabled === false) {
-              setRegistrationClosed(true);
-            } else {
-              setPredefinedSector(supplier.sector);
-              setCurrentView('register');
-            }
-          }
-        }
-    }, (err) => {
-        console.error(err);
-        showError("Erro ao carregar fornecedores.");
-    });
-    
-    return () => {
-      unsubscribeAttendees();
-      unsubscribeSuppliers();
-    };
-  }, [selectedEvent, isAuthenticated]);
+  const showError = (message: string) => {
+    setError(message);
+    setTimeout(() => setError(''), 5000);
+  };
 
+  const handleLogin = (password: string) => {
+    if (password === '12345') {
+      setIsAuthenticated(true);
+      setLoginError(null);
+    } else {
+      setLoginError('Senha incorreta.');
+    }
+  };
 
-  // Handlers
-  const handleRegister = async (newAttendee: Omit<Attendee, 'id' | 'status'>) => {
-    if (!selectedEvent?.id) return;
+  // Event handlers
+  const loadEvents = async () => {
+    setLoading(true);
     try {
-      const attendeeData = {
-        ...newAttendee,
-        status: CheckinStatus.REGISTERED
-      };
-      await FirebaseService.addAttendee(selectedEvent.id, attendeeData);
-      showSuccess(t('register.success'));
-    } catch (err: any) {
-      console.error(err);
-      if (err.code === 'duplicate-cpf') {
-        showError(t('register.errors.duplicateCpf'));
+      const eventsData = await api.getEvents();
+      setEvents(eventsData);
+    } catch (e) {
+      showError('Falha ao carregar eventos.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadAttendees = async (eventId: string, showLoader = true) => {
+    if (showLoader) setLoading(true);
+    try {
+      const [attendeesData, suppliersData] = await Promise.all([
+          api.getAttendees(eventId),
+          api.getSuppliersForEvent(eventId)
+      ]);
+      setAttendees(attendeesData);
+      setSuppliers(suppliersData);
+    } catch (e) {
+      showError('Falha ao carregar participantes.');
+    } finally {
+      if (showLoader) setLoading(false);
+    }
+  };
+
+  const handleSelectEvent = (event: Event) => {
+    setCurrentEvent(event);
+    loadAttendees(event.id, true);
+  };
+  
+  const handleBackToEvents = () => {
+    setCurrentEvent(null);
+    setAttendees([]);
+    setSuppliers([]);
+  };
+
+  const handleSaveEvent = async (name: string, eventId?: string) => {
+    try {
+      if (eventId) {
+        await api.updateEvent(eventId, name);
+        showSuccess('Evento atualizado com sucesso!');
       } else {
-        showError(t('register.errors.generic'));
+        await api.addEvent(name);
+        showSuccess('Evento criado com sucesso!');
       }
-      throw err;
+      loadEvents();
+      setIsEventModalOpen(false);
+      setEventToEdit(null);
+    } catch (e) {
+      showError('Falha ao salvar o evento.');
+    }
+  };
+  
+  const handleDeleteEvent = async (event: Event) => {
+    if (window.confirm(`Tem certeza que deseja deletar o evento "${event.name}" e todos os seus participantes?`)) {
+      try {
+        await api.deleteEvent(event.id);
+        showSuccess('Evento deletado com sucesso!');
+        loadEvents();
+      } catch (e) {
+        showError('Falha ao deletar o evento.');
+      }
+    }
+  };
+
+  const handleRegister = async (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => {
+    if (!currentEvent) return;
+    try {
+      await api.addAttendee(currentEvent.id, newAttendee);
+      showSuccess(`${newAttendee.name} registrado com sucesso!`);
+      loadAttendees(currentEvent.id, false); // silent reload
+    } catch (e) {
+      showError('Falha ao registrar participante.');
+    }
+  };
+
+  const handleSupplierRegister = async (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => {
+    if (!supplierConfig) return;
+    try {
+      await api.addAttendee(supplierConfig.event.id, newAttendee);
+      showSuccess(`${newAttendee.name} registrado com sucesso!`);
+    } catch (e) {
+      showError('Falha ao registrar participante.');
+      throw e; // re-throw to be caught in the component
     }
   };
 
   const handleStatusUpdate = async (attendee: Attendee, newStatus: CheckinStatus) => {
-    if (!selectedEvent?.id || !attendee.id) return;
+    if (!currentEvent) return;
     try {
-        const updates: Partial<Attendee> = { status: newStatus };
-        if (newStatus === CheckinStatus.CHECKED_IN) {
-            updates.checkinTime = new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-        } else {
-            updates.checkinTime = '';
-        }
-        await FirebaseService.updateAttendee(selectedEvent.id, attendee.id, updates);
-        showSuccess(t('checkin.statusUpdateSuccess', attendee.name));
-    } catch (err) {
-        console.error(err);
-        showError("Erro ao atualizar status do participante.");
+      await api.updateAttendeeStatus(currentEvent.id, attendee.id, newStatus);
+      showSuccess(`Status de ${attendee.name} atualizado.`);
+      // Reload attendees without showing the full-page loader
+      loadAttendees(currentEvent.id, false); 
+    } catch (e) {
+      showError('Falha ao atualizar status.');
     }
   };
   
-  const handleLogin = (password: string) => {
-    if (password === ADMIN_PASSWORD) {
-      setIsAuthenticated(true);
-      setLoginError(null);
-    } else {
-      setLoginError(t('login.error'));
-      setTimeout(() => setLoginError(null), 3000);
-    }
-  };
-
   const handleAddSupplier = async (name: string, sectors: string[]) => {
-    if (!selectedEvent?.id) return;
-    const slug = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-    try {
-      await FirebaseService.addSupplier(selectedEvent.id, { name, sector: sectors, slug });
-      showSuccess(t('admin.success.supplierAdded'));
-    } catch (err: any) {
-        if(err.code === 'duplicate-slug') {
-            showError(t('admin.errors.duplicate'));
-        } else {
-            showError(t('admin.errors.generic'));
-        }
-        throw err;
-    }
+      if (!currentEvent) return;
+      try {
+          await api.addSupplier(currentEvent.id, name, sectors);
+          showSuccess('Link de fornecedor gerado com sucesso!');
+          loadAttendees(currentEvent.id, false); // silent reload
+      } catch (e) {
+          showError('Falha ao gerar link.');
+      }
   };
-
-  const handleUpdateSupplierStatus = async (supplierId: string, isEnabled: boolean) => {
-    if (!selectedEvent?.id || !supplierId) return;
-    try {
-      await FirebaseService.updateSupplier(selectedEvent.id, supplierId, { isRegistrationEnabled: isEnabled });
-      showSuccess(t('admin.success.statusUpdated'));
-    } catch (err) {
-      console.error(err);
-      showError("Erro ao atualizar o status do fornecedor.");
-    }
-  };
-
-  const handleEventSave = async (name: string, eventId?: string) => {
-    try {
-        if (eventId) {
-            await FirebaseService.updateEvent(eventId, name);
-        } else {
-            await FirebaseService.addEvent(name);
-        }
-        setEventModalOpen(false);
-        setEventToEdit(null);
-    } catch(err) {
-        console.error(err);
-        showError("Erro ao salvar evento.");
-    }
-  }
-
-  const handleEventDelete = async (event: Event) => {
-    if (window.confirm(t('events.deleteConfirm', event.name)) && event.id) {
-        try {
-            await FirebaseService.deleteEvent(event.id);
-        } catch(err) {
-            console.error(err);
-            showError("Erro ao deletar evento.");
-        }
-    }
-  }
   
-  const isSupplierView = !!predefinedSector || registrationClosed;
+  const handleSupplierStatusUpdate = async (supplierId: string, active: boolean) => {
+      if (!currentEvent) return;
+      try {
+          await api.updateSupplierStatus(currentEvent.id, supplierId, active);
+          showSuccess('Status do link atualizado.');
+          loadAttendees(currentEvent.id, false); // silent reload
+      } catch (e) {
+          showError('Falha ao atualizar status do link.');
+      }
+  };
 
-  const renderView = () => {
-    if (registrationClosed) {
+
+  // Render logic
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <div className="flex justify-center items-center h-screen">
+          <SpinnerIcon className="w-12 h-12 text-indigo-400" />
+        </div>
+      );
+    }
+    
+    if (isSupplierView) {
+      if (supplierConfig) {
+        return <div className="min-h-screen flex items-center justify-center p-4">
+          <RegisterView 
+            onRegister={handleSupplierRegister} 
+            setError={showError}
+            predefinedSector={supplierConfig.supplier.sectors.length === 1 ? supplierConfig.supplier.sectors[0] : supplierConfig.supplier.sectors}
+          />
+        </div>;
+      }
       return <RegistrationClosedView />;
     }
-    if (currentView === 'register') {
-      return <RegisterView onRegister={handleRegister} setError={showError} predefinedSector={predefinedSector} />;
+
+    if (!isAuthenticated) {
+      return <div className="min-h-screen flex items-center justify-center p-4"><LoginView onLogin={handleLogin} error={loginError} /></div>;
     }
-    if (currentView === 'checkin') {
-      return <CheckinView attendees={attendees} onStatusUpdate={handleStatusUpdate} />;
+
+    if (currentEvent) {
+      return <AdminView
+        currentEventId={currentEvent.id}
+        eventName={currentEvent.name}
+        attendees={attendees}
+        suppliers={suppliers}
+        onRegister={handleRegister}
+        onStatusUpdate={handleStatusUpdate}
+        onAddSupplier={handleAddSupplier}
+        onSupplierStatusUpdate={handleSupplierStatusUpdate}
+        onBack={handleBackToEvents}
+        setError={showError}
+      />;
     }
-    if (currentView === 'admin' && selectedEvent?.id) {
-      return <AdminView eventId={selectedEvent.id} suppliers={suppliers} onAddSupplier={handleAddSupplier} onUpdateSupplierStatus={handleUpdateSupplierStatus} setSuccess={showSuccess} setError={showError}/>;
-    }
-    return null;
+
+    return <EventSelectionView
+      events={events}
+      onSelectEvent={handleSelectEvent}
+      onCreateEvent={() => { setEventToEdit(null); setIsEventModalOpen(true); }}
+      onEditEvent={(event) => { setEventToEdit(event); setIsEventModalOpen(true); }}
+      onDeleteEvent={handleDeleteEvent}
+    />;
   };
 
-  if (!isAuthenticated) {
-    return (
-      <div className="bg-gray-900 text-white min-h-screen flex items-center justify-center p-4">
-        <LoginView onLogin={handleLogin} error={loginError} />
-      </div>
-    );
-  }
-  
-  if (isLoading) {
-    return (
-      <div className="bg-gray-900 text-white min-h-screen flex items-center justify-center">
-        <p>Carregando...</p>
-      </div>
-    );
-  }
-  
-  if (isSupplierView && registrationClosed) {
-    return (
-        <div className="bg-gray-900 text-white min-h-screen font-sans">
-             <main className="container mx-auto px-4 py-12">
-                <RegistrationClosedView />
-            </main>
-        </div>
-    );
-  }
-
-  if (!selectedEvent) {
-    return (
-        <div className="bg-gray-900 text-white min-h-screen">
-            <EventSelectionView
-                events={events}
-                onSelectEvent={setSelectedEvent}
-                onCreateEvent={() => { setEventToEdit(null); setEventModalOpen(true); }}
-                onEditEvent={(event) => { setEventToEdit(event); setEventModalOpen(true); }}
-                onDeleteEvent={handleEventDelete}
-            />
-            <EventModal
-                isOpen={isEventModalOpen}
-                onClose={() => setEventModalOpen(false)}
-                onSave={handleEventSave}
-                eventToEdit={eventToEdit}
-            />
-        </div>
-    );
-  }
-  
   return (
     <div className="bg-gray-900 text-white min-h-screen font-sans">
-      {(error || success) && (
-        <div className={`fixed top-5 right-5 p-4 rounded-lg shadow-lg text-white z-50 flex items-center gap-2 ${error ? 'bg-red-500' : 'bg-green-500'}`}>
-          {error ? <XMarkIcon className="w-6 h-6"/> : <CheckCircleIcon className="w-6 h-6"/>}
-          {error || success}
-        </div>
-      )}
-
-      <header className="py-6 text-center">
-        <h1 
-          onClick={!isSupplierView ? () => { window.history.pushState({}, '', window.location.pathname); setSelectedEvent(null); } : undefined} 
-          className={`text-4xl md:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500 ${!isSupplierView ? 'cursor-pointer' : ''}`}
-        >
-          {t('header.title')}
-        </h1>
-        <p className="text-gray-400 mt-2">{selectedEvent.name}</p>
-      </header>
-
-      {!isSupplierView && (
-        <nav className="flex justify-center mb-8 bg-black/20 p-2 rounded-full max-w-lg mx-auto">
-          {(['register', 'checkin', 'admin'] as View[]).map(view => (
-            <button
-              key={view}
-              onClick={() => setCurrentView(view)}
-              className={`px-4 py-2 rounded-full font-semibold transition-colors duration-300 ${currentView === view ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
-            >
-              {t(`nav.${view.replace('-', '')}`)}
-            </button>
-          ))}
-        </nav>
-      )}
-
-      <main className="container mx-auto px-4 pb-12">
-        {renderView()}
-      </main>
-
+      <div className="container mx-auto p-4 md:p-8">
+        {error && <div className="fixed top-5 right-5 bg-red-500 text-white py-2 px-4 rounded-lg shadow-lg animate-pulse">{error}</div>}
+        {success && <div className="fixed top-5 right-5 bg-green-500 text-white py-2 px-4 rounded-lg shadow-lg">{success}</div>}
+        {renderContent()}
+      </div>
+       <EventModal
+        isOpen={isEventModalOpen}
+        onClose={() => setIsEventModalOpen(false)}
+        onSave={handleSaveEvent}
+        eventToEdit={eventToEdit}
+      />
     </div>
   );
 };

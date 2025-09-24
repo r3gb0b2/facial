@@ -1,152 +1,96 @@
 import React, { useState } from 'react';
-import { useTranslation } from '../../hooks/useTranslation';
-import { Supplier } from '../../types';
-import { CogIcon, ClipboardIcon, CheckCircleIcon, SpinnerIcon } from '../icons';
+import { Attendee, CheckinStatus, Supplier } from '../../types';
+import RegisterView from './RegisterView';
+import CheckinView from './CheckinView';
+import SupplierManagementView from './SupplierManagementView';
+import { UsersIcon, FingerPrintIcon, ArrowLeftOnRectangleIcon, LinkIcon } from '../icons';
 
 interface AdminViewProps {
-  eventId: string;
+  currentEventId: string;
+  eventName: string;
+  attendees: Attendee[];
   suppliers: Supplier[];
+  onRegister: (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => Promise<void>;
+  onStatusUpdate: (attendee: Attendee, newStatus: CheckinStatus) => void;
   onAddSupplier: (name: string, sectors: string[]) => Promise<void>;
-  onUpdateSupplierStatus: (supplierId: string, isEnabled: boolean) => void;
-  setSuccess: (message: string) => void;
+  onSupplierStatusUpdate: (supplierId: string, active: boolean) => Promise<void>;
+  onBack: () => void;
   setError: (message: string) => void;
 }
 
-const AdminView: React.FC<AdminViewProps> = ({ eventId, suppliers, onAddSupplier, onUpdateSupplierStatus, setSuccess, setError }) => {
-  const { t, sectors } = useTranslation();
-  const [newSupplierName, setNewSupplierName] = useState('');
-  const [newSupplierSectors, setNewSupplierSectors] = useState<string[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
+type Tab = 'register' | 'checkin' | 'suppliers';
 
-  const handleSectorChange = (sectorValue: string) => {
-    setNewSupplierSectors(prev => 
-      prev.includes(sectorValue) 
-        ? prev.filter(s => s !== sectorValue) 
-        : [...prev, sectorValue]
-    );
-  };
+const AdminView: React.FC<AdminViewProps> = ({
+  currentEventId,
+  eventName,
+  attendees,
+  suppliers,
+  onRegister,
+  onStatusUpdate,
+  onAddSupplier,
+  onSupplierStatusUpdate,
+  onBack,
+  setError,
+}) => {
+  const [activeTab, setActiveTab] = useState<Tab>('register');
 
-  const handleAddSupplier = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newSupplierName || newSupplierSectors.length === 0) {
-      setError(t('admin.errors.allFields'));
-      setTimeout(() => setError(''), 3000);
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      await onAddSupplier(newSupplierName, newSupplierSectors);
-      setNewSupplierName('');
-      setNewSupplierSectors([]);
-    } catch (error) {
-        // Error is already set in the parent component
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleCopyLink = (slug: string) => {
-    const link = `${window.location.origin}${window.location.pathname}?eventId=${eventId}&supplier=${slug}`;
-    navigator.clipboard.writeText(link);
-    setCopiedSlug(slug);
-    setSuccess(t('admin.success.linkCopied'))
-    setTimeout(() => {
-        setCopiedSlug(null);
-        setSuccess('');
-    }, 2000);
-  };
+  const tabs: { id: Tab; label: string; icon: React.FC<any> }[] = [
+    { id: 'register', label: 'Registrar', icon: UsersIcon },
+    { id: 'checkin', label: 'Check-in', icon: FingerPrintIcon },
+    { id: 'suppliers', label: 'Fornecedores', icon: LinkIcon },
+  ];
 
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-12">
-      <h2 className="text-3xl font-bold text-center text-white flex items-center justify-center gap-3">
-        <CogIcon className="w-8 h-8" />
-        {t('admin.title')}
-      </h2>
+    <div className="space-y-8">
+      <header className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500">
+            {eventName}
+          </h1>
+          <p className="text-gray-400">Gerenciando {attendees.length} participante(s)</p>
+        </div>
+        <button onClick={onBack} className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+          <ArrowLeftOnRectangleIcon className="w-5 h-5"/>
+          Trocar Evento
+        </button>
+      </header>
 
-      {/* Add Supplier Form */}
-      <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
-        <h3 className="text-xl font-bold text-white mb-6">{t('admin.form.title')}</h3>
-        <form onSubmit={handleAddSupplier} className="space-y-6">
-          <div>
-            <label htmlFor="supplierName" className="block text-sm font-medium text-gray-300 mb-1">{t('admin.form.nameLabel')}</label>
-            <input
-              type="text" id="supplierName" value={newSupplierName} onChange={(e) => setNewSupplierName(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder={t('admin.form.namePlaceholder')}
-              disabled={isSubmitting}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">{t('admin.form.sectorLabel')}</label>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 bg-gray-900/50 p-4 rounded-lg">
-                {sectors.map(s => (
-                    <label key={s.value} htmlFor={s.value} className="flex items-center space-x-2 cursor-pointer text-sm text-gray-200">
-                        <input
-                            type="checkbox"
-                            id={s.value}
-                            value={s.value}
-                            checked={newSupplierSectors.includes(s.value)}
-                            onChange={() => handleSectorChange(s.value)}
-                            disabled={isSubmitting}
-                            className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <span>{s.label}</span>
-                    </label>
-                ))}
-            </div>
-          </div>
-          <button type="submit" className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-indigo-400 disabled:cursor-wait" disabled={!newSupplierName || newSupplierSectors.length === 0 || isSubmitting}>
-            {isSubmitting ? (
-              <>
-                <SpinnerIcon className="w-5 h-5" />
-                Adicionando...
-              </>
-            ) : (
-                t('admin.form.button')
-            )}
-          </button>
-        </form>
+      <div className="border-b border-gray-700">
+        <nav className="-mb-px flex space-x-6" aria-label="Tabs">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`${
+                activeTab === tab.id
+                  ? 'border-indigo-500 text-indigo-400'
+                  : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'
+              } group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm transition-colors`}
+            >
+              <tab.icon className="-ml-0.5 mr-2 h-5 w-5" />
+              <span>{tab.label}</span>
+            </button>
+          ))}
+        </nav>
       </div>
 
-      {/* Supplier List */}
-      <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
-        <h3 className="text-xl font-bold text-white mb-6">{t('admin.list.title')}</h3>
-        {suppliers.length === 0 ? (
-          <p className="text-center text-gray-400">{t('admin.list.noSuppliers')}</p>
-        ) : (
-          <ul className="space-y-4">
-            {suppliers.sort((a,b) => a.name.localeCompare(b.name)).map(supplier => {
-              const isEnabled = supplier.isRegistrationEnabled !== false; // Default to true if undefined
-              return (
-              <li key={supplier.id} className={`bg-gray-900/70 p-4 rounded-lg flex items-center justify-between flex-wrap gap-4 transition-opacity ${!isEnabled ? 'opacity-60' : ''}`}>
-                <div>
-                  <p className="font-semibold text-white">{supplier.name}</p>
-                  <p className="text-sm text-gray-400">
-                    Setor(es): {supplier.sector.map(s => sectors.find(opt => opt.value === s)?.label || s).join(', ')}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                    <button
-                        onClick={() => onUpdateSupplierStatus(supplier.id!, !isEnabled)}
-                        className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${isEnabled ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-green-600 hover:bg-green-700 text-white'}`}
-                    >
-                        {isEnabled ? t('admin.buttons.disableRegistration') : t('admin.buttons.enableRegistration')}
-                    </button>
-                    <button
-                      onClick={() => handleCopyLink(supplier.slug)}
-                      disabled={!isEnabled}
-                      className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors flex items-center gap-2 ${copiedSlug === supplier.slug ? 'bg-green-600 text-white' : 'bg-gray-700 hover:bg-gray-600 text-gray-200'} disabled:bg-gray-800 disabled:text-gray-500 disabled:cursor-not-allowed`}
-                    >
-                      {copiedSlug === supplier.slug ? <CheckCircleIcon className="w-5 h-5" /> : <ClipboardIcon className="w-5 h-5" />}
-                      {copiedSlug === supplier.slug ? t('admin.buttons.copied') : t('admin.buttons.copyLink')}
-                    </button>
-                </div>
-              </li>
-            )})}
-          </ul>
+      <main>
+        {activeTab === 'register' && (
+          <RegisterView onRegister={onRegister} setError={setError} />
         )}
-      </div>
+        {activeTab === 'checkin' && (
+          <CheckinView attendees={attendees} onStatusUpdate={onStatusUpdate} />
+        )}
+        {activeTab === 'suppliers' && (
+            <SupplierManagementView
+                currentEventId={currentEventId}
+                suppliers={suppliers} 
+                onAddSupplier={onAddSupplier}
+                onSupplierStatusUpdate={onSupplierStatusUpdate}
+                setError={setError}
+            />
+        )}
+      </main>
     </div>
   );
 };

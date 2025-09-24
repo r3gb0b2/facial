@@ -1,31 +1,33 @@
+import { Timestamp } from "firebase/firestore";
+
 export enum CheckinStatus {
-  REGISTERED = 'Registered',
-  CHECKED_IN = 'Checked-in',
-  CANCELLED = 'Cancelled',
-  SUBSTITUTION = 'Substitution',
-  MISSED = 'Missed',
+  PENDING = 'PENDING',
+  CHECKED_IN = 'CHECKED_IN',
+  CANCELLED = 'CANCELLED',
+  SUBSTITUTION = 'SUBSTITUTION',
+  MISSED = 'MISSED',
 }
 
 export interface Attendee {
-  id?: string; // ID will be assigned by Firestore
+  id: string;
   name: string;
   cpf: string;
-  photo: string; // This will be a URL from Firebase Storage, not base64
+  photo: string; // This is a URL to the image in Firebase Storage
+  sector: string;
   status: CheckinStatus;
-  checkinTime?: string;
-  sector?: string;
-}
-
-export interface Supplier {
-  id?: string; // ID from Firestore
-  name: string;
-  sector: string[]; // Supplier can have access to multiple sectors
-  slug: string; // URL-friendly identifier
-  isRegistrationEnabled?: boolean;
+  eventId: string;
+  createdAt: Timestamp;
 }
 
 export interface Event {
-    id?: string;
-    name: string;
-    createdAt: any; // Firestore timestamp
+  id: string;
+  name: string;
+  createdAt: Timestamp;
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  sectors: string[];
+  active: boolean;
 }

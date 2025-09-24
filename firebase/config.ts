@@ -1,6 +1,8 @@
-import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
+// FIX: Switched to Firebase v8 compat libraries to resolve "initializeApp" import error,
+// which typically occurs when using v9 syntax with an older Firebase SDK version.
+import firebase from "firebase/compat/app";
+import "firebase/compat/firestore";
+import "firebase/compat/storage";
 
 // =================================================================================================
 // ❌❌❌ ATENÇÃO: AÇÃO OBRIGATÓRIA! ❌❌❌
@@ -68,14 +70,14 @@ if (firebaseConfig.apiKey === "AIzaSyDlaBCtgD74608i4JdOMQYJ0433V-c0bjI") {
 
 
 // Initialize Firebase
-const app = initializeApp(firebaseConfig);
+const app = firebase.initializeApp(firebaseConfig);
 console.log("Firebase Initialized Successfully with projectId:", app.options.projectId);
 
 
 // Initialize Cloud Firestore and get a reference to the service
-const db = getFirestore(app);
+const db = firebase.firestore();
 
 // Initialize Firebase Storage
-const storage = getStorage(app);
+const storage = firebase.storage();
 
 export { db, storage };
