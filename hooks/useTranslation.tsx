@@ -125,6 +125,7 @@ const translations = {
     'verificationModal.confirmButton': 'Confirmar Check-in',
     'statusUpdateModal.title': 'Alterar Status',
     'statusUpdateModal.currentStatus': 'Status Atual:',
+    'statusUpdateModal.confirmCheckin': 'Confirmar Check-in',
     'statusUpdateModal.cancelCheckin': 'Cancelar Check-in',
     'statusUpdateModal.markAsMissed': 'Marcar como Ausente',
     'statusUpdateModal.allowSubstitution': 'Permitir Substituição',

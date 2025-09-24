@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Attendee, CheckinStatus } from '../../types.ts';
 import AttendeeCard from '../AttendeeCard.tsx';
-import VerificationModal from '../VerificationModal.tsx';
 import StatusUpdateModal from '../StatusUpdateModal.tsx';
 import * as api from '../../firebase/service.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
@@ -12,25 +11,23 @@ interface CheckinViewProps {
   currentEventId: string;
 }
 
+// Helper function for accent-insensitive search
+const normalizeString = (str: string) => {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+};
+
 const CheckinView: React.FC<CheckinViewProps> = ({ attendees, currentEventId }) => {
   const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedAttendee, setSelectedAttendee] = useState<Attendee | null>(null);
   const [attendeeForStatusUpdate, setAttendeeForStatusUpdate] = useState<Attendee | null>(null);
   
   const handleSelectAttendee = (attendee: Attendee) => {
-    if (attendee.status === 'PENDING') {
-      setSelectedAttendee(attendee);
-    } else {
-      setAttendeeForStatusUpdate(attendee);
-    }
-  };
-
-  const handleConfirmCheckin = async () => {
-    if (selectedAttendee) {
-      await api.updateAttendeeStatus(currentEventId, selectedAttendee.id, CheckinStatus.CHECKED_IN);
-      setSelectedAttendee(null);
-    }
+    setAttendeeForStatusUpdate(attendee);
   };
   
   const handleUpdateStatus = async (status: CheckinStatus) => {
@@ -41,12 +38,16 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, currentEventId }) 
   };
 
   const filteredAttendees = useMemo(() => {
-    const term = searchTerm.toLowerCase().trim();
+    const term = searchTerm.trim();
     if (!term) return attendees;
+
+    const normalizedTerm = normalizeString(term);
+    const numericTerm = term.replace(/\D/g, '');
+
     return attendees.filter(
       (attendee) =>
-        attendee.name.toLowerCase().includes(term) ||
-        attendee.cpf.replace(/\D/g, '').includes(term.replace(/\D/g, ''))
+        (normalizedTerm && normalizeString(attendee.name).includes(normalizedTerm)) ||
+        (numericTerm && attendee.cpf.replace(/\D/g, '').includes(numericTerm))
     );
   }, [attendees, searchTerm]);
   
@@ -99,14 +100,6 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, currentEventId }) 
           <div className="text-center col-span-full py-16">
               <p className="text-gray-400">Nenhum participante encontrado.</p>
           </div>
-      )}
-
-      {selectedAttendee && (
-        <VerificationModal
-          attendee={selectedAttendee}
-          onClose={() => setSelectedAttendee(null)}
-          onConfirm={handleConfirmCheckin}
-        />
       )}
       
       {attendeeForStatusUpdate && (

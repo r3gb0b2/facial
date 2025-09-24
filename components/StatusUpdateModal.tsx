@@ -42,6 +42,12 @@ const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({ attendee, onClose
           </div>
 
           <div className="grid grid-cols-1 gap-3 pt-4">
+            {attendee.status === CheckinStatus.PENDING && (
+              <button onClick={() => onUpdateStatus(CheckinStatus.CHECKED_IN)} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                {t('statusUpdateModal.confirmCheckin')}
+              </button>
+            )}
+
             {attendee.status === CheckinStatus.CHECKED_IN && (
               <button onClick={() => onUpdateStatus(CheckinStatus.PENDING)} className="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
                 {t('statusUpdateModal.cancelCheckin')}

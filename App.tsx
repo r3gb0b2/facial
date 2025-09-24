@@ -225,9 +225,11 @@ const App: React.FC = () => {
         return { successCount, errors };
     };
 
-    const handleAddSupplier = (name: string, sectors: string[], registrationLimit: number) => {
+    // FIX: Changed function to async and awaited the API call to ensure it returns Promise<void>
+    // to match the prop type in AdminView, resolving a TypeScript error.
+    const handleAddSupplier = async (name: string, sectors: string[], registrationLimit: number) => {
         if (!currentEvent) return Promise.reject();
-        return api.addSupplier(currentEvent.id, name, sectors, registrationLimit);
+        await api.addSupplier(currentEvent.id, name, sectors, registrationLimit);
     };
     
     const handleUpdateSupplier = (supplierId: string, data: Partial<Supplier>) => {
@@ -240,9 +242,11 @@ const App: React.FC = () => {
         return api.updateSupplier(currentEvent.id, supplierId, { active });
     };
 
-    const handleAddSector = (label: string) => {
+    // FIX: Changed function to async and awaited the API call to ensure it returns Promise<void>
+    // to match the prop type in AdminView, resolving a TypeScript error.
+    const handleAddSector = async (label: string) => {
         if (!currentEvent) return Promise.reject();
-        return api.addSector(currentEvent.id, label);
+        await api.addSector(currentEvent.id, label);
     };
 
     const handleUpdateSector = (sectorId: string, label: string) => {
