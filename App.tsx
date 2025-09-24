@@ -219,7 +219,12 @@ const App: React.FC = () => {
       return <CheckinView attendees={attendees} onCheckin={handleManualCheckin} />;
     }
     if (currentView === 'admin') {
-      return <AdminView eventId={selectedEvent!.id!} suppliers={suppliers} onAddSupplier={handleAddSupplier} setSuccess={showSuccess} setError={showError}/>;
+      // Safeguard to prevent crash if selectedEvent or its ID is missing.
+      // This state should ideally not be reachable due to the outer check, but this makes it robust.
+      if (!selectedEvent?.id) {
+        return null;
+      }
+      return <AdminView eventId={selectedEvent.id} suppliers={suppliers} onAddSupplier={handleAddSupplier} setSuccess={showSuccess} setError={showError}/>;
     }
     return null;
   };
