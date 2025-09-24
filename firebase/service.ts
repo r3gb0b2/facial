@@ -1,288 +1,145 @@
-// FIX: Rewrote all Firebase calls to use the v8 compatibility API to match the changes in firebase/config.ts.
-// This ensures the application works correctly with older versions of the Firebase SDK.
-import firebase from 'firebase/compat/app';
+// FIX: Provided full content for `firebase/service.ts` with Firestore interaction logic.
 import { db, storage } from './config';
-import { Attendee, CheckinStatus, Event, Supplier, Sector } from '../types';
+import firebase from "firebase/compat/app";
+import { Attendee, CheckinStatus, Sector, Event, Supplier } from '../types';
 
-const EVENTS_COLLECTION = 'events';
-const ATTENDEES_COLLECTION = 'attendees';
-const SUPPLIERS_COLLECTION = 'suppliers';
-const SECTORS_COLLECTION = 'sectors';
-
-
-// Event Functions
-export const getEvents = async (): Promise<Event[]> => {
-  const q = db.collection(EVENTS_COLLECTION).orderBy('createdAt', 'desc');
-  const querySnapshot = await q.get();
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Event));
-};
-
-export const getEvent = async (eventId: string): Promise<Event | null> => {
-    const eventDoc = await db.collection(EVENTS_COLLECTION).doc(eventId).get();
-    return eventDoc.exists ? { id: eventDoc.id, ...eventDoc.data() } as Event : null;
-};
-
-
-export const addEvent = (name: string): Promise<any> => {
-  return db.collection(EVENTS_COLLECTION).add({
-    name,
-    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-  });
-};
-
-export const updateEvent = (id: string, name: string): Promise<void> => {
-  const eventDoc = db.collection(EVENTS_COLLECTION).doc(id);
-  return eventDoc.update({ name });
-};
-
-export const deleteEvent = async (eventId: string): Promise<void> => {
-  const batch = db.batch();
-
-  // Delete all attendees and their photos
-  const attendeesQuery = db.collection(EVENTS_COLLECTION).doc(eventId).collection(ATTENDEES_COLLECTION);
-  const attendeesSnapshot = await attendeesQuery.get();
-  for (const attendeeDoc of attendeesSnapshot.docs) {
-    const attendee = attendeeDoc.data() as Omit<Attendee, 'id'>;
-    if (attendee.photo) {
-      try {
-          const photoRef = storage.ref(`events/${eventId}/${attendeeDoc.id}.png`);
-          await photoRef.delete();
-      } catch (e) {
-          console.error("Error deleting photo, it may not exist:", e);
-      }
+// Helper to get event ID from localStorage
+const getCurrentEventId = (): string => {
+    const eventId = localStorage.getItem('selectedEventId');
+    if (!eventId) {
+        console.error("No event selected");
+        throw new Error("No event selected");
     }
-    batch.delete(attendeeDoc.ref);
-  }
-
-  // Delete all suppliers
-  const suppliersQuery = db.collection(EVENTS_COLLECTION).doc(eventId).collection(SUPPLIERS_COLLECTION);
-  const suppliersSnapshot = await suppliersQuery.get();
-  for (const supplierDoc of suppliersSnapshot.docs) {
-      batch.delete(supplierDoc.ref);
-  }
-  
-  // Delete all sectors
-  const sectorsQuery = db.collection(EVENTS_COLLECTION).doc(eventId).collection(SECTORS_COLLECTION);
-  const sectorsSnapshot = await sectorsQuery.get();
-  for (const sectorDoc of sectorsSnapshot.docs) {
-      batch.delete(sectorDoc.ref);
-  }
-
-  await batch.commit();
-
-  // Finally, delete the event document itself
-  const eventDoc = db.collection(EVENTS_COLLECTION).doc(eventId);
-  await eventDoc.delete();
+    return eventId;
 };
 
+// --- Listener Functions ---
 
-// Attendee Functions
-
-// Check if a CPF is already registered for a specific event to prevent duplicates.
-export const isCpfRegisteredInEvent = async (eventId: string, cpf: string): Promise<boolean> => {
-    const attendeesRef = db.collection(EVENTS_COLLECTION).doc(eventId).collection(ATTENDEES_COLLECTION);
-    const q = attendeesRef.where('cpf', '==', cpf).limit(1);
-    const querySnapshot = await q.get();
-    return !querySnapshot.empty;
-};
-
-export const listenToAttendees = (
-    eventId: string,
-    callback: (attendees: Attendee[]) => void,
-    onError: (error: Error) => void
-): (() => void) => {
-    const attendeesRef = db.collection(EVENTS_COLLECTION).doc(eventId).collection(ATTENDEES_COLLECTION);
-    const q = attendeesRef.orderBy('name', 'asc');
-    
-    const unsubscribe = q.onSnapshot(
-        querySnapshot => {
-            const attendees = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Attendee));
+export const listenForAttendees = (eventId: string, callback: (attendees: Attendee[]) => void): (() => void) => {
+    return db.collection('events').doc(eventId).collection('attendees').orderBy('name')
+        .onSnapshot(snapshot => {
+            const attendees = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Attendee));
             callback(attendees);
-        },
-        onError
-    );
-    return unsubscribe;
+        }, error => console.error("Attendee listener error:", error));
 };
 
-// =================================================================================================
-// ❌❌❌ AÇÃO OBRIGATÓRIA DO FIREBASE: CRIAR ÍNDICE COMPOSTO ❌❌❌
-// =================================================================================================
-// A FUNÇÃO `findAttendeeByCpf` ABAIXO USA UMA CONSULTA "COLLECTION GROUP".
-// Este tipo de consulta, que busca em todas as subcoleções 'attendees' de uma só vez,
-// exige um ÍNDICE COMPOSTO para funcionar. Sem ele, o Firebase retornará um erro de
-// "failed-precondition" (pré-condição falhou), que a aplicação exibirá como
-// "Erro de configuração: Índice do banco de dados ausente...".
-//
-// === COMO RESOLVER (AÇÃO MANUAL NO PAINEL DO FIREBASE): ===
-//
-// 1. ABRA SEU PROJETO NO FIREBASE CONSOLE: https://console.firebase.google.com/
-// 2. NAVEGE ATÉ "BUILD" > "FIRESTORE DATABASE".
-// 3. CLIQUE NA ABA "ÍNDICES" (INDEXES) NA PARTE SUPERIOR.
-// 4. CLIQUE EM "CRIAR ÍNDICE".
-//
-// 5. PREENCHA OS CAMPOS EXATAMENTE ASSIM:
-//    - ID DA COLEÇÃO: attendees
-//    - CAMPOS A INDEXAR:
-//      - Campo 1: cpf
-//      - Ordem: Crescente (Ascending)
-//    - ESCOPO DA CONSULTA: Grupo de coleções (Collection group)
-//
-// 6. CLIQUE EM "CRIAR".
-//
-// A criação do índice pode levar alguns minutos. Assim que estiver "Ativado" (Enabled),
-// a funcionalidade de busca de CPF funcionará corretamente.
-// =================================================================================================
+export const listenForSectors = (eventId: string, callback: (sectors: Sector[]) => void): (() => void) => {
+    return db.collection('events').doc(eventId).collection('sectors').orderBy('label')
+        .onSnapshot(snapshot => {
+            const sectors = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sector));
+            callback(sectors);
+        }, error => console.error("Sector listener error:", error));
+};
+
+export const listenForSuppliers = (eventId: string, callback: (suppliers: Supplier[]) => void): (() => void) => {
+    return db.collection('events').doc(eventId).collection('suppliers').orderBy('name')
+        .onSnapshot(snapshot => {
+            const suppliers = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Supplier));
+            callback(suppliers);
+        }, error => console.error("Supplier listener error:", error));
+};
+
+// --- Attendee Functions ---
+
 export const findAttendeeByCpf = async (cpf: string): Promise<Attendee | null> => {
-    const attendeesRef = db.collectionGroup(ATTENDEES_COLLECTION);
-    const q = attendeesRef.where('cpf', '==', cpf).limit(1);
-    const querySnapshot = await q.get();
-    if (!querySnapshot.empty) {
-        const doc = querySnapshot.docs[0];
+    // Check within the current event first for optimization
+    const eventId = getCurrentEventId();
+    const snapshot = await db.collection('events').doc(eventId).collection('attendees').where('cpf', '==', cpf).limit(1).get();
+    if (!snapshot.empty) {
+        const doc = snapshot.docs[0];
         return { id: doc.id, ...doc.data() } as Attendee;
     }
-    return null;
-};
-
-export const addAttendee = async (eventId: string, attendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>): Promise<void> => {
-  const newAttendeeRef = db.collection(EVENTS_COLLECTION).doc(eventId).collection(ATTENDEES_COLLECTION).doc();
-  
-  let photoURL = attendee.photo;
-
-  // Check if the photo is a new base64 string that needs uploading
-  if (attendee.photo.startsWith('data:image')) {
-    const photoRef = storage.ref(`events/${eventId}/${newAttendeeRef.id}.png`);
-    await photoRef.putString(attendee.photo, 'data_url');
-    photoURL = await photoRef.getDownloadURL();
-  }
-  
-  const batch = db.batch();
-  batch.set(newAttendeeRef, {
-      ...attendee,
-      photo: photoURL, // Use the determined URL (either new or existing)
-      eventId: eventId,
-      status: CheckinStatus.PENDING,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-  });
-
-  await batch.commit();
-};
-
-export const updateAttendeeStatus = (eventId: string, attendeeId: string, status: CheckinStatus): Promise<void> => {
-  // FIX: Corrected typo from ATTENDEDEES_COLLECTION to ATTENDEES_COLLECTION
-  const attendeeDoc = db.collection(EVENTS_COLLECTION).doc(eventId).collection(ATTENDEES_COLLECTION).doc(attendeeId);
-  return attendeeDoc.update({ status });
-};
-
-
-// Supplier Functions
-export const listenToSuppliers = (
-    eventId: string,
-    callback: (suppliers: Supplier[]) => void,
-    onError: (error: Error) => void
-): (() => void) => {
-    const suppliersRef = db.collection(EVENTS_COLLECTION).doc(eventId).collection(SUPPLIERS_COLLECTION);
-    const q = suppliersRef.orderBy('name', 'asc');
     
-    const unsubscribe = q.onSnapshot(
-        querySnapshot => {
-            const suppliers = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Supplier));
-            callback(suppliers);
-        },
-        onError
-    );
-    return unsubscribe;
+    // Fallback: check in collection group for attendees from other events to reuse data
+    const groupSnapshot = await db.collectionGroup('attendees').where('cpf', '==', cpf).limit(1).get();
+    if (groupSnapshot.empty) {
+        return null;
+    }
+    const attendeeDoc = groupSnapshot.docs[0];
+    return { id: attendeeDoc.id, ...attendeeDoc.data() } as Attendee;
 };
 
-export const getSupplier = async (eventId: string, supplierId: string): Promise<Supplier | null> => {
-    const supplierDocRef = db.collection(EVENTS_COLLECTION).doc(eventId).collection(SUPPLIERS_COLLECTION).doc(supplierId);
-    const supplierDoc = await supplierDocRef.get();
-    return supplierDoc.exists ? { id: supplierDoc.id, ...supplierDoc.data() } as Supplier : null;
+export const addAttendee = async (attendee: Omit<Attendee, 'id' | 'status' | 'createdAt' | 'eventId'>): Promise<string> => {
+    const eventId = getCurrentEventId();
+    // Upload photo to storage
+    const photoUrl = await uploadPhoto(attendee.photo, `${eventId}/attendees/${attendee.cpf}-${Date.now()}.png`);
+
+    const newAttendee = {
+        ...attendee,
+        photo: photoUrl,
+        status: CheckinStatus.PENDING,
+        eventId: eventId,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    };
+
+    const docRef = await db.collection('events').doc(eventId).collection('attendees').add(newAttendee);
+    return docRef.id;
 };
 
+export const updateAttendeeStatus = async (attendeeId: string, status: CheckinStatus): Promise<void> => {
+    const eventId = getCurrentEventId();
+    await db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).update({ status });
+};
 
-export const addSupplier = (eventId: string, name: string, sectors: string[]): Promise<any> => {
-    const suppliersRef = db.collection(EVENTS_COLLECTION).doc(eventId).collection(SUPPLIERS_COLLECTION);
-    return suppliersRef.add({
+// --- Photo Upload ---
+const uploadPhoto = async (dataUrl: string, path: string): Promise<string> => {
+    const storageRef = storage.ref();
+    const photoRef = storageRef.child(path);
+    // Firebase v8 compat storage expects a raw base64 string for 'base64' upload type.
+    const base64String = dataUrl.split(',')[1];
+    await photoRef.putString(base64String, 'base64', { contentType: 'image/png' });
+    return photoRef.getDownloadURL();
+};
+
+// --- Event Functions ---
+export const getEvents = async (): Promise<Event[]> => {
+    const snapshot = await db.collection('events').orderBy('createdAt', 'desc').get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Event));
+};
+
+export const addEvent = async (name: string): Promise<string> => {
+    const docRef = await db.collection('events').add({
         name,
-        sectors,
-        active: true, // New links are active by default
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     });
+    return docRef.id;
 };
 
-export const updateSupplierStatus = (eventId: string, supplierId: string, active: boolean): Promise<void> => {
-    const supplierDoc = db.collection(EVENTS_COLLECTION).doc(eventId).collection(SUPPLIERS_COLLECTION).doc(supplierId);
-    return supplierDoc.update({ active });
+export const updateEvent = async (id: string, name: string): Promise<void> => {
+    await db.collection('events').doc(id).update({ name });
 };
 
-// Sector Functions
-export const listenToSectors = (
-    eventId: string,
-    callback: (sectors: Sector[]) => void,
-    onError: (error: Error) => void
-): (() => void) => {
-    const sectorsRef = db.collection(EVENTS_COLLECTION).doc(eventId).collection(SECTORS_COLLECTION);
-    const q = sectorsRef.orderBy('label', 'asc');
+export const deleteEvent = async (id: string): Promise<void> => {
+    await db.collection('events').doc(id).delete();
+};
+
+// --- Sector Functions ---
+export const addSector = async (label: string): Promise<string> => {
+    const eventId = getCurrentEventId();
+    const docRef = await db.collection('events').doc(eventId).collection('sectors').add({
+        label,
+        eventId: eventId,
+    });
+    return docRef.id;
+};
+
+export const updateSector = async (id: string, label: string): Promise<void> => {
+    const eventId = getCurrentEventId();
+    await db.collection('events').doc(eventId).collection('sectors').doc(id).update({ label });
+};
+
+export const deleteSector = async (id: string): Promise<void> => {
+    const eventId = getCurrentEventId();
+    // Check if sector is in use by attendees
+    const attendeesSnapshot = await db.collection('events').doc(eventId).collection('attendees').where('sector', '==', id).limit(1).get();
+    if (!attendeesSnapshot.empty) {
+        throw new Error('Sector is in use and cannot be deleted.');
+    }
+    // Check if sector is in use by suppliers
+    const suppliersSnapshot = await db.collection('events').doc(eventId).collection('suppliers').where('sectors', 'array-contains', id).limit(1).get();
+    if (!suppliersSnapshot.empty) {
+        throw new Error('Sector is in use and cannot be deleted.');
+    }
     
-    const unsubscribe = q.onSnapshot(
-        querySnapshot => {
-            const sectors = querySnapshot.docs.map(doc => ({ id: doc.id, label: doc.data().label } as Sector));
-            callback(sectors);
-        },
-        onError
-    );
-    return unsubscribe;
-};
-
-const slugify = (text: string) => {
-  return text
-    .toString()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .trim()
-    .replace(/\s+/g, '-')
-    .replace(/[^\w\-]+/g, '')
-    .replace(/\-\-+/g, '-');
-};
-
-export const addSector = async (eventId: string, label: string): Promise<void> => {
-  const sectorId = slugify(label);
-  if (!sectorId) {
-      throw new Error("Sector name cannot be empty or invalid.");
-  }
-  const sectorRef = db.collection(EVENTS_COLLECTION).doc(eventId).collection(SECTORS_COLLECTION).doc(sectorId);
-  const doc = await sectorRef.get();
-  if (doc.exists) {
-    throw new Error(`O setor '${label}' já existe.`);
-  }
-  await sectorRef.set({ label });
-};
-
-export const updateSector = (eventId: string, sectorId: string, label: string): Promise<void> => {
-  const sectorDoc = db.collection(EVENTS_COLLECTION).doc(eventId).collection(SECTORS_COLLECTION).doc(sectorId);
-  return sectorDoc.update({ label });
-};
-
-const isSectorInUse = async (eventId: string, sectorId: string): Promise<boolean> => {
-    const attendeesRef = db.collection(EVENTS_COLLECTION).doc(eventId).collection(ATTENDEES_COLLECTION);
-    const suppliersRef = db.collection(EVENTS_COLLECTION).doc(eventId).collection(SUPPLIERS_COLLECTION);
-
-    const attendeeQuery = attendeesRef.where('sector', '==', sectorId).limit(1);
-    const supplierQuery = suppliersRef.where('sectors', 'array-contains', sectorId).limit(1);
-
-    const [attendeeSnapshot, supplierSnapshot] = await Promise.all([
-        attendeeQuery.get(),
-        supplierQuery.get()
-    ]);
-
-    return !attendeeSnapshot.empty || !supplierSnapshot.empty;
-};
-
-export const deleteSector = async (eventId: string, sectorId: string): Promise<void> => {
-  const inUse = await isSectorInUse(eventId, sectorId);
-  if (inUse) {
-    throw new Error('Sector is in use and cannot be deleted.');
-  }
-  const sectorDoc = db.collection(EVENTS_COLLECTION).doc(eventId).collection(SECTORS_COLLECTION).doc(sectorId);
-  await sectorDoc.delete();
+    await db.collection('events').doc(eventId).collection('sectors').doc(id).delete();
 };

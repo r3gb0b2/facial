@@ -1,116 +1,40 @@
-import React, { useState } from 'react';
-import { Attendee, CheckinStatus, Supplier, Sector } from '../../types';
-import RegisterView from './RegisterView';
-import CheckinView from './CheckinView';
-import SupplierManagementView from './SupplierManagementView';
+// FIX: Provided full content for `AdminView.tsx`.
+import React from 'react';
+import { Sector, Supplier } from '../../types';
 import SectorManagementView from './SectorManagementView';
-import { UsersIcon, FingerPrintIcon, ArrowLeftOnRectangleIcon, LinkIcon, TagIcon } from '../icons';
+import SupplierManagementView from './SupplierManagementView';
 
 interface AdminViewProps {
-  currentEventId: string;
-  eventName: string;
-  attendees: Attendee[];
-  suppliers: Supplier[];
   sectors: Sector[];
-  onRegister: (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => Promise<void>;
-  onStatusUpdate: (attendee: Attendee, newStatus: CheckinStatus) => void;
-  onAddSupplier: (name: string, sectors: string[]) => Promise<void>;
-  onSupplierStatusUpdate: (supplierId: string, active: boolean) => Promise<void>;
+  suppliers: Supplier[];
   onAddSector: (label: string) => Promise<void>;
   onUpdateSector: (sectorId: string, label: string) => Promise<void>;
   onDeleteSector: (sector: Sector) => Promise<void>;
-  onBack: () => void;
   setError: (message: string) => void;
 }
 
-type Tab = 'register' | 'checkin' | 'suppliers' | 'sectors';
-
-const AdminView: React.FC<AdminViewProps> = ({
-  currentEventId,
-  eventName,
-  attendees,
-  suppliers,
-  sectors,
-  onRegister,
-  onStatusUpdate,
-  onAddSupplier,
-  onSupplierStatusUpdate,
-  onAddSector,
-  onUpdateSector,
-  onDeleteSector,
-  onBack,
-  setError,
-}) => {
-  const [activeTab, setActiveTab] = useState<Tab>('register');
-
-  const tabs: { id: Tab; label: string; icon: React.FC<any> }[] = [
-    { id: 'register', label: 'Registrar', icon: UsersIcon },
-    { id: 'checkin', label: 'Check-in', icon: FingerPrintIcon },
-    { id: 'suppliers', label: 'Fornecedores', icon: LinkIcon },
-    { id: 'sectors', label: 'Setores', icon: TagIcon },
-  ];
+const AdminView: React.FC<AdminViewProps> = (props) => {
 
   return (
-    <div className="space-y-8">
-      <header className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500">
-            {eventName}
-          </h1>
-          <p className="text-gray-400">Gerenciando {attendees.length} participante(s)</p>
-        </div>
-        <button onClick={onBack} className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
-          <ArrowLeftOnRectangleIcon className="w-5 h-5"/>
-          Trocar Evento
-        </button>
-      </header>
-
-      <div className="border-b border-gray-700">
-        <nav className="-mb-px flex space-x-6" aria-label="Tabs">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`${
-                activeTab === tab.id
-                  ? 'border-indigo-500 text-indigo-400'
-                  : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'
-              } group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm transition-colors`}
-            >
-              <tab.icon className="-ml-0.5 mr-2 h-5 w-5" />
-              <span>{tab.label}</span>
-            </button>
-          ))}
-        </nav>
+    <div className="w-full max-w-7xl mx-auto space-y-8">
+      <h1 className="text-4xl font-bold text-center text-white">
+        Painel Administrativo
+      </h1>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+        <SectorManagementView
+          sectors={props.sectors}
+          onAddSector={props.onAddSector}
+          onUpdateSector={props.onUpdateSector}
+          onDeleteSector={props.onDeleteSector}
+          setError={props.setError}
+        />
+        {/* Supplier management can be added here once fully implemented */}
+        <SupplierManagementView
+          suppliers={props.suppliers}
+          sectors={props.sectors}
+          setError={props.setError}
+        />
       </div>
-
-      <main>
-        {activeTab === 'register' && (
-          <RegisterView onRegister={onRegister} setError={setError} sectors={sectors} />
-        )}
-        {activeTab === 'checkin' && (
-          <CheckinView attendees={attendees} onStatusUpdate={onStatusUpdate} sectors={sectors} />
-        )}
-        {activeTab === 'suppliers' && (
-            <SupplierManagementView
-                currentEventId={currentEventId}
-                suppliers={suppliers} 
-                sectors={sectors}
-                onAddSupplier={onAddSupplier}
-                onSupplierStatusUpdate={onSupplierStatusUpdate}
-                setError={setError}
-            />
-        )}
-        {activeTab === 'sectors' && (
-            <SectorManagementView
-                sectors={sectors}
-                onAddSector={onAddSector}
-                onUpdateSector={onUpdateSector}
-                onDeleteSector={onDeleteSector}
-                setError={setError}
-            />
-        )}
-      </main>
     </div>
   );
 };
