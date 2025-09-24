@@ -18,7 +18,6 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, onStatusUpdate }) 
   const [selectedAttendee, setSelectedAttendee] = useState<Attendee | null>(null);
 
   const handleOpenModal = (attendee: Attendee) => {
-    if (attendee.status !== CheckinStatus.REGISTERED) return;
     setSelectedAttendee(attendee);
     setIsModalOpen(true);
   };

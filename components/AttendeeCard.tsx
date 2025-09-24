@@ -43,10 +43,8 @@ const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect }) => {
 
   return (
     <div
-      onClick={() => !isInactive && onSelect(attendee)}
-      className={`bg-gray-800 rounded-xl overflow-hidden border border-gray-700 shadow-lg transition-all duration-300 transform ${
-        isInactive ? 'opacity-60 cursor-default' : 'cursor-pointer hover:-translate-y-1 hover:shadow-indigo-500/30 hover:border-indigo-500'
-      }`}
+      onClick={() => onSelect(attendee)}
+      className={`bg-gray-800 rounded-xl overflow-hidden border border-gray-700 shadow-lg transition-all duration-300 transform cursor-pointer hover:-translate-y-1 hover:shadow-indigo-500/30 hover:border-indigo-500 ${isInactive ? 'opacity-70' : ''}`}
     >
       <div className="relative">
         <img src={attendee.photo} alt={attendee.name} className="w-full h-48 object-cover" />
