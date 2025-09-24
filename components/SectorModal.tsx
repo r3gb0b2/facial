@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Sector } from '../types';
-import { useTranslation } from '../hooks/useTranslation';
+// FIX: Added .tsx extension to module import.
+import { useTranslation } from '../hooks/useTranslation.tsx';
 import { XMarkIcon } from './icons';
 
 interface SectorModalProps {

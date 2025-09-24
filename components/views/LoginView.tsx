@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { useTranslation } from '../../hooks/useTranslation';
+// FIX: Added .tsx extension to module import.
+import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { FingerPrintIcon } from '../icons';
 
 interface LoginViewProps {

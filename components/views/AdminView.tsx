@@ -1,128 +1,93 @@
 import React, { useState } from 'react';
-import { Attendee, CheckinStatus, Supplier, Sector } from '../../types';
-import RegisterView from './RegisterView';
-import CheckinView from './CheckinView';
-import SupplierManagementView from './SupplierManagementView';
-import SectorManagementView from './SectorManagementView';
-import { UsersIcon, FingerPrintIcon, ArrowLeftOnRectangleIcon, LinkIcon, TagIcon } from '../icons';
+import { Attendee, Sector, Supplier, Event } from '../../types.ts';
+import { useTranslation } from '../../hooks/useTranslation.tsx';
+import CheckinView from './CheckinView.tsx';
+import RegisterView from './RegisterView.tsx';
+import SupplierManagementView from './SupplierManagementView.tsx';
+import SectorManagementView from './SectorManagementView.tsx';
+import { ArrowLeftOnRectangleIcon } from '../icons.tsx';
+
+type AdminTab = 'checkin' | 'register' | 'suppliers' | 'sectors';
 
 interface AdminViewProps {
-  currentEventId: string;
-  eventName: string;
-  attendees: Attendee[];
-  suppliers: Supplier[];
-  sectors: Sector[];
-  onRegister: (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => Promise<void>;
-  onImportAttendees: (data: any[]) => Promise<any>;
-  onStatusUpdate: (attendee: Attendee, newStatus: CheckinStatus) => void;
-  onAddSupplier: (name: string, sectors: string[], registrationLimit: number) => Promise<void>;
-  onUpdateSupplier: (supplierId: string, data: Partial<Supplier>) => Promise<void>;
-  onSupplierStatusUpdate: (supplierId: string, active: boolean) => Promise<void>;
-  onAddSector: (label: string) => Promise<void>;
-  onUpdateSector: (sectorId: string, label: string) => Promise<void>;
-  onDeleteSector: (sector: Sector) => Promise<void>;
-  onBack: () => void;
-  setError: (message: string) => void;
+    currentEvent: Event;
+    attendees: Attendee[];
+    suppliers: Supplier[];
+    sectors: Sector[];
+    onRegister: (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => Promise<void>;
+    onImportAttendees: (data: any[]) => Promise<any>;
+    onAddSupplier: (name: string, sectors: string[], registrationLimit: number) => Promise<void>;
+    onUpdateSupplier: (supplierId: string, data: Partial<Supplier>) => Promise<void>;
+    onSupplierStatusUpdate: (supplierId: string, active: boolean) => Promise<void>;
+    onAddSector: (label: string) => Promise<void>;
+    onUpdateSector: (sectorId: string, label: string) => Promise<void>;
+    onDeleteSector: (sector: Sector) => Promise<void>;
+    onBack: () => void;
+    setError: (message: string) => void;
 }
 
-type Tab = 'register' | 'checkin' | 'suppliers' | 'sectors';
+const AdminView: React.FC<AdminViewProps> = (props) => {
+    const { t } = useTranslation();
+    const [activeTab, setActiveTab] = useState<AdminTab>('checkin');
 
-const AdminView: React.FC<AdminViewProps> = ({
-  currentEventId,
-  eventName,
-  attendees,
-  suppliers,
-  sectors,
-  onRegister,
-  onImportAttendees,
-  onStatusUpdate,
-  onAddSupplier,
-  onUpdateSupplier,
-  onSupplierStatusUpdate,
-  onAddSector,
-  onUpdateSector,
-  onDeleteSector,
-  onBack,
-  setError,
-}) => {
-  const [activeTab, setActiveTab] = useState<Tab>('register');
+    const tabs: { id: AdminTab; label: string }[] = [
+        { id: 'checkin', label: t('admin.tabs.checkin') },
+        { id: 'register', label: t('admin.tabs.register') },
+        { id: 'suppliers', label: t('admin.tabs.suppliers') },
+        { id: 'sectors', label: t('admin.tabs.sectors') },
+    ];
+    
+    const renderContent = () => {
+        switch(activeTab) {
+            case 'checkin':
+                return <CheckinView attendees={props.attendees} currentEventId={props.currentEvent.id} />;
+            case 'register':
+                return <RegisterView onRegister={props.onRegister} onImportAttendees={props.onImportAttendees} setError={props.setError} sectors={props.sectors} />;
+            case 'suppliers':
+                return <SupplierManagementView currentEventId={props.currentEvent.id} suppliers={props.suppliers} attendees={props.attendees} sectors={props.sectors} onAddSupplier={props.onAddSupplier} onUpdateSupplier={props.onUpdateSupplier} onSupplierStatusUpdate={props.onSupplierStatusUpdate} setError={props.setError} />;
+            case 'sectors':
+                return <SectorManagementView sectors={props.sectors} onAddSector={props.onAddSector} onUpdateSector={props.onUpdateSector} onDeleteSector={props.onDeleteSector} setError={props.setError} />;
+            default:
+                return null;
+        }
+    };
 
-  const tabs: { id: Tab; label: string; icon: React.FC<any> }[] = [
-    { id: 'register', label: 'Registrar', icon: UsersIcon },
-    { id: 'checkin', label: 'Check-in', icon: FingerPrintIcon },
-    { id: 'suppliers', label: 'Fornecedores', icon: LinkIcon },
-    { id: 'sectors', label: 'Setores', icon: TagIcon },
-  ];
+    return (
+        <div className="w-full min-h-screen p-4 md:p-8">
+            <header className="flex flex-col md:flex-row justify-between items-center mb-8">
+                <div>
+                    <h1 className="text-3xl md:text-4xl font-bold text-white">{props.currentEvent.name}</h1>
+                    <p className="text-gray-400">{t('header.subtitle')}</p>
+                </div>
+                <button
+                    onClick={props.onBack}
+                    className="mt-4 md:mt-0 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2"
+                >
+                    <ArrowLeftOnRectangleIcon className="w-5 h-5" />
+                    {t('admin.backButton')}
+                </button>
+            </header>
 
-  return (
-    <div className="space-y-8">
-      <header className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500">
-            {eventName}
-          </h1>
-          <p className="text-gray-400">Gerenciando {attendees.length} participante(s)</p>
+            <nav className="mb-8">
+                <ul className="flex items-center justify-center gap-2 md:gap-4 p-2 bg-gray-900/50 rounded-lg">
+                    {tabs.map(tab => (
+                        <li key={tab.id} className="flex-1">
+                            <button
+                                onClick={() => setActiveTab(tab.id)}
+                                className={`w-full font-semibold text-sm md:text-base py-2 px-4 rounded-md transition-colors ${activeTab === tab.id ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+                            >
+                                {tab.label}
+                            </button>
+                        </li>
+                    ))}
+                </ul>
+            </nav>
+
+            <main>
+                {renderContent()}
+            </main>
         </div>
-        <button onClick={onBack} className="flex items-center gap-2 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg transition-colors">
-          <ArrowLeftOnRectangleIcon className="w-5 h-5"/>
-          Trocar Evento
-        </button>
-      </header>
-
-      <div className="border-b border-gray-700">
-        <nav className="-mb-px flex space-x-6" aria-label="Tabs">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`${
-                activeTab === tab.id
-                  ? 'border-indigo-500 text-indigo-400'
-                  : 'border-transparent text-gray-400 hover:text-gray-200 hover:border-gray-500'
-              } group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm transition-colors`}
-            >
-              <tab.icon className="-ml-0.5 mr-2 h-5 w-5" />
-              <span>{tab.label}</span>
-            </button>
-          ))}
-        </nav>
-      </div>
-
-      <main>
-        {activeTab === 'register' && (
-          <RegisterView 
-            onRegister={onRegister} 
-            onImportAttendees={onImportAttendees}
-            setError={setError} 
-            sectors={sectors} />
-        )}
-        {activeTab === 'checkin' && (
-          <CheckinView attendees={attendees} onStatusUpdate={onStatusUpdate} sectors={sectors} />
-        )}
-        {activeTab === 'suppliers' && (
-            <SupplierManagementView
-                currentEventId={currentEventId}
-                suppliers={suppliers}
-                attendees={attendees}
-                sectors={sectors}
-                onAddSupplier={onAddSupplier}
-                onUpdateSupplier={onUpdateSupplier}
-                onSupplierStatusUpdate={onSupplierStatusUpdate}
-                setError={setError}
-            />
-        )}
-        {activeTab === 'sectors' && (
-            <SectorManagementView
-                sectors={sectors}
-                onAddSector={onAddSector}
-                onUpdateSector={onUpdateSector}
-                onDeleteSector={onDeleteSector}
-                setError={setError}
-            />
-        )}
-      </main>
-    </div>
-  );
+    );
 };
 
 export default AdminView;

@@ -1,6 +1,7 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { CameraIcon, RefreshIcon } from './icons';
-import { useTranslation } from '../hooks/useTranslation';
+// FIX: Added .tsx extension to module import.
+import { useTranslation } from '../hooks/useTranslation.tsx';
 
 interface WebcamCaptureProps {
   onCapture: (imageDataUrl: string) => void;

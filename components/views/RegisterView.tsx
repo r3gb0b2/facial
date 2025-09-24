@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Attendee, Sector } from '../../types';
 import WebcamCapture from '../WebcamCapture';
-import { useTranslation } from '../../hooks/useTranslation';
+// FIX: Added .tsx extension to module import.
+import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { UsersIcon, CheckCircleIcon, SpinnerIcon } from '../icons';
-import * as api from '../../firebase/service';
+// FIX: Added .ts extension to module import.
+import * as api from '../../firebase/service.ts';
 import SpreadsheetUploadView from './SpreadsheetUploadView';
 
 interface RegisterViewProps {

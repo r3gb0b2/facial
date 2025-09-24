@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Attendee } from '../types';
 import WebcamCapture from './WebcamCapture';
 import { CheckCircleIcon, XMarkIcon } from './icons';
-import { useTranslation } from '../hooks/useTranslation';
+// FIX: Added .tsx extension to module import.
+import { useTranslation } from '../hooks/useTranslation.tsx';
 
 interface VerificationModalProps {
   attendee: Attendee;
