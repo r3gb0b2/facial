@@ -251,6 +251,24 @@ const App: React.FC = () => {
       showError('Falha ao registrar participante.');
     }
   };
+  
+  const handleImportAttendees = async (data: any[]) => {
+    if (!currentEvent) {
+        throw new Error("No event selected.");
+    }
+    const report = await api.addAttendeesFromSpreadsheet(currentEvent.id, data, sectors, attendees);
+    
+    if (report.successCount > 0) {
+        showSuccess(t('register.import.success', report.successCount));
+    }
+    if (report.errors.length > 0 && report.successCount === 0) {
+        showError('Nenhum participante foi importado devido a erros na planilha.');
+    } else if (report.errors.length > 0) {
+        showError('Alguns participantes não foram importados devido a erros.');
+    }
+    
+    return report;
+  };
 
   const handleSupplierRegister = async (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt' | 'supplierId'>) => {
     if (!supplierConfig) return;
@@ -379,6 +397,7 @@ const App: React.FC = () => {
         suppliers={suppliers}
         sectors={sectors}
         onRegister={handleRegister}
+        onImportAttendees={handleImportAttendees}
         onStatusUpdate={handleStatusUpdate}
         onAddSupplier={handleAddSupplier}
         onUpdateSupplier={handleUpdateSupplier}

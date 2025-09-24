@@ -13,6 +13,7 @@ interface AdminViewProps {
   suppliers: Supplier[];
   sectors: Sector[];
   onRegister: (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => Promise<void>;
+  onImportAttendees: (data: any[]) => Promise<any>;
   onStatusUpdate: (attendee: Attendee, newStatus: CheckinStatus) => void;
   onAddSupplier: (name: string, sectors: string[], registrationLimit: number) => Promise<void>;
   onUpdateSupplier: (supplierId: string, data: Partial<Supplier>) => Promise<void>;
@@ -33,6 +34,7 @@ const AdminView: React.FC<AdminViewProps> = ({
   suppliers,
   sectors,
   onRegister,
+  onImportAttendees,
   onStatusUpdate,
   onAddSupplier,
   onUpdateSupplier,
@@ -88,7 +90,11 @@ const AdminView: React.FC<AdminViewProps> = ({
 
       <main>
         {activeTab === 'register' && (
-          <RegisterView onRegister={onRegister} setError={setError} sectors={sectors} />
+          <RegisterView 
+            onRegister={onRegister} 
+            onImportAttendees={onImportAttendees}
+            setError={setError} 
+            sectors={sectors} />
         )}
         {activeTab === 'checkin' && (
           <CheckinView attendees={attendees} onStatusUpdate={onStatusUpdate} sectors={sectors} />

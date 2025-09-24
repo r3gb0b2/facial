@@ -37,6 +37,25 @@ const translations = {
       cpfFound: "CPF encontrado. Usando foto e nome existentes.",
       checkingCpf: "Verificando CPF...",
       cpfNotFound: "CPF não encontrado. Prossiga com um novo registro.",
+      import: {
+        title: "Importar via Planilha",
+        instructions: "Faça o upload de um arquivo CSV com as colunas: nome, cpf, setor. A primeira linha deve ser o cabeçalho.",
+        downloadTemplate: "Baixar modelo CSV",
+        button: "Selecionar e Importar Arquivo",
+        processing: "Processando planilha... Isso pode levar alguns segundos.",
+        success: "%s participante(s) importado(s) com sucesso!",
+        reportTitle: "Relatório de Importação",
+        errors: {
+          fileType: "Por favor, selecione um arquivo .csv.",
+          parsing: "Erro ao ler o arquivo. Verifique o formato.",
+          missingColumns: "O arquivo deve conter as colunas 'nome', 'cpf' e 'setor'.",
+          rowError: "Linha %s: %s",
+          invalidCpf: "CPF inválido",
+          duplicateCpfInFile: "CPF duplicado na planilha",
+          cpfAlreadyRegistered: "CPF já registrado no evento",
+          sectorNotFound: "Setor '%s' não encontrado. Verifique se o nome corresponde a um setor cadastrado."
+        }
+      }
     },
     checkin: {
       title: 'Controle de Acesso',
