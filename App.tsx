@@ -75,6 +75,75 @@ const App: React.FC = () => {
     }
   }, [isAuthenticated]);
 
+  // Effect to listen for real-time data updates when an event is selected
+  useEffect(() => {
+    if (!currentEvent) {
+      return; // No event selected, do nothing.
+    }
+
+    setLoading(true);
+
+    let initialLoads = { attendees: false, suppliers: false, sectors: false };
+    const checkAllLoaded = () => {
+        if (initialLoads.attendees && initialLoads.suppliers && initialLoads.sectors) {
+            setLoading(false);
+        }
+    };
+
+    const unsubscribeAttendees = api.listenToAttendees(currentEvent.id, 
+        (newAttendees) => {
+            setAttendees(newAttendees);
+            if (!initialLoads.attendees) {
+                initialLoads.attendees = true;
+                checkAllLoaded();
+            }
+        },
+        (error) => {
+            console.error("Attendee listener error:", error);
+            showError('Falha ao carregar participantes em tempo real.');
+            setLoading(false); // Stop loading on error too
+        }
+    );
+
+    const unsubscribeSuppliers = api.listenToSuppliers(currentEvent.id, 
+        (newSuppliers) => {
+            setSuppliers(newSuppliers);
+            if (!initialLoads.suppliers) {
+                initialLoads.suppliers = true;
+                checkAllLoaded();
+            }
+        },
+        (error) => {
+            console.error("Supplier listener error:", error);
+            showError('Falha ao carregar fornecedores em tempo real.');
+            setLoading(false);
+        }
+    );
+
+    const unsubscribeSectors = api.listenToSectors(currentEvent.id, 
+        (newSectors) => {
+            setSectors(newSectors);
+            if (!initialLoads.sectors) {
+                initialLoads.sectors = true;
+                checkAllLoaded();
+            }
+        },
+        (error) => {
+            console.error("Sector listener error:", error);
+            showError('Falha ao carregar setores em tempo real.');
+            setLoading(false);
+        }
+    );
+
+    // Return a cleanup function that unsubscribes from all listeners.
+    return () => {
+        unsubscribeAttendees();
+        unsubscribeSuppliers();
+        unsubscribeSectors();
+    };
+  }, [currentEvent]);
+
+
   const showSuccess = (message: string) => {
     setSuccess(message);
     setTimeout(() => setSuccess(''), 3000);
@@ -107,27 +176,8 @@ const App: React.FC = () => {
     }
   };
 
-  const loadEventData = async (eventId: string, showLoader = true) => {
-    if (showLoader) setLoading(true);
-    try {
-      const [attendeesData, suppliersData, sectorsData] = await Promise.all([
-          api.getAttendees(eventId),
-          api.getSuppliersForEvent(eventId),
-          api.getSectors(eventId)
-      ]);
-      setAttendees(attendeesData);
-      setSuppliers(suppliersData);
-      setSectors(sectorsData);
-    } catch (e) {
-      showError('Falha ao carregar dados do evento.');
-    } finally {
-      if (showLoader) setLoading(false);
-    }
-  };
-
   const handleSelectEvent = (event: Event) => {
     setCurrentEvent(event);
-    loadEventData(event.id, true);
   };
   
   const handleBackToEvents = () => {
@@ -179,7 +229,6 @@ const App: React.FC = () => {
     try {
       await api.addAttendee(currentEvent.id, newAttendee);
       showSuccess(`${newAttendee.name} registrado com sucesso!`);
-      loadEventData(currentEvent.id, false); // silent reload
     } catch (e) {
       showError('Falha ao registrar participante.');
     }
@@ -209,8 +258,6 @@ const App: React.FC = () => {
     try {
       await api.updateAttendeeStatus(currentEvent.id, attendee.id, newStatus);
       showSuccess(`Status de ${attendee.name} atualizado.`);
-      // Reload attendees without showing the full-page loader
-      loadEventData(currentEvent.id, false); 
     } catch (e) {
       showError('Falha ao atualizar status.');
     }
@@ -221,7 +268,6 @@ const App: React.FC = () => {
       try {
           await api.addSupplier(currentEvent.id, name, sectors);
           showSuccess('Link de fornecedor gerado com sucesso!');
-          loadEventData(currentEvent.id, false); // silent reload
       } catch (e) {
           showError('Falha ao gerar link.');
       }
@@ -232,7 +278,6 @@ const App: React.FC = () => {
       try {
           await api.updateSupplierStatus(currentEvent.id, supplierId, active);
           showSuccess('Status do link atualizado.');
-          loadEventData(currentEvent.id, false); // silent reload
       } catch (e) {
           showError('Falha ao atualizar status do link.');
       }
@@ -244,7 +289,6 @@ const App: React.FC = () => {
     try {
       await api.addSector(currentEvent.id, label);
       showSuccess('Setor criado com sucesso!');
-      loadEventData(currentEvent.id, false);
     } catch (e: any) {
       showError(e.message || 'Falha ao criar setor.');
     }
@@ -255,7 +299,6 @@ const App: React.FC = () => {
     try {
       await api.updateSector(currentEvent.id, sectorId, label);
       showSuccess('Setor atualizado com sucesso!');
-      loadEventData(currentEvent.id, false);
     } catch (e) {
       showError('Falha ao atualizar setor.');
     }
@@ -266,7 +309,6 @@ const App: React.FC = () => {
     try {
       await api.deleteSector(currentEvent.id, sector.id);
       showSuccess('Setor deletado com sucesso!');
-      loadEventData(currentEvent.id, false);
     } catch (e) {
       throw e; // Re-throw to be handled by the component
     }

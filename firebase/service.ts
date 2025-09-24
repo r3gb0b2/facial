@@ -86,11 +86,22 @@ export const isCpfRegisteredInEvent = async (eventId: string, cpf: string): Prom
     return !querySnapshot.empty;
 };
 
-export const getAttendees = async (eventId: string): Promise<Attendee[]> => {
-  const attendeesRef = db.collection(EVENTS_COLLECTION).doc(eventId).collection(ATTENDEES_COLLECTION);
-  const q = attendeesRef.orderBy('name', 'asc');
-  const querySnapshot = await q.get();
-  return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Attendee));
+export const listenToAttendees = (
+    eventId: string,
+    callback: (attendees: Attendee[]) => void,
+    onError: (error: Error) => void
+): (() => void) => {
+    const attendeesRef = db.collection(EVENTS_COLLECTION).doc(eventId).collection(ATTENDEES_COLLECTION);
+    const q = attendeesRef.orderBy('name', 'asc');
+    
+    const unsubscribe = q.onSnapshot(
+        querySnapshot => {
+            const attendees = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Attendee));
+            callback(attendees);
+        },
+        onError
+    );
+    return unsubscribe;
 };
 
 // =================================================================================================
@@ -164,11 +175,22 @@ export const updateAttendeeStatus = (eventId: string, attendeeId: string, status
 
 
 // Supplier Functions
-export const getSuppliersForEvent = async (eventId: string): Promise<Supplier[]> => {
+export const listenToSuppliers = (
+    eventId: string,
+    callback: (suppliers: Supplier[]) => void,
+    onError: (error: Error) => void
+): (() => void) => {
     const suppliersRef = db.collection(EVENTS_COLLECTION).doc(eventId).collection(SUPPLIERS_COLLECTION);
     const q = suppliersRef.orderBy('name', 'asc');
-    const querySnapshot = await q.get();
-    return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Supplier));
+    
+    const unsubscribe = q.onSnapshot(
+        querySnapshot => {
+            const suppliers = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Supplier));
+            callback(suppliers);
+        },
+        onError
+    );
+    return unsubscribe;
 };
 
 export const getSupplier = async (eventId: string, supplierId: string): Promise<Supplier | null> => {
@@ -193,11 +215,22 @@ export const updateSupplierStatus = (eventId: string, supplierId: string, active
 };
 
 // Sector Functions
-export const getSectors = async (eventId: string): Promise<Sector[]> => {
+export const listenToSectors = (
+    eventId: string,
+    callback: (sectors: Sector[]) => void,
+    onError: (error: Error) => void
+): (() => void) => {
     const sectorsRef = db.collection(EVENTS_COLLECTION).doc(eventId).collection(SECTORS_COLLECTION);
     const q = sectorsRef.orderBy('label', 'asc');
-    const querySnapshot = await q.get();
-    return querySnapshot.docs.map(doc => ({ id: doc.id, label: doc.data().label } as Sector));
+    
+    const unsubscribe = q.onSnapshot(
+        querySnapshot => {
+            const sectors = querySnapshot.docs.map(doc => ({ id: doc.id, label: doc.data().label } as Sector));
+            callback(sectors);
+        },
+        onError
+    );
+    return unsubscribe;
 };
 
 const slugify = (text: string) => {
