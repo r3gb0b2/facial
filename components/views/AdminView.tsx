@@ -4,13 +4,14 @@ import { Supplier } from '../../types';
 import { CogIcon, ClipboardIcon, CheckCircleIcon, SpinnerIcon } from '../icons';
 
 interface AdminViewProps {
+  eventId: string;
   suppliers: Supplier[];
   onAddSupplier: (name: string, sector: string) => Promise<void>;
   setSuccess: (message: string) => void;
   setError: (message: string) => void;
 }
 
-const AdminView: React.FC<AdminViewProps> = ({ suppliers, onAddSupplier, setSuccess, setError }) => {
+const AdminView: React.FC<AdminViewProps> = ({ eventId, suppliers, onAddSupplier, setSuccess, setError }) => {
   const { t, sectors } = useTranslation();
   const [newSupplierName, setNewSupplierName] = useState('');
   const [newSupplierSector, setNewSupplierSector] = useState('');
@@ -37,7 +38,7 @@ const AdminView: React.FC<AdminViewProps> = ({ suppliers, onAddSupplier, setSucc
   };
 
   const handleCopyLink = (slug: string) => {
-    const link = `${window.location.origin}${window.location.pathname}?supplier=${slug}`;
+    const link = `${window.location.origin}${window.location.pathname}?eventId=${eventId}&supplier=${slug}`;
     navigator.clipboard.writeText(link);
     setCopiedSlug(slug);
     setSuccess(t('admin.success.linkCopied'))

@@ -19,3 +19,9 @@ export interface Supplier {
   sector: string;
   slug: string; // URL-friendly identifier
 }
+
+export interface Event {
+    id?: string;
+    name: string;
+    createdAt: any; // Firestore timestamp
+}

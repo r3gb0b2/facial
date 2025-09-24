@@ -1,33 +1,72 @@
-import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDocs } from "firebase/firestore";
-import { ref, uploadString, getDownloadURL } from "firebase/storage";
+import { collection, addDoc, onSnapshot, doc, updateDoc, query, where, getDocs, serverTimestamp, orderBy, deleteDoc } from "firebase/firestore";
+import { ref, uploadString, getDownloadURL, deleteObject } from "firebase/storage";
 import { db, storage } from './config';
-import { Attendee, Supplier } from "../types";
+import { Attendee, Supplier, Event } from "../types";
 
+const EVENTS_COLLECTION = 'events';
 const ATTENDEES_COLLECTION = 'attendees';
 const SUPPLIERS_COLLECTION = 'suppliers';
 
-// Function to upload a photo to Firebase Storage
-const uploadPhoto = async (photoDataUrl: string): Promise<string> => {
-    // Create a unique file name for the photo
-    const fileName = `photo_${Date.now()}_${Math.random().toString(36).substring(2, 9)}.png`;
-    const storageRef = ref(storage, `attendee-photos/${fileName}`);
+// === EVENT FUNCTIONS ===
 
-    // Upload the photo from the data URL (base64 string)
-    const uploadResult = await uploadString(storageRef, photoDataUrl, 'data_url');
-    
-    // Get the public download URL for the uploaded file
-    const downloadURL = await getDownloadURL(uploadResult.ref);
-    return downloadURL;
+export const onEventsUpdate = (
+    callback: (events: Event[]) => void,
+    onError: (error: Error) => void
+) => {
+    const q = query(collection(db, EVENTS_COLLECTION), orderBy('createdAt', 'desc'));
+    return onSnapshot(q,
+        (querySnapshot) => {
+            const events: Event[] = [];
+            querySnapshot.forEach((doc) => {
+                events.push({ id: doc.id, ...doc.data() } as Event);
+            });
+            callback(events);
+        },
+        (error) => {
+            console.error('Error listening to events collection:', error.message);
+            onError(error);
+        }
+    );
+};
+
+export const addEvent = (eventName: string) => {
+    return addDoc(collection(db, EVENTS_COLLECTION), {
+        name: eventName,
+        createdAt: serverTimestamp(),
+    });
+};
+
+export const updateEvent = (eventId: string, eventName: string) => {
+    const eventDocRef = doc(db, EVENTS_COLLECTION, eventId);
+    return updateDoc(eventDocRef, { name: eventName });
+};
+
+export const deleteEvent = (eventId: string) => {
+    // Note: This only deletes the event document. Subcollections (attendees, suppliers)
+    // are not automatically deleted by this client-side operation.
+    // For a production app, a Cloud Function would be needed to handle cascading deletes.
+    const eventDocRef = doc(db, EVENTS_COLLECTION, eventId);
+    return deleteDoc(eventDocRef);
 };
 
 
-// Function to listen for real-time updates on the attendees collection
+// === ATTENDEE FUNCTIONS (scoped by event) ===
+
+const uploadPhoto = async (eventId: string, photoDataUrl: string): Promise<string> => {
+    const fileName = `photo_${Date.now()}.png`;
+    const storageRef = ref(storage, `events/${eventId}/attendee-photos/${fileName}`);
+    const uploadResult = await uploadString(storageRef, photoDataUrl, 'data_url');
+    return await getDownloadURL(uploadResult.ref);
+};
+
 export const onAttendeesUpdate = (
+  eventId: string,
   callback: (attendees: Attendee[]) => void,
   onError: (error: Error) => void
 ) => {
-  const q = query(collection(db, ATTENDEES_COLLECTION));
-  const unsubscribe = onSnapshot(q, 
+  const attendeesColRef = collection(db, EVENTS_COLLECTION, eventId, ATTENDEES_COLLECTION);
+  const q = query(attendeesColRef);
+  return onSnapshot(q, 
     (querySnapshot) => {
         const attendees: Attendee[] = [];
         querySnapshot.forEach((doc) => {
@@ -36,36 +75,34 @@ export const onAttendeesUpdate = (
         callback(attendees);
     },
     (error) => {
-        console.error('Error listening to attendees collection:', error.message);
+        console.error(`Error listening to attendees for event ${eventId}:`, error.message);
         onError(error);
     }
   );
-  return unsubscribe;
 };
 
-// Function to add a new attendee
-export const addAttendee = async (attendee: Omit<Attendee, 'id'>): Promise<void> => {
+export const addAttendee = async (eventId: string, attendee: Omit<Attendee, 'id'>): Promise<void> => {
     try {
-        const q = query(collection(db, ATTENDEES_COLLECTION), where("cpf", "==", attendee.cpf));
+        const attendeesColRef = collection(db, EVENTS_COLLECTION, eventId, ATTENDEES_COLLECTION);
+        const q = query(attendeesColRef, where("cpf", "==", attendee.cpf));
         const querySnapshot = await getDocs(q);
         if (!querySnapshot.empty) {
-          const error: any = new Error("An attendee with this CPF is already registered.");
+          const error: any = new Error("An attendee with this CPF is already registered for this event.");
           error.code = 'duplicate-cpf';
           throw error;
         }
 
-        const photoURL = await uploadPhoto(attendee.photo);
+        const photoURL = await uploadPhoto(eventId, attendee.photo);
         const attendeeData = { ...attendee, photo: photoURL };
-        await addDoc(collection(db, ATTENDEES_COLLECTION), attendeeData);
+        await addDoc(attendeesColRef, attendeeData);
     } catch (e: any) {
         console.error('Error adding document:', e.message);
         throw e;
     }
 }
 
-// Function to update an existing attendee
-export const updateAttendee = async (id: string, updates: Partial<Attendee>): Promise<void> => {
-    const attendeeDocRef = doc(db, ATTENDEES_COLLECTION, id);
+export const updateAttendee = async (eventId: string, id: string, updates: Partial<Attendee>): Promise<void> => {
+    const attendeeDocRef = doc(db, EVENTS_COLLECTION, eventId, ATTENDEES_COLLECTION, id);
     try {
         await updateDoc(attendeeDocRef, updates);
     } catch (e: any) {
@@ -74,15 +111,16 @@ export const updateAttendee = async (id: string, updates: Partial<Attendee>): Pr
     }
 }
 
-// === SUPPLIER FUNCTIONS ===
+// === SUPPLIER FUNCTIONS (scoped by event) ===
 
-// Function to listen for real-time updates on the suppliers collection
 export const onSuppliersUpdate = (
+  eventId: string,
   callback: (suppliers: Supplier[]) => void,
   onError: (error: Error) => void
 ) => {
-  const q = query(collection(db, SUPPLIERS_COLLECTION));
-  const unsubscribe = onSnapshot(q,
+  const suppliersColRef = collection(db, EVENTS_COLLECTION, eventId, SUPPLIERS_COLLECTION);
+  const q = query(suppliersColRef);
+  return onSnapshot(q,
     (querySnapshot) => {
       const suppliers: Supplier[] = [];
       querySnapshot.forEach((doc) => {
@@ -91,25 +129,23 @@ export const onSuppliersUpdate = (
       callback(suppliers);
     },
     (error) => {
-      console.error('Error listening to suppliers collection:', error.message);
+      console.error(`Error listening to suppliers for event ${eventId}:`, error.message);
       onError(error);
     }
   );
-  return unsubscribe;
 };
 
-// Function to add a new supplier
-export const addSupplier = async (supplier: Omit<Supplier, 'id'>): Promise<void> => {
+export const addSupplier = async (eventId: string, supplier: Omit<Supplier, 'id'>): Promise<void> => {
     try {
-        // Check for duplicate slug before adding
-        const q = query(collection(db, SUPPLIERS_COLLECTION), where("slug", "==", supplier.slug));
+        const suppliersColRef = collection(db, EVENTS_COLLECTION, eventId, SUPPLIERS_COLLECTION);
+        const q = query(suppliersColRef, where("slug", "==", supplier.slug));
         const querySnapshot = await getDocs(q);
         if (!querySnapshot.empty) {
-            const error: any = new Error("A supplier with this name/slug already exists.");
+            const error: any = new Error("A supplier with this name/slug already exists for this event.");
             error.code = 'duplicate-slug';
             throw error;
         }
-        await addDoc(collection(db, SUPPLIERS_COLLECTION), supplier);
+        await addDoc(suppliersColRef, supplier);
     } catch (e: any) {
         console.error('Error adding supplier:', e.message);
         throw e;

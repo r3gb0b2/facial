@@ -10,7 +10,29 @@ const ptTranslations = {
     "register": "Registrar",
     "checkin": "Check-in",
     "fastCheckin": "Check-in Rápido",
-    "admin": "Fornecedores"
+    "admin": "Fornecedores",
+    "backToEvents": "Voltar aos Eventos"
+  },
+  "events": {
+    "title": "Gerenciador de Eventos",
+    "noEvents": "Nenhum evento criado ainda.",
+    "noEventsSubtitle": "Clique no botão abaixo para criar seu primeiro evento.",
+    "createButton": "Criar Novo Evento",
+    "modal": {
+      "createTitle": "Criar Novo Evento",
+      "editTitle": "Editar Evento",
+      "nameLabel": "Nome do Evento",
+      "namePlaceholder": "Ex: Conferência de Tecnologia 2024",
+      "saveButton": "Salvar Evento",
+      "createButton": "Criar Evento",
+      "error": "O nome do evento não pode estar em branco."
+    },
+    "deleteConfirm": "Você tem certeza que deseja remover o evento \"{eventName}\"? Esta ação não pode ser desfeita.",
+    "success": {
+      "created": "Evento \"{eventName}\" criado com sucesso!",
+      "updated": "Evento \"{eventName}\" atualizado com sucesso!",
+      "deleted": "Evento removido com sucesso."
+    }
   },
   "register": {
     "title": "Registro de Participante",

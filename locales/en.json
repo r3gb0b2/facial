@@ -7,7 +7,29 @@
     "register": "Register",
     "checkin": "Check-in",
     "fastCheckin": "Fast Check-in",
-    "admin": "Suppliers"
+    "admin": "Suppliers",
+    "backToEvents": "Back to Events"
+  },
+  "events": {
+    "title": "Event Manager",
+    "noEvents": "No events created yet.",
+    "noEventsSubtitle": "Click the button below to create your first event.",
+    "createButton": "Create New Event",
+    "modal": {
+      "createTitle": "Create New Event",
+      "editTitle": "Edit Event",
+      "nameLabel": "Event Name",
+      "namePlaceholder": "e.g., Tech Conference 2024",
+      "saveButton": "Save Event",
+      "createButton": "Create Event",
+      "error": "Event name cannot be blank."
+    },
+    "deleteConfirm": "Are you sure you want to remove the event \"{eventName}\"? This action cannot be undone.",
+    "success": {
+      "created": "Event \"{eventName}\" created successfully!",
+      "updated": "Event \"{eventName}\" updated successfully!",
+      "deleted": "Event removed successfully."
+    }
   },
   "register": {
     "title": "Attendee Registration",
