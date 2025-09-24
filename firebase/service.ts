@@ -303,6 +303,13 @@ export const listenToSectors = (
     return unsubscribe;
 };
 
+export const getSectors = async (eventId: string): Promise<Sector[]> => {
+    const sectorsRef = db.collection(EVENTS_COLLECTION).doc(eventId).collection(SECTORS_COLLECTION);
+    const q = sectorsRef.orderBy('label', 'asc');
+    const querySnapshot = await q.get();
+    return querySnapshot.docs.map(doc => ({ id: doc.id, label: doc.data().label } as Sector));
+};
+
 const slugify = (text: string) => {
   return text
     .toString()

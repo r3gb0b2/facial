@@ -55,9 +55,10 @@ const App: React.FC = () => {
     setRegistrationClosedMessage(t('supplierRegistration.closedMessage')); // Default message
 
     try {
-      const [event, supplier] = await Promise.all([
+      const [event, supplier, eventSectors] = await Promise.all([
         api.getEvent(eventId),
-        api.getSupplier(eventId, supplierId)
+        api.getSupplier(eventId, supplierId),
+        api.getSectors(eventId)
       ]);
 
       if (event && supplier) {
@@ -70,6 +71,7 @@ const App: React.FC = () => {
                   setSupplierConfig(null); // Limit reached
               } else {
                   setSupplierConfig({ event, supplier });
+                  setSectors(eventSectors); // <-- FIX: Load sectors for the supplier view
               }
           }
       } else {
@@ -357,7 +359,7 @@ const App: React.FC = () => {
           <RegisterView 
             onRegister={handleSupplierRegister} 
             setError={showError}
-            sectors={[]} // Supplier registration view doesn't need all sectors, it gets them from the link
+            sectors={sectors} // <-- FIX: Pass the loaded sectors, not an empty array
             predefinedSector={supplierConfig.supplier.sectors.length === 1 ? supplierConfig.supplier.sectors[0] : supplierConfig.supplier.sectors}
           />
         </div>;
