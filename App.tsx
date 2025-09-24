@@ -30,7 +30,7 @@ const App: React.FC = () => {
     const [sectors, setSectors] = useState<Sector[]>([]);
     
     // Supplier specific state
-    const [supplierInfo, setSupplierInfo] = useState<{ id: string; eventId: string; data: Supplier; registrationCount: number } | null>(null);
+    const [supplierInfo, setSupplierInfo] = useState<{ id: string; eventId: string; data: Supplier; } | null>(null);
     
     // Modal State
     const [isEventModalOpen, setIsEventModalOpen] = useState(false);
@@ -49,7 +49,7 @@ const App: React.FC = () => {
         }
     }, []);
     
-    // Firebase Listeners
+    // Firebase Listeners for Admin View
     useEffect(() => {
         if (!isLoggedIn) return;
         const unsubscribe = api.getEvents(setEvents);
@@ -57,20 +57,14 @@ const App: React.FC = () => {
     }, [isLoggedIn]);
 
     useEffect(() => {
-        if (!currentEvent) {
+        if (!currentEvent || currentView !== 'admin') {
             setAttendees([]);
             setSuppliers([]);
             setSectors([]);
             return;
         }
-        const unsubAttendees = api.getAttendees(currentEvent.id, (data) => {
-            setAttendees(data);
-            // Update registration count for supplier view
-            if (supplierInfo) {
-                const count = data.filter(a => a.supplierId === supplierInfo.id).length;
-                setSupplierInfo(prev => prev ? {...prev, registrationCount: count} : null);
-            }
-        });
+
+        const unsubAttendees = api.getAttendees(currentEvent.id, setAttendees);
         const unsubSuppliers = api.getSuppliers(currentEvent.id, setSuppliers);
         const unsubSectors = api.getSectors(currentEvent.id, setSectors);
         
@@ -79,7 +73,7 @@ const App: React.FC = () => {
             unsubSuppliers();
             unsubSectors();
         };
-    }, [currentEvent, supplierInfo]);
+    }, [currentEvent, currentView]);
 
     // Error handling
     useEffect(() => {
@@ -103,29 +97,23 @@ const App: React.FC = () => {
     
     const handleSupplierLink = async (eventId: string, supplierId: string) => {
         try {
-            const supplierData = await api.getSupplier(eventId, supplierId);
-            if (supplierData && supplierData.active) {
-                const eventData = { id: eventId, name: '', createdAt: new Date() } as Event; // Mock event, we don't need full data
-                setCurrentEvent(eventData); // Set event to trigger listeners
-                
-                // We need to fetch attendees to check the limit
-                const unsub = api.getAttendees(eventId, (attendeesData) => {
-                    const registrationCount = attendeesData.filter(a => a.supplierId === supplierId).length;
-                     if (registrationCount >= supplierData.registrationLimit) {
-                        setCurrentView('registration_closed');
-                    } else {
-                        setSupplierInfo({ id: supplierId, eventId, data: supplierData, registrationCount });
-                        setCurrentView('supplier_registration');
-                    }
-                    setIsLoading(false);
-                    unsub(); // We only need the initial count
-                });
+            const [supplierData, eventSectors, registrationCount] = await Promise.all([
+                api.getSupplier(eventId, supplierId),
+                api.getSectorsForEvent(eventId),
+                api.getAttendeeCountForSupplier(eventId, supplierId)
+            ]);
+
+            if (supplierData && supplierData.active && registrationCount < supplierData.registrationLimit) {
+                setSectors(eventSectors); // Set sectors before rendering the view
+                setSupplierInfo({ id: supplierId, eventId, data: supplierData });
+                setCurrentView('supplier_registration');
             } else {
                 setCurrentView('registration_closed');
-                setIsLoading(false);
             }
         } catch (error) {
+            console.error("Failed to process supplier link:", error);
             setCurrentView('registration_closed');
+        } finally {
             setIsLoading(false);
         }
     };
@@ -176,57 +164,22 @@ const App: React.FC = () => {
     
     const handleSupplierRegister = async (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => {
         if (!supplierInfo) return;
-        if (supplierInfo.registrationCount >= supplierInfo.data.registrationLimit) {
-            setAppError('Limite de inscrições atingido.');
-            setCurrentView('registration_closed');
-            return;
-        }
         try {
-            await api.addAttendee(supplierInfo.eventId, { ...newAttendee, supplierId: supplierInfo.id });
-        } catch (e) {
-             setAppError('Falha ao registrar participante.');
+            await api.registerAttendeeForSupplier(supplierInfo.eventId, supplierInfo.id, newAttendee);
+        } catch (e: any) {
+             setAppError(e.message || 'Falha ao registrar participante.');
+             if (e.message.includes("Limite")) {
+                setCurrentView('registration_closed');
+             }
              throw e;
         }
     };
 
-    const handleImportAttendees = async (data: any[]): Promise<{ successCount: number; errors: { row: number; message: string }[] }> => {
-        if (!currentEvent) return { successCount: 0, errors: [] };
-        
-        let successCount = 0;
-        const errors: { row: number, message: string }[] = [];
-
-        for (const [index, row] of data.entries()) {
-            const { nome, cpf, setor } = row;
-            const rawCpf = (cpf || '').replace(/\D/g, '');
-
-            if (!nome || !rawCpf || !setor) {
-                errors.push({ row: index + 2, message: 'Dados incompletos.' });
-                continue;
-            }
-
-            // Find sector ID from label
-            const existingSector = sectors.find(s => s.label.toLowerCase() === setor.toLowerCase());
-            
-            if (!existingSector) {
-                errors.push({ row: index + 2, message: `Setor "${setor}" não encontrado.` });
-                continue;
-            }
-             
-            // We don't provide a photo for spreadsheet uploads. A placeholder could be used.
-            const placeholderPhoto = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
-
-            try {
-                await api.addAttendee(currentEvent.id, { name: nome, cpf: rawCpf, sector: existingSector.id, photo: placeholderPhoto });
-                successCount++;
-            } catch (error) {
-                errors.push({ row: index + 2, message: 'Erro ao salvar no banco de dados.' });
-            }
-        }
-        return { successCount, errors };
+    const handleImportAttendees = (data: any[]) => {
+        if (!currentEvent) return Promise.resolve({ successCount: 0, errors: [] });
+        return api.addAttendeesFromSpreadsheet(currentEvent.id, data, sectors, attendees);
     };
 
-    // FIX: Changed function to async and awaited the API call to ensure it returns Promise<void>
-    // to match the prop type in AdminView, resolving a TypeScript error.
     const handleAddSupplier = async (name: string, sectors: string[], registrationLimit: number) => {
         if (!currentEvent) return Promise.reject();
         await api.addSupplier(currentEvent.id, name, sectors, registrationLimit);
@@ -242,8 +195,6 @@ const App: React.FC = () => {
         return api.updateSupplier(currentEvent.id, supplierId, { active });
     };
 
-    // FIX: Changed function to async and awaited the API call to ensure it returns Promise<void>
-    // to match the prop type in AdminView, resolving a TypeScript error.
     const handleAddSector = async (label: string) => {
         if (!currentEvent) return Promise.reject();
         await api.addSector(currentEvent.id, label);
@@ -257,6 +208,11 @@ const App: React.FC = () => {
     const handleDeleteSector = (sector: Sector) => {
         if (!currentEvent) return Promise.reject();
         return api.deleteSector(currentEvent.id, sector.id);
+    };
+    
+    const handleAttendeeDetailsUpdate = (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector'>>) => {
+        if (!currentEvent) return Promise.reject();
+        return api.updateAttendeeDetails(currentEvent.id, attendeeId, data);
     };
 
     // --- Render Logic ---
@@ -292,16 +248,23 @@ const App: React.FC = () => {
                     onAddSector={handleAddSector}
                     onUpdateSector={handleUpdateSector}
                     onDeleteSector={handleDeleteSector}
+                    onAttendeeDetailsUpdate={handleAttendeeDetailsUpdate}
                     onBack={handleBackToEvents}
                     setError={setAppError}
                 />;
             case 'supplier_registration':
                 if (!supplierInfo) return <RegistrationClosedView />;
+                
+                // Filter the main sectors list to only those allowed for this supplier
+                const allowedSectors = sectors.filter(s => supplierInfo.data.sectors.includes(s.id));
+                
                 return <RegisterView
                     onRegister={handleSupplierRegister}
                     setError={setAppError}
-                    sectors={sectors}
-                    predefinedSector={supplierInfo.data.sectors}
+                    sectors={allowedSectors} // Pass only the allowed sectors
+                    // If there's only one sector, predefine it to hide the dropdown.
+                    // Otherwise, pass the array of allowed sector IDs.
+                    predefinedSector={allowedSectors.length === 1 ? allowedSectors[0].id : supplierInfo.data.sectors}
                  />;
             case 'registration_closed':
                  return <RegistrationClosedView />;

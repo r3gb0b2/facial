@@ -51,6 +51,7 @@ export const addAttendee = async (
     const eventRef = db.collection('events').doc(eventId);
     const newAttendeeRef = eventRef.collection('attendees').doc();
     
+    // The photo upload can happen before or after, but doing it first ensures we have the URL.
     const photoUrl = await uploadPhoto(attendeeData.photo, newAttendeeRef.id);
     
     const newAttendee: Omit<Attendee, 'id'> = {
@@ -65,10 +66,116 @@ export const addAttendee = async (
     return newAttendeeRef.id;
 };
 
+export const registerAttendeeForSupplier = async (
+    eventId: string,
+    supplierId: string,
+    attendeeData: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt' | 'supplierId'>
+): Promise<string> => {
+    const eventRef = db.collection('events').doc(ensureEventId(eventId));
+    const supplierRef = eventRef.collection('suppliers').doc(supplierId);
+    const newAttendeeRef = eventRef.collection('attendees').doc();
+
+    // Perform photo upload outside the transaction
+    const photoUrl = await uploadPhoto(attendeeData.photo, newAttendeeRef.id);
+
+    return db.runTransaction(async (transaction) => {
+        const supplierDoc = await transaction.get(supplierRef);
+        if (!supplierDoc.exists) {
+            throw new Error("Fornecedor não encontrado.");
+        }
+
+        const supplier = supplierDoc.data() as Supplier;
+        if (!supplier.active) {
+            throw new Error("Este link de cadastro não está mais ativo.");
+        }
+
+        const attendeesForSupplierQuery = eventRef.collection('attendees').where('supplierId', '==', supplierId);
+        const attendeesForSupplierSnapshot = await transaction.get(attendeesForSupplierQuery);
+
+        if (attendeesForSupplierSnapshot.size >= supplier.registrationLimit) {
+            throw new Error("Limite de inscrições para este fornecedor foi atingido.");
+        }
+        
+        const newAttendee: Omit<Attendee, 'id'> = {
+            ...attendeeData,
+            photo: photoUrl,
+            supplierId: supplierId,
+            status: CheckinStatus.PENDING,
+            eventId,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp() as firebase.firestore.Timestamp,
+        };
+
+        transaction.set(newAttendeeRef, newAttendee);
+        return newAttendeeRef.id;
+    });
+};
+
+
 export const updateAttendeeStatus = async (eventId: string, attendeeId: string, status: CheckinStatus): Promise<void> => {
     const eventRef = db.collection('events').doc(eventId);
     await eventRef.collection('attendees').doc(attendeeId).update({ status });
 };
+
+export const updateAttendeeDetails = async (eventId: string, attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector'>>): Promise<void> => {
+    const eventRef = db.collection('events').doc(ensureEventId(eventId));
+    await eventRef.collection('attendees').doc(attendeeId).update(data);
+};
+
+export const addAttendeesFromSpreadsheet = async (eventId: string, data: any[], existingSectors: Sector[], existingAttendees: Attendee[]): Promise<{ successCount: number; errors: { row: number; message: string }[] }> => {
+    const eventRef = db.collection('events').doc(ensureEventId(eventId));
+    const batch = db.batch();
+    
+    let successCount = 0;
+    const errors: { row: number, message: string }[] = [];
+    const cpfsInFile = new Set<string>();
+    const existingCpfs = new Set(existingAttendees.map(a => a.cpf));
+
+    for (const [index, row] of data.entries()) {
+        const rowNum = index + 2;
+        const { nome, cpf, setor } = row;
+        const rawCpf = (cpf || '').replace(/\D/g, '');
+
+        if (!nome || !rawCpf || !setor) {
+            errors.push({ row: rowNum, message: 'Dados incompletos (nome, cpf e setor são obrigatórios).' });
+            continue;
+        }
+
+        if (cpfsInFile.has(rawCpf) || existingCpfs.has(rawCpf)) {
+             errors.push({ row: rowNum, message: `CPF ${cpf} já registrado.` });
+             continue;
+        }
+        
+        const sectorMatch = existingSectors.find(s => s.label.toLowerCase() === setor.toLowerCase().trim());
+        if (!sectorMatch) {
+            errors.push({ row: rowNum, message: `Setor "${setor}" não encontrado.` });
+            continue;
+        }
+
+        const initials = nome.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase();
+        const placeholderPhoto = `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=random&color=fff&size=256`;
+        
+        const newAttendeeRef = eventRef.collection('attendees').doc();
+        const newAttendee: Omit<Attendee, 'id'> = {
+            name: nome,
+            cpf: rawCpf,
+            sector: sectorMatch.id,
+            photo: placeholderPhoto,
+            status: CheckinStatus.PENDING,
+            eventId,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp() as firebase.firestore.Timestamp,
+        };
+        batch.set(newAttendeeRef, newAttendee);
+        cpfsInFile.add(rawCpf);
+        successCount++;
+    }
+
+    if (successCount > 0) {
+        await batch.commit();
+    }
+
+    return { successCount, errors };
+};
+
 
 // --- Event Management ---
 export const getEvents = (onUpdate: (events: Event[]) => void): (() => void) => {
@@ -113,6 +220,20 @@ export const getSectors = (eventId: string, onUpdate: (sectors: Sector[]) => voi
     });
 };
 
+/**
+ * Fetches all sectors for a given event in a single call.
+ * This is used for views that need the sector list upfront, like supplier registration.
+ */
+export const getSectorsForEvent = async (eventId: string): Promise<Sector[]> => {
+    const eventRef = db.collection('events').doc(ensureEventId(eventId));
+    const snapshot = await eventRef.collection('sectors').orderBy('label').get();
+    return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+    } as Sector));
+};
+
+
 export const addSector = async (eventId: string, label: string): Promise<string> => {
     const eventRef = db.collection('events').doc(ensureEventId(eventId));
     const id = label.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
@@ -156,6 +277,12 @@ export const getSupplier = async (eventId: string, supplierId: string): Promise<
     const doc = await db.collection('events').doc(eventId).collection('suppliers').doc(supplierId).get();
     if (!doc.exists) return null;
     return { id: doc.id, ...doc.data() } as Supplier;
+};
+
+export const getAttendeeCountForSupplier = async (eventId: string, supplierId: string): Promise<number> => {
+    const query = db.collection('events').doc(eventId).collection('attendees').where('supplierId', '==', supplierId);
+    const snapshot = await query.get();
+    return snapshot.size;
 };
 
 
