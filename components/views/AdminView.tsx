@@ -42,7 +42,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
     const renderContent = () => {
         switch(activeTab) {
             case 'checkin':
-                return <CheckinView attendees={props.attendees} currentEventId={props.currentEvent.id} />;
+                return <CheckinView attendees={props.attendees} suppliers={props.suppliers} currentEventId={props.currentEvent.id} />;
             case 'register':
                 return <RegisterView onRegister={props.onRegister} onImportAttendees={props.onImportAttendees} setError={props.setError} sectors={props.sectors} />;
             case 'suppliers':

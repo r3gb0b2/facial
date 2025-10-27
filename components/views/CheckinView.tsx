@@ -1,14 +1,14 @@
 import React, { useState, useMemo } from 'react';
-import { Attendee, CheckinStatus } from '../../types.ts';
+import { Attendee, CheckinStatus, Supplier } from '../../types.ts';
 import AttendeeCard from '../AttendeeCard.tsx';
 import StatusUpdateModal from '../StatusUpdateModal.tsx';
-import VerificationModal from '../VerificationModal.tsx';
 import * as api from '../../firebase/service.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { SearchIcon, CheckCircleIcon, UsersIcon } from '../icons.tsx';
 
 interface CheckinViewProps {
   attendees: Attendee[];
+  suppliers: Supplier[];
   currentEventId: string;
 }
 
@@ -22,86 +22,107 @@ const normalizeString = (str: string) => {
     .trim();
 };
 
-const CheckinView: React.FC<CheckinViewProps> = ({ attendees, currentEventId }) => {
+const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, currentEventId }) => {
   const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<CheckinStatus | 'ALL'>('ALL');
+  const [supplierFilter, setSupplierFilter] = useState<string | 'ALL'>('ALL');
   const [attendeeForStatusUpdate, setAttendeeForStatusUpdate] = useState<Attendee | null>(null);
-  const [attendeeForVerification, setAttendeeForVerification] = useState<Attendee | null>(null);
-  
+
   const handleSelectAttendee = (attendee: Attendee) => {
-    // Open AI verification for pending check-ins
-    if (attendee.status === CheckinStatus.PENDING) {
-        setAttendeeForVerification(attendee);
-    } else {
-    // Open simple status update for all other cases
-        setAttendeeForStatusUpdate(attendee);
-    }
+    setAttendeeForStatusUpdate(attendee);
   };
 
-  const handleConfirmCheckin = async () => {
-    if (attendeeForVerification) {
-        await api.updateAttendeeStatus(currentEventId, attendeeForVerification.id, CheckinStatus.CHECKED_IN);
-        setAttendeeForVerification(null);
-    }
-  };
-  
   const handleUpdateStatus = async (status: CheckinStatus) => {
     if (attendeeForStatusUpdate) {
-        await api.updateAttendeeStatus(currentEventId, attendeeForStatusUpdate.id, status);
-        setAttendeeForStatusUpdate(null);
+      await api.updateAttendeeStatus(currentEventId, attendeeForStatusUpdate.id, status);
+      setAttendeeForStatusUpdate(null);
     }
   };
 
   const filteredAttendees = useMemo(() => {
-    const term = searchTerm.trim();
-    if (!term) return attendees;
+    const normalizedTerm = normalizeString(searchTerm);
+    const numericTerm = searchTerm.replace(/\D/g, '');
 
-    const normalizedTerm = normalizeString(term);
-    const numericTerm = term.replace(/\D/g, '');
+    return attendees.filter((attendee) => {
+      // Status filter
+      if (statusFilter !== 'ALL' && attendee.status !== statusFilter) {
+        return false;
+      }
+      // Supplier filter
+      if (supplierFilter !== 'ALL' && attendee.supplierId !== supplierFilter) {
+        return false;
+      }
+      // Search term filter
+      if (
+        (normalizedTerm && !normalizeString(attendee.name).includes(normalizedTerm)) &&
+        (numericTerm && !attendee.cpf.replace(/\D/g, '').includes(numericTerm))
+      ) {
+        return false;
+      }
+      return true;
+    });
+  }, [attendees, searchTerm, statusFilter, supplierFilter]);
 
-    return attendees.filter(
-      (attendee) =>
-        (normalizedTerm && normalizeString(attendee.name).includes(normalizedTerm)) ||
-        (numericTerm && attendee.cpf.replace(/\D/g, '').includes(numericTerm))
-    );
-  }, [attendees, searchTerm]);
-  
   const stats = useMemo(() => {
     return {
-        checkedIn: attendees.filter(a => a.status === 'CHECKED_IN').length,
-        pending: attendees.filter(a => a.status === 'PENDING').length,
-        total: attendees.length,
-    }
+      checkedIn: attendees.filter(a => a.status === 'CHECKED_IN').length,
+      pending: attendees.filter(a => a.status === 'PENDING').length,
+      total: attendees.length,
+    };
   }, [attendees]);
 
   return (
     <div className="w-full max-w-7xl mx-auto">
-      <div className="bg-gray-800/50 backdrop-blur-sm p-6 rounded-2xl shadow-2xl border border-gray-700 mb-6">
+      <div className="bg-gray-800/50 backdrop-blur-sm p-6 rounded-2xl shadow-2xl border border-gray-700 mb-6 space-y-4">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="relative w-full md:w-1/2">
-                <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                    type="text"
-                    placeholder={t('checkin.searchPlaceholder')}
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 pl-10 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
+          <div className="relative w-full md:w-1/3">
+            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder={t('checkin.searchPlaceholder')}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 pl-10 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+          <div className="flex items-center gap-6 text-white">
+            <div className="text-center">
+              <p className="text-2xl font-bold text-green-400 flex items-center gap-2"><CheckCircleIcon className="w-6 h-6" /> {stats.checkedIn}</p>
+              <p className="text-xs text-gray-400 uppercase font-semibold">{t('checkin.stats.checkedIn')}</p>
             </div>
-            <div className="flex items-center gap-6 text-white">
-                <div className="text-center">
-                    <p className="text-2xl font-bold text-green-400 flex items-center gap-2"><CheckCircleIcon className="w-6 h-6"/> {stats.checkedIn}</p>
-                    <p className="text-xs text-gray-400 uppercase font-semibold">{t('checkin.stats.checkedIn')}</p>
-                </div>
-                <div className="text-center">
-                    <p className="text-2xl font-bold text-yellow-400">{stats.pending}</p>
-                    <p className="text-xs text-gray-400 uppercase font-semibold">{t('checkin.stats.pending')}</p>
-                </div>
-                <div className="text-center">
-                    <p className="text-2xl font-bold flex items-center gap-2"><UsersIcon className="w-6 h-6"/> {stats.total}</p>
-                    <p className="text-xs text-gray-400 uppercase font-semibold">{t('checkin.stats.total')}</p>
-                </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-yellow-400">{stats.pending}</p>
+              <p className="text-xs text-gray-400 uppercase font-semibold">{t('checkin.stats.pending')}</p>
             </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold flex items-center gap-2"><UsersIcon className="w-6 h-6" /> {stats.total}</p>
+              <p className="text-xs text-gray-400 uppercase font-semibold">{t('checkin.stats.total')}</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col md:flex-row gap-4">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as CheckinStatus | 'ALL')}
+            className="w-full md:w-1/2 bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="ALL">{t('checkin.filter.allStatuses')}</option>
+            {Object.values(CheckinStatus).map(status => (
+              <option key={status} value={status}>{t(`status.${status.toLowerCase()}` as any)}</option>
+            ))}
+          </select>
+          <select
+            value={supplierFilter}
+            onChange={(e) => setSupplierFilter(e.target.value)}
+            className="w-full md:w-1/2 bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="ALL">{t('checkin.filter.allSuppliers')}</option>
+            {suppliers.map(supplier => (
+              <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
+            ))}
+             <option value="">Sem fornecedor</option>
+          </select>
         </div>
       </div>
 
@@ -113,24 +134,16 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, currentEventId }) 
       
       {filteredAttendees.length === 0 && (
           <div className="text-center col-span-full py-16">
-              <p className="text-gray-400">Nenhum participante encontrado.</p>
+              <p className="text-gray-400">Nenhum participante encontrado para os filtros selecionados.</p>
           </div>
       )}
       
-      {attendeeForVerification && (
-          <VerificationModal
-            attendee={attendeeForVerification}
-            onClose={() => setAttendeeForVerification(null)}
-            onConfirm={handleConfirmCheckin}
-          />
-      )}
-
       {attendeeForStatusUpdate && (
-          <StatusUpdateModal
-            attendee={attendeeForStatusUpdate}
-            onClose={() => setAttendeeForStatusUpdate(null)}
-            onUpdateStatus={handleUpdateStatus}
-          />
+        <StatusUpdateModal
+          attendee={attendeeForStatusUpdate}
+          onClose={() => setAttendeeForStatusUpdate(null)}
+          onUpdateStatus={handleUpdateStatus}
+        />
       )}
     </div>
   );

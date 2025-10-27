@@ -38,6 +38,11 @@ const translations = {
     'checkin.stats.checkedIn': 'Presentes',
     'checkin.stats.pending': 'Aguardando',
     'checkin.stats.total': 'Total',
+    'checkin.filter.status': 'Filtrar por Status',
+    'checkin.filter.supplier': 'Filtrar por Fornecedor',
+    'checkin.filter.allStatuses': 'Todos os Status',
+    'checkin.filter.allSuppliers': 'Todos os Fornecedores',
+
 
     // Register
     'register.title': 'Cadastrar Participante',
@@ -156,10 +161,11 @@ const LanguageContext = createContext<{
 
 // FIX: Changed component signature to use PropsWithChildren to resolve a TypeScript error where children were not being recognized. This makes the `children` prop optional, satisfying the compiler while runtime behavior remains correct due to usage.
 export const LanguageProvider = ({ children }: PropsWithChildren<{}>) => {
-  const [language] = useState<Language>('pt');
+  // FIX: Renamed state variable to avoid potential naming collision with the 'Language' type.
+  const [currentLanguage] = useState<Language>('pt');
 
   const t = (key: TranslationKey, ...args: any[]): string => {
-    const translation = translations[language][key];
+    const translation = translations[currentLanguage][key];
     if (typeof translation === 'function') {
         return (translation as (...args: any[]) => string)(...args);
     }
@@ -167,7 +173,7 @@ export const LanguageProvider = ({ children }: PropsWithChildren<{}>) => {
   };
 
   return (
-    <LanguageContext.Provider value={{ language, t }}>
+    <LanguageContext.Provider value={{ language: currentLanguage, t }}>
       {children}
     </LanguageContext.Provider>
   );
