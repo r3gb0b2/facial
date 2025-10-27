@@ -14,9 +14,10 @@ interface RegisterViewProps {
   setError: (message: string) => void;
   sectors: Sector[];
   predefinedSector?: string | string[];
+  supplierName?: string;
 }
 
-const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttendees, setError, sectors, predefinedSector }) => {
+const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttendees, setError, sectors, predefinedSector, supplierName }) => {
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [cpf, setCpf] = useState('');
@@ -162,10 +163,14 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
   return (
     <div className="w-full max-w-4xl mx-auto space-y-10">
       <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
-        <h2 className="text-3xl font-bold text-center text-white mb-6 flex items-center justify-center gap-3">
-          <UsersIcon className="w-8 h-8"/>
-          {t('register.title')}
-        </h2>
+        <div className="text-center mb-6">
+            <h2 className="text-3xl font-bold text-white flex items-center justify-center gap-3">
+              <UsersIcon className="w-8 h-8"/>
+              {t('register.title')}
+            </h2>
+            {supplierName && <p className="text-lg font-medium text-gray-400 mt-1">{supplierName}</p>}
+        </div>
+
         <form onSubmit={handleRegisterSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
           <div className="space-y-6">
             <div>

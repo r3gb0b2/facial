@@ -64,6 +64,10 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
     return new Map(sectors.map(s => [s.id, s]));
   }, [sectors]);
 
+  const supplierMap = useMemo(() => {
+    return new Map(suppliers.map(s => [s.id, s.name]));
+  }, [suppliers]);
+
 
   const filteredAttendees = useMemo(() => {
     const normalizedTerm = normalizeString(searchTerm);
@@ -155,6 +159,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
         {filteredAttendees.map((attendee) => {
             const sector = sectorMap.get(attendee.sector);
+            const supplierName = attendee.supplierId ? supplierMap.get(attendee.supplierId) : undefined;
             return (
               <AttendeeCard 
                 key={attendee.id} 
@@ -162,6 +167,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
                 onSelect={handleSelectAttendee}
                 sectorLabel={sector?.label || attendee.sector}
                 sectorColor={sector?.color}
+                supplierName={supplierName}
               />
             );
         })}
@@ -172,6 +178,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
               <p className="text-gray-400">
                 {searchTerm.trim()
                   ? t('checkin.search.noResultsForTerm', searchTerm)
+                  // @ts-ignore
                   : t('checkin.search.noResultsForFilter')
                 }
               </p>

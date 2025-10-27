@@ -296,6 +296,7 @@ const App: React.FC = () => {
                     onRegister={handleSupplierRegister}
                     setError={setAppError}
                     sectors={allowedSectors} // Pass only the allowed sectors
+                    supplierName={supplierInfo.data.name}
                     // If there's only one sector, predefine it to hide the dropdown.
                     // Otherwise, pass the array of allowed sector IDs.
                     predefinedSector={allowedSectors.length === 1 ? allowedSectors[0].id : supplierInfo.data.sectors}

@@ -154,7 +154,9 @@ const translations = {
     'attendeeDetail.formError': 'Nome e CPF são obrigatórios.',
     'attendeeDetail.wristbandLabel': 'Nº da Pulseira (Opcional)',
     'attendeeDetail.wristbandPlaceholder': 'Digite o número',
+    'attendeeDetail.wristbandUpdateSuccess': 'Pulseira atualizada com sucesso!',
     'attendeeCard.wristbandNumber': 'Pulseira',
+    'attendeeCard.supplierLabel': 'Fornecedor',
 
     // Supplier Registration View
     'supplierRegistration.closedTitle': 'Cadastro Encerrado',

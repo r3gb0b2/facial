@@ -9,9 +9,10 @@ interface AttendeeCardProps {
   onSelect: (attendee: Attendee) => void;
   sectorLabel: string;
   sectorColor?: string;
+  supplierName?: string;
 }
 
-const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect, sectorLabel, sectorColor }) => {
+const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect, sectorLabel, sectorColor, supplierName }) => {
   const { t } = useTranslation();
 
   const statusInfo = {
@@ -33,7 +34,7 @@ const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect, sectorL
   return (
     <div
       onClick={() => onSelect(attendee)}
-      className="bg-gray-800 rounded-lg shadow-lg overflow-hidden cursor-pointer transition-transform transform hover:scale-105 border border-gray-700 hover:border-indigo-500"
+      className="bg-gray-800 rounded-lg shadow-lg overflow-hidden cursor-pointer transition-transform transform hover:scale-105 border border-gray-700 hover:border-indigo-500 flex flex-col"
     >
       <div className="relative">
         <img src={attendee.photo} alt={attendee.name} className="w-full h-48 object-contain bg-black" />
@@ -41,15 +42,20 @@ const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect, sectorL
           {statusInfo.label}
         </div>
       </div>
-      <div className="p-4">
+      <div className="p-4 flex-grow flex flex-col">
         <h3 className="font-bold text-lg text-white truncate">{attendee.name}</h3>
         <p className="text-sm text-gray-400">{formatCPF(attendee.cpf)}</p>
-        <p
-          className="text-sm font-semibold mt-1 capitalize truncate"
-          style={sectorColor ? { color: sectorColor } : { color: '#818cf8' }} // Fallback to indigo-400
-        >
-          {sectorLabel}
-        </p>
+        <div className="mt-1 space-y-1 flex-grow">
+            <p
+              className="text-sm font-semibold capitalize truncate"
+              style={sectorColor ? { color: sectorColor } : { color: '#818cf8' }} // Fallback to indigo-400
+            >
+              {sectorLabel}
+            </p>
+            {supplierName && (
+                <p className="text-xs text-gray-500 font-medium truncate">{t('attendeeCard.supplierLabel')}: {supplierName}</p>
+            )}
+        </div>
         {attendee.status === CheckinStatus.CHECKED_IN && attendee.wristbandNumber && (
             <div className="mt-2 flex items-center gap-1 text-xs text-gray-300 bg-gray-700/50 px-2 py-1 rounded-md">
                 <TagIcon className="w-4 h-4 text-gray-400" />

@@ -1,3 +1,5 @@
+// In firebase/service.ts
+
 import { db, storage, FieldValue } from './config.ts';
 import { Attendee, CheckinStatus, Event, Sector, Supplier } from '../types.ts';
 
@@ -9,6 +11,21 @@ const ensureEventId = (eventId?: string): string => {
 
 // Helper to check if a string is a data URL
 const isDataUrl = (s: string) => s.startsWith('data:image');
+
+// Helper to fetch an image URL and convert it back to a data URL for re-upload
+const imageUrlToDataUrl = async (url: string): Promise<string> => {
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${response.statusText}`);
+    }
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+};
 
 
 // --- Photo Upload ---
@@ -61,14 +78,27 @@ export const addAttendee = async (
     
     const newAttendeeRef = eventRef.collection('attendees').doc();
     
-    // If the photo is a new base64 string, upload it. Otherwise, use the existing URL.
-    const photoUrl = isDataUrl(attendeeData.photo)
-        ? await uploadPhoto(attendeeData.photo, newAttendeeRef.id)
-        : attendeeData.photo;
+    let finalPhotoUrl = attendeeData.photo;
+    // If a new photo was captured (data URL), upload it.
+    if (isDataUrl(attendeeData.photo)) {
+        finalPhotoUrl = await uploadPhoto(attendeeData.photo, newAttendeeRef.id);
+    } 
+    // If an existing photo from another registration is being reused,
+    // we fetch and re-upload it under the new attendee's ID. This prevents
+    // any potential issues with URL corruption or cross-event linking.
+    else if (attendeeData.photo.includes('firebasestorage')) {
+        try {
+            const newDataUrl = await imageUrlToDataUrl(attendeeData.photo);
+            finalPhotoUrl = await uploadPhoto(newDataUrl, newAttendeeRef.id);
+        } catch (error) {
+            console.error("Failed to re-upload existing photo, using original URL as fallback.", error);
+            // Fallback to original URL if re-upload fails
+        }
+    }
     
     const newAttendee = {
         ...attendeeData,
-        photo: photoUrl,
+        photo: finalPhotoUrl,
         status: CheckinStatus.PENDING,
         eventId,
         createdAt: FieldValue.serverTimestamp(),
@@ -87,10 +117,21 @@ export const registerAttendeeForSupplier = async (
     const supplierRef = eventRef.collection('suppliers').doc(supplierId);
     const newAttendeeRef = eventRef.collection('attendees').doc();
 
-    // If the photo is a new base64 string, upload it. Otherwise, use the existing URL.
-    const photoUrl = isDataUrl(attendeeData.photo)
-        ? await uploadPhoto(attendeeData.photo, newAttendeeRef.id)
-        : attendeeData.photo;
+    let finalPhotoUrl = attendeeData.photo;
+    // If a new photo was captured (data URL), upload it.
+    if (isDataUrl(attendeeData.photo)) {
+        finalPhotoUrl = await uploadPhoto(attendeeData.photo, newAttendeeRef.id);
+    } 
+    // If an existing photo is being reused, re-upload it for the new record.
+    else if (attendeeData.photo.includes('firebasestorage')) {
+        try {
+            const newDataUrl = await imageUrlToDataUrl(attendeeData.photo);
+            finalPhotoUrl = await uploadPhoto(newDataUrl, newAttendeeRef.id);
+        } catch (error) {
+            console.error("Failed to re-upload existing photo for supplier registration, using original URL as fallback.", error);
+            // Fallback to original URL if re-upload fails
+        }
+    }
 
     return db.runTransaction(async (transaction) => {
         const supplierDoc = await transaction.get(supplierRef);
@@ -120,7 +161,7 @@ export const registerAttendeeForSupplier = async (
         
         const newAttendee = {
             ...attendeeData,
-            photo: photoUrl,
+            photo: finalPhotoUrl,
             supplierId: supplierId,
             status: CheckinStatus.PENDING,
             eventId,

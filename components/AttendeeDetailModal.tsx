@@ -25,6 +25,7 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [wristbandNumber, setWristbandNumber] = useState(attendee.wristbandNumber || '');
+  const [showWristbandSuccess, setShowWristbandSuccess] = useState(false);
   const [editData, setEditData] = useState({
     name: attendee.name,
     cpf: attendee.cpf,
@@ -39,6 +40,7 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     });
     setWristbandNumber(attendee.wristbandNumber || '');
     setIsEditing(false); // Reset editing state when attendee changes
+    setShowWristbandSuccess(false);
   }, [attendee]);
 
   const statusInfo = {
@@ -75,7 +77,10 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   
   const handleWristbandSave = async () => {
     await onUpdateDetails(attendee.id, { wristbandNumber });
-    // Add a visual confirmation if needed, but for now re-render is enough
+    setShowWristbandSuccess(true);
+    setTimeout(() => {
+        setShowWristbandSuccess(false);
+    }, 3000);
   };
 
 
@@ -120,6 +125,9 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                                 {t('attendeeDetail.updateWristbandButton')}
                             </button>
                         </div>
+                        {showWristbandSuccess && (
+                            <p className="text-sm text-green-400 text-center mt-2 animate-pulse">{t('attendeeDetail.wristbandUpdateSuccess')}</p>
+                        )}
                     </div>
                     <button onClick={() => onUpdateStatus(CheckinStatus.PENDING)} className="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
                         {t('statusUpdateModal.cancelCheckin')}
