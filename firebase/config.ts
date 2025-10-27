@@ -18,7 +18,8 @@ const firebaseConfig: {
   messagingSenderId?: string;
   appId?: string;
 } = {
- const firebaseConfig = {
+  // COLE SUAS CREDENCIAIS AQUI
+
   apiKey: "AIzaSyDlaBCtgD74608i4JdOMQYJ0433V-c0bjI",
   authDomain: "facial-244d7.firebaseapp.com",
   databaseURL: "https://facial-244d7-default-rtdb.firebaseio.com",
