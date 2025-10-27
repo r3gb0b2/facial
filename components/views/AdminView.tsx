@@ -1,22 +1,27 @@
 import React, { useState } from 'react';
-import { Attendee, Sector, Supplier, Event } from '../../types.ts';
+import { Attendee, Sector, Supplier, Event, SupplierCategory } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import CheckinView from './CheckinView.tsx';
 import RegisterView from './RegisterView.tsx';
 import SupplierManagementView from './SupplierManagementView.tsx';
 import SectorManagementView from './SectorManagementView.tsx';
 import { ArrowLeftOnRectangleIcon } from '../icons.tsx';
+import SupplierCategoryManagementView from './SupplierCategoryManagementView.tsx';
 
-type AdminTab = 'checkin' | 'register' | 'suppliers' | 'sectors';
+type AdminTab = 'checkin' | 'register' | 'suppliers' | 'supplier_categories' | 'sectors';
 
 interface AdminViewProps {
     currentEvent: Event;
     attendees: Attendee[];
     suppliers: Supplier[];
+    supplierCategories: SupplierCategory[];
     sectors: Sector[];
     onRegister: (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => Promise<void>;
     onImportAttendees: (data: any[]) => Promise<any>;
-    onAddSupplier: (name: string, sectors: string[], registrationLimit: number) => Promise<void>;
+    onAddSupplierCategory: (name: string) => Promise<void>;
+    onUpdateSupplierCategory: (categoryId: string, name: string) => Promise<void>;
+    onDeleteSupplierCategory: (category: SupplierCategory) => Promise<void>;
+    onAddSupplier: (name: string, sectors: string[], registrationLimit: number, categoryId: string) => Promise<void>;
     onUpdateSupplier: (supplierId: string, data: Partial<Supplier>) => Promise<void>;
     onDeleteSupplier: (supplier: Supplier) => Promise<void>;
     onSupplierStatusUpdate: (supplierId: string, active: boolean) => Promise<void>;
@@ -36,6 +41,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
     const tabs: { id: AdminTab; label: string }[] = [
         { id: 'checkin', label: t('admin.tabs.checkin') },
         { id: 'register', label: t('admin.tabs.register') },
+        { id: 'supplier_categories', label: t('admin.tabs.supplier_categories') },
         { id: 'suppliers', label: t('admin.tabs.suppliers') },
         { id: 'sectors', label: t('admin.tabs.sectors') },
     ];
@@ -45,7 +51,8 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
             case 'checkin':
                 return <CheckinView 
                     attendees={props.attendees} 
-                    suppliers={props.suppliers} 
+                    suppliers={props.suppliers}
+                    supplierCategories={props.supplierCategories}
                     sectors={props.sectors}
                     currentEventId={props.currentEvent.id}
                     onUpdateAttendeeDetails={props.onAttendeeDetailsUpdate}
@@ -54,8 +61,27 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                 />;
             case 'register':
                 return <RegisterView onRegister={props.onRegister} onImportAttendees={props.onImportAttendees} setError={props.setError} sectors={props.sectors} />;
+            case 'supplier_categories':
+                return <SupplierCategoryManagementView
+                    categories={props.supplierCategories}
+                    onAddCategory={props.onAddSupplierCategory}
+                    onUpdateCategory={props.onUpdateSupplierCategory}
+                    onDeleteCategory={props.onDeleteSupplierCategory}
+                    setError={props.setError}
+                />;
             case 'suppliers':
-                return <SupplierManagementView currentEventId={props.currentEvent.id} suppliers={props.suppliers} attendees={props.attendees} sectors={props.sectors} onAddSupplier={props.onAddSupplier} onUpdateSupplier={props.onUpdateSupplier} onDeleteSupplier={props.onDeleteSupplier} onSupplierStatusUpdate={props.onSupplierStatusUpdate} setError={props.setError} />;
+                return <SupplierManagementView
+                    currentEventId={props.currentEvent.id}
+                    suppliers={props.suppliers}
+                    attendees={props.attendees}
+                    sectors={props.sectors}
+                    categories={props.supplierCategories}
+                    onAddSupplier={props.onAddSupplier}
+                    onUpdateSupplier={props.onUpdateSupplier}
+                    onDeleteSupplier={props.onDeleteSupplier}
+                    onSupplierStatusUpdate={props.onSupplierStatusUpdate}
+                    setError={props.setError}
+                />;
             case 'sectors':
                 return <SectorManagementView sectors={props.sectors} onAddSector={props.onAddSector} onUpdateSector={props.onUpdateSector} onDeleteSector={props.onDeleteSector} setError={props.setError} />;
             default:
