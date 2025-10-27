@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-// FIX: Removed .tsx extension from module import to fix module resolution error.
-import { useTranslation } from '../../hooks/useTranslation';
+// FIX: Added .tsx extension to module import.
+import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { FingerPrintIcon } from '../icons';
 
 interface LoginViewProps {

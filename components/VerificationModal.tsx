@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Attendee } from '../types';
 import WebcamCapture from './WebcamCapture';
 import { CheckCircleIcon, XMarkIcon, SparklesIcon, SpinnerIcon } from './icons';
-// FIX: Removed .tsx extension from module import to fix module resolution error.
-import { useTranslation } from '../hooks/useTranslation';
+// FIX: Added .tsx extension to module import.
+import { useTranslation } from '../hooks/useTranslation.tsx';
 import { GoogleGenAI } from '@google/genai';
 
 interface VerificationModalProps {

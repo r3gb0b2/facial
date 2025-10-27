@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { Attendee, Sector, Supplier, Event, SupplierCategory } from '../../types';
-import { useTranslation } from '../../hooks/useTranslation';
-import CheckinView from './CheckinView';
-import RegisterView from './RegisterView';
-import SupplierManagementView from './SupplierManagementView';
-import SupplierCategoryManagementView from './SupplierCategoryManagementView';
-import SectorManagementView from './SectorManagementView';
-import { ArrowLeftOnRectangleIcon } from '../icons';
+import { Attendee, Sector, Supplier, Event, SupplierCategory } from '../../types.ts';
+import { useTranslation } from '../../hooks/useTranslation.tsx';
+import CheckinView from './CheckinView.tsx';
+import RegisterView from './RegisterView.tsx';
+import SupplierManagementView from './SupplierManagementView.tsx';
+import SupplierCategoryManagementView from './SupplierCategoryManagementView.tsx';
+import SectorManagementView from './SectorManagementView.tsx';
+import { ArrowLeftOnRectangleIcon } from '../icons.tsx';
 
 type AdminTab = 'checkin' | 'register' | 'suppliers' | 'supplier_categories' | 'sectors';
 

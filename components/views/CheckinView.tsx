@@ -1,10 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { Attendee, CheckinStatus, Supplier, Sector, SupplierCategory } from '../../types';
-import AttendeeCard from '../AttendeeCard';
-import AttendeeDetailModal from '../AttendeeDetailModal';
-import * as api from '../../firebase/service';
-import { useTranslation } from '../../hooks/useTranslation';
-import { SearchIcon, CheckCircleIcon, UsersIcon } from '../icons';
+import { Attendee, CheckinStatus, Supplier, Sector, SupplierCategory } from '../../types.ts';
+import AttendeeCard from '../AttendeeCard.tsx';
+import AttendeeDetailModal from '../AttendeeDetailModal.tsx';
+import * as api from '../../firebase/service.ts';
+import { useTranslation } from '../../hooks/useTranslation.tsx';
+import { SearchIcon, CheckCircleIcon, UsersIcon } from '../icons.tsx';
 
 interface CheckinViewProps {
   attendees: Attendee[];

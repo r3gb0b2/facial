@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Sector } from '../../types';
-// FIX: Removed .tsx extension from module import to fix module resolution error.
-import { useTranslation } from '../../hooks/useTranslation';
+// FIX: Added .tsx extension to module import.
+import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { PencilIcon, TagIcon, TrashIcon } from '../icons';
 import SectorModal from '../SectorModal';
 

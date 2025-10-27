@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Attendee, CheckinStatus, Sector } from '../types';
-import { useTranslation } from '../hooks/useTranslation';
-import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon } from './icons';
+import { Attendee, CheckinStatus, Sector } from '../types.ts';
+import { useTranslation } from '../hooks/useTranslation.tsx';
+import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon } from './icons.tsx';
 
 interface AttendeeDetailModalProps {
   attendee: Attendee;
