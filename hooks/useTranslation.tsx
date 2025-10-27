@@ -42,6 +42,8 @@ const translations = {
     'checkin.filter.supplier': 'Filtrar por Fornecedor',
     'checkin.filter.allStatuses': 'Todos os Status',
     'checkin.filter.allSuppliers': 'Todos os Fornecedores',
+    'checkin.search.noResultsForTerm': (term: string) => `Nenhum cadastro encontrado para "${term}".`,
+    'checkin.search.noResultsForFilter': 'Nenhum participante encontrado para os filtros selecionados.',
 
 
     // Register

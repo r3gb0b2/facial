@@ -52,7 +52,6 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
 
   const filteredAttendees = useMemo(() => {
     const normalizedTerm = normalizeString(searchTerm);
-    const numericTerm = searchTerm.replace(/\D/g, '');
 
     return attendees.filter((attendee) => {
       // Status filter
@@ -64,15 +63,17 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
         return false;
       }
       // Search term filter
-      if (
-        (normalizedTerm && !normalizeString(attendee.name).includes(normalizedTerm)) &&
-        (numericTerm && !attendee.cpf.replace(/\D/g, '').includes(numericTerm))
-      ) {
-        return false;
+      if (normalizedTerm) {
+        const nameMatch = normalizeString(attendee.name).includes(normalizedTerm);
+        const cpfMatch = attendee.cpf.replace(/\D/g, '').includes(normalizedTerm);
+        if (!nameMatch && !cpfMatch) {
+          return false; // if neither name nor CPF matches, filter it out
+        }
       }
-      return true;
+      return true; // if it passes all filters, include it
     });
   }, [attendees, searchTerm, statusFilter, supplierFilter]);
+
 
   const stats = useMemo(() => {
     return {
@@ -144,7 +145,12 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
       
       {filteredAttendees.length === 0 && (
           <div className="text-center col-span-full py-16">
-              <p className="text-gray-400">Nenhum participante encontrado para os filtros selecionados.</p>
+              <p className="text-gray-400">
+                {searchTerm.trim()
+                  ? t('checkin.search.noResultsForTerm', searchTerm)
+                  : t('checkin.search.noResultsForFilter')
+                }
+              </p>
           </div>
       )}
       
