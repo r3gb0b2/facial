@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Attendee, CheckinStatus, Supplier, Sector } from '../../types.ts';
+import { Attendee, CheckinStatus, Supplier, Sector, SupplierCategory } from '../../types.ts';
 import AttendeeCard from '../AttendeeCard.tsx';
 import AttendeeDetailModal from '../AttendeeDetailModal.tsx';
 import * as api from '../../firebase/service.ts';
@@ -10,6 +10,7 @@ interface CheckinViewProps {
   attendees: Attendee[];
   suppliers: Supplier[];
   sectors: Sector[];
+  supplierCategories: SupplierCategory[];
   currentEventId: string;
   onUpdateAttendeeDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector' | 'wristbandNumber'>>) => Promise<void>;
   onDeleteAttendee: (attendeeId: string) => Promise<void>;
@@ -26,10 +27,11 @@ const normalizeString = (str: string) => {
     .trim();
 };
 
-const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors, currentEventId, onUpdateAttendeeDetails, onDeleteAttendee, setError }) => {
+const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors, supplierCategories, currentEventId, onUpdateAttendeeDetails, onDeleteAttendee, setError }) => {
   const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<CheckinStatus | 'ALL'>(CheckinStatus.PENDING);
+  const [categoryFilter, setCategoryFilter] = useState<string | 'ALL'>('ALL');
   const [supplierFilter, setSupplierFilter] = useState<string | 'ALL'>('ALL');
   const [selectedAttendee, setSelectedAttendee] = useState<Attendee | null>(null);
 
@@ -59,6 +61,12 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
     return new Map(suppliers.map(s => [s.id, s.name]));
   }, [suppliers]);
 
+  const suppliersForDropdown = useMemo(() => {
+    if (categoryFilter === 'ALL') {
+      return suppliers;
+    }
+    return suppliers.filter(s => s.categoryId === categoryFilter);
+  }, [suppliers, categoryFilter]);
 
   const filteredAttendees = useMemo(() => {
     const normalizedTerm = normalizeString(searchTerm);
@@ -68,8 +76,15 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
       if (statusFilter !== 'ALL' && attendee.status !== statusFilter) {
         return false;
       }
+
+      // Category and Supplier filters
+      if (categoryFilter !== 'ALL') {
+        const supplier = suppliers.find(s => s.id === attendee.supplierId);
+        if (!supplier || supplier.categoryId !== categoryFilter) {
+          return false;
+        }
+      }
       
-      // Supplier filter
       if (supplierFilter !== 'ALL') {
         if (supplierFilter === '') { // "Sem fornecedor" option
           if (attendee.supplierId) return false;
@@ -89,7 +104,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
       }
       return true; // if it passes all filters, include it
     });
-  }, [attendees, searchTerm, statusFilter, supplierFilter]);
+  }, [attendees, searchTerm, statusFilter, categoryFilter, supplierFilter, suppliers]);
 
 
   const stats = useMemo(() => {
@@ -99,6 +114,11 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
       total: attendees.length,
     };
   }, [attendees]);
+  
+  const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setCategoryFilter(e.target.value);
+    setSupplierFilter('ALL'); // Reset supplier filter when category changes
+  };
 
   return (
     <div className="w-full max-w-7xl mx-auto">
@@ -129,11 +149,11 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
             </div>
           </div>
         </div>
-        <div className="flex flex-col md:flex-row gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as CheckinStatus | 'ALL')}
-            className="w-full md:w-1/2 bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="ALL">{t('checkin.filter.allStatuses')}</option>
             {Object.values(CheckinStatus).map(status => (
@@ -141,15 +161,25 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
             ))}
           </select>
           <select
+            value={categoryFilter}
+            onChange={handleCategoryChange}
+            className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            <option value="ALL">{t('checkin.filter.allSupplierCategories')}</option>
+            {supplierCategories.map(cat => (
+              <option key={cat.id} value={cat.id}>{cat.name}</option>
+            ))}
+          </select>
+          <select
             value={supplierFilter}
             onChange={(e) => setSupplierFilter(e.target.value)}
-            className="w-full md:w-1/2 bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="ALL">{t('checkin.filter.allSuppliers')}</option>
-            {suppliers.map(supplier => (
+            {suppliersForDropdown.map(supplier => (
               <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
             ))}
-             <option value="">Sem fornecedor</option>
+            <option value="">Sem fornecedor</option>
           </select>
         </div>
       </div>

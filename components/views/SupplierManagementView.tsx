@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Supplier, Sector, Attendee } from '../../types';
+import { Supplier, Sector, Attendee, SupplierCategory } from '../../types';
 // FIX: Added .tsx extension to module import.
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { LinkIcon, ClipboardDocumentIcon, NoSymbolIcon, CheckCircleIcon, PencilIcon, TrashIcon } from '../icons';
@@ -9,18 +9,20 @@ interface SupplierManagementViewProps {
     suppliers: Supplier[];
     attendees: Attendee[];
     sectors: Sector[];
-    onAddSupplier: (name: string, sectors: string[], registrationLimit: number) => Promise<void>;
+    supplierCategories: SupplierCategory[];
+    onAddSupplier: (name: string, categoryId: string, sectors: string[], registrationLimit: number) => Promise<void>;
     onUpdateSupplier: (supplierId: string, data: Partial<Supplier>) => Promise<void>;
     onDeleteSupplier: (supplier: Supplier) => Promise<void>;
     onSupplierStatusUpdate: (supplierId: string, active: boolean) => Promise<void>;
     setError: (message: string) => void;
 }
 
-const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ currentEventId, suppliers, attendees, sectors, onAddSupplier, onUpdateSupplier, onDeleteSupplier, onSupplierStatusUpdate, setError }) => {
+const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ currentEventId, suppliers, attendees, sectors, supplierCategories, onAddSupplier, onUpdateSupplier, onDeleteSupplier, onSupplierStatusUpdate, setError }) => {
     const { t } = useTranslation();
     
     // State for the creation form
     const [supplierName, setSupplierName] = useState('');
+    const [selectedCategory, setSelectedCategory] = useState('');
     const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
     const [limit, setLimit] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -59,6 +61,10 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!selectedCategory) {
+            setError(t('suppliers.noCategoryError'));
+            return;
+        }
         if (!supplierName.trim()) {
             setError(t('suppliers.noNameError'));
             return;
@@ -75,8 +81,9 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
 
         setIsSubmitting(true);
         try {
-            await onAddSupplier(supplierName, selectedSectors, registrationLimit);
+            await onAddSupplier(supplierName, selectedCategory, selectedSectors, registrationLimit);
             setSupplierName('');
+            setSelectedCategory('');
             setSelectedSectors([]);
             setLimit('');
         } finally {
@@ -95,6 +102,10 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
     const handleSaveEdit = async () => {
         if (!editingSupplier) return;
 
+        if (!editingSupplier.categoryId) {
+            setError(t('suppliers.noCategoryError'));
+            return;
+        }
         if (!editingSupplier.name.trim()) {
             setError(t('suppliers.noNameError'));
             return;
@@ -157,6 +168,8 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
         ));
     };
 
+    const categoryMap = useMemo(() => new Map(supplierCategories.map(c => [c.id, c.name])), [supplierCategories]);
+
     return (
         <div className="w-full max-w-4xl mx-auto space-y-10">
             {/* Form for new supplier */}
@@ -168,6 +181,20 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
+                            <label htmlFor="category" className="block text-sm font-medium text-gray-300 mb-1">{t('suppliers.categoryLabel')}</label>
+                            <select
+                                id="category" value={selectedCategory}
+                                onChange={(e) => setSelectedCategory(e.target.value)}
+                                className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                disabled={isSubmitting}
+                            >
+                                <option value="" disabled>{t('suppliers.categoryPlaceholder')}</option>
+                                {supplierCategories.map(cat => (
+                                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
                             <label htmlFor="supplierName" className="block text-sm font-medium text-gray-300 mb-1">{t('suppliers.nameLabel')}</label>
                             <input
                                 type="text" id="supplierName" value={supplierName}
@@ -176,15 +203,15 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                 placeholder={t('suppliers.namePlaceholder')} disabled={isSubmitting}
                             />
                         </div>
-                        <div>
-                            <label htmlFor="limit" className="block text-sm font-medium text-gray-300 mb-1">{t('suppliers.limitLabel')}</label>
-                            <input
-                                type="number" id="limit" value={limit}
-                                onChange={(e) => setLimit(e.target.value)}
-                                className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                placeholder={t('suppliers.limitPlaceholder')} disabled={isSubmitting} min="1"
-                            />
-                        </div>
+                    </div>
+                     <div>
+                        <label htmlFor="limit" className="block text-sm font-medium text-gray-300 mb-1">{t('suppliers.limitLabel')}</label>
+                        <input
+                            type="number" id="limit" value={limit}
+                            onChange={(e) => setLimit(e.target.value)}
+                            className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            placeholder={t('suppliers.limitPlaceholder')} disabled={isSubmitting} min="1"
+                        />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">{t('suppliers.sectorsLabel')}</label>
@@ -207,6 +234,15 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                             editingSupplier?.id === supplier.id ? (
                                 // EDITING VIEW
                                 <div key={supplier.id} className="bg-gray-700 p-4 rounded-lg border-2 border-indigo-500 space-y-4">
+                                     <select
+                                        value={editingSupplier.categoryId}
+                                        onChange={(e) => setEditingSupplier({...editingSupplier, categoryId: e.target.value })}
+                                        className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-white"
+                                    >
+                                        {supplierCategories.map(cat => (
+                                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                        ))}
+                                    </select>
                                     <input
                                         type="text" value={editingSupplier.name}
                                         onChange={(e) => setEditingSupplier({...editingSupplier, name: e.target.value })}
@@ -235,6 +271,9 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                             {supplier.active ? t('suppliers.active') : t('suppliers.inactive')}
                                             </span>
                                         </div>
+                                        {supplier.categoryId && categoryMap.has(supplier.categoryId) && (
+                                            <p className="text-xs font-semibold text-indigo-400 mb-1">{categoryMap.get(supplier.categoryId)}</p>
+                                        )}
                                         <p className="text-sm text-gray-400">
                                             {t('suppliers.registrations')}: {registrationCounts.get(supplier.id) || 0} / {supplier.registrationLimit}
                                         </p>

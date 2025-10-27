@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Attendee, Event, Sector, Supplier } from './types.ts';
+import { Attendee, Event, Sector, Supplier, SupplierCategory } from './types.ts';
 import * as api from './firebase/service.ts';
 import LoginView from './components/views/LoginView.tsx';
 import EventSelectionView from './components/views/EventSelectionView.tsx';
@@ -28,6 +28,7 @@ const App: React.FC = () => {
     const [attendees, setAttendees] = useState<Attendee[]>([]);
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [sectors, setSectors] = useState<Sector[]>([]);
+    const [supplierCategories, setSupplierCategories] = useState<SupplierCategory[]>([]);
     
     // Supplier specific state
     const [supplierInfo, setSupplierInfo] = useState<{ id: string; eventId: string; data: Supplier; } | null>(null);
@@ -76,6 +77,7 @@ const App: React.FC = () => {
         const unsubAttendees = api.getAttendees(currentEvent.id, setAttendees);
         const unsubSuppliers = api.getSuppliers(currentEvent.id, setSuppliers);
         const unsubSectors = api.getSectors(currentEvent.id, setSectors);
+        const unsubSupplierCategories = api.getSupplierCategories(currentEvent.id, setSupplierCategories);
         
         // This cleanup function is crucial. It runs when the dependencies change (e.g., when the user
         // navigates away from the admin view by changing `currentView` or `currentEvent`).
@@ -83,10 +85,12 @@ const App: React.FC = () => {
             unsubAttendees();
             unsubSuppliers();
             unsubSectors();
+            unsubSupplierCategories();
             // Clear the data to ensure no stale data flashes on the screen when returning to the admin view later.
             setAttendees([]);
             setSuppliers([]);
             setSectors([]);
+            setSupplierCategories([]);
         };
     }, [currentEvent, currentView]);
 
@@ -196,9 +200,9 @@ const App: React.FC = () => {
         return api.addAttendeesFromSpreadsheet(currentEvent.id, data, sectors, attendees);
     };
 
-    const handleAddSupplier = async (name: string, sectors: string[], registrationLimit: number) => {
+    const handleAddSupplier = async (name: string, categoryId: string, sectors: string[], registrationLimit: number) => {
         if (!currentEvent) return Promise.reject();
-        await api.addSupplier(currentEvent.id, name, sectors, registrationLimit);
+        await api.addSupplier(currentEvent.id, name, categoryId, sectors, registrationLimit);
     };
     
     const handleUpdateSupplier = (supplierId: string, data: Partial<Supplier>) => {
@@ -231,6 +235,21 @@ const App: React.FC = () => {
         return api.deleteSector(currentEvent.id, sector.id);
     };
     
+    const handleAddSupplierCategory = async (name: string) => {
+        if (!currentEvent) return Promise.reject();
+        await api.addSupplierCategory(currentEvent.id, name);
+    };
+    
+    const handleUpdateSupplierCategory = async (categoryId: string, name: string) => {
+        if (!currentEvent) return Promise.reject();
+        await api.updateSupplierCategory(currentEvent.id, categoryId, name);
+    };
+
+    const handleDeleteSupplierCategory = (categoryId: string) => {
+        if (!currentEvent) return Promise.reject();
+        return api.deleteSupplierCategory(currentEvent.id, categoryId);
+    };
+
     const handleAttendeeDetailsUpdate = (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector' | 'wristbandNumber'>>) => {
         if (!currentEvent) return Promise.reject();
         return api.updateAttendeeDetails(currentEvent.id, attendeeId, data);
@@ -272,6 +291,7 @@ const App: React.FC = () => {
                     attendees={attendees}
                     suppliers={suppliers}
                     sectors={sectors}
+                    supplierCategories={supplierCategories}
                     onRegister={handleRegister}
                     onImportAttendees={handleImportAttendees}
                     onAddSupplier={handleAddSupplier}
@@ -281,6 +301,9 @@ const App: React.FC = () => {
                     onAddSector={handleAddSector}
                     onUpdateSector={handleUpdateSector}
                     onDeleteSector={handleDeleteSector}
+                    onAddSupplierCategory={handleAddSupplierCategory}
+                    onUpdateSupplierCategory={handleUpdateSupplierCategory}
+                    onDeleteSupplierCategory={handleDeleteSupplierCategory}
                     onAttendeeDetailsUpdate={handleAttendeeDetailsUpdate}
                     onDeleteAttendee={handleDeleteAttendee}
                     onBack={handleBackToEvents}

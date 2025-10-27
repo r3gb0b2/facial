@@ -1,7 +1,7 @@
 // In firebase/service.ts
 
 import { db, storage, FieldValue } from './config.ts';
-import { Attendee, CheckinStatus, Event, Sector, Supplier } from '../types.ts';
+import { Attendee, CheckinStatus, Event, Sector, Supplier, SupplierCategory } from '../types.ts';
 
 // Helper to get eventId, otherwise throw error
 const ensureEventId = (eventId?: string): string => {
@@ -356,6 +356,40 @@ export const deleteSector = async (eventId: string, sectorId: string): Promise<v
 };
 
 
+// --- Supplier Category Management ---
+
+export const getSupplierCategories = (eventId: string, onUpdate: (categories: SupplierCategory[]) => void): (() => void) => {
+    const eventRef = db.collection('events').doc(ensureEventId(eventId));
+    return eventRef.collection('supplierCategories').orderBy('name').onSnapshot(snapshot => {
+        const categoriesData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+        } as SupplierCategory));
+        onUpdate(categoriesData);
+    });
+};
+
+export const addSupplierCategory = async (eventId: string, name: string): Promise<string> => {
+    const eventRef = db.collection('events').doc(ensureEventId(eventId));
+    const res = await eventRef.collection('supplierCategories').add({ name });
+    return res.id;
+};
+
+export const updateSupplierCategory = async (eventId: string, categoryId: string, name: string): Promise<void> => {
+    const eventRef = db.collection('events').doc(ensureEventId(eventId));
+    await eventRef.collection('supplierCategories').doc(categoryId).update({ name });
+};
+
+export const deleteSupplierCategory = async (eventId: string, categoryId: string): Promise<void> => {
+    const eventRef = db.collection('events').doc(ensureEventId(eventId));
+    const suppliersSnapshot = await eventRef.collection('suppliers').where('categoryId', '==', categoryId).limit(1).get();
+    if (!suppliersSnapshot.empty) {
+        throw new Error('Category is in use and cannot be deleted.');
+    }
+    await eventRef.collection('supplierCategories').doc(categoryId).delete();
+};
+
+
 // --- Supplier Management ---
 
 export const getSuppliers = (eventId: string, onUpdate: (suppliers: Supplier[]) => void): (() => void) => {
@@ -382,10 +416,11 @@ export const getAttendeeCountForSupplier = async (eventId: string, supplierId: s
 };
 
 
-export const addSupplier = async (eventId: string, name: string, sectors: string[], registrationLimit: number): Promise<string> => {
+export const addSupplier = async (eventId: string, name: string, categoryId: string, sectors: string[], registrationLimit: number): Promise<string> => {
     const eventRef = db.collection('events').doc(ensureEventId(eventId));
     const newSupplier = {
         name,
+        categoryId,
         sectors,
         registrationLimit,
         active: true,

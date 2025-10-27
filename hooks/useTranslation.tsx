@@ -30,6 +30,7 @@ const translations = {
     'admin.tabs.checkin': 'Check-in',
     'admin.tabs.register': 'Cadastrar',
     'admin.tabs.suppliers': 'Fornecedores',
+    'admin.tabs.supplier_categories': 'Categorias de Fornecedores',
     'admin.tabs.sectors': 'Setores',
     'admin.backButton': 'Voltar para Eventos',
 
@@ -40,8 +41,10 @@ const translations = {
     'checkin.stats.total': 'Total',
     'checkin.filter.status': 'Filtrar por Status',
     'checkin.filter.supplier': 'Filtrar por Fornecedor',
+    'checkin.filter.supplierCategory': 'Filtrar por Categoria',
     'checkin.filter.allStatuses': 'Todos os Status',
     'checkin.filter.allSuppliers': 'Todos os Fornecedores',
+    'checkin.filter.allSupplierCategories': 'Todas as Categorias',
     'checkin.search.noResultsForTerm': (term: string) => `Nenhum cadastro encontrado para "${term}".`,
     'checkin.search.noResultsForFilter': 'Nenhum participante encontrado para os filtros selecionados.',
 
@@ -77,6 +80,8 @@ const translations = {
 
     // Suppliers
     'suppliers.generateTitle': 'Gerar Link de Cadastro',
+    'suppliers.categoryLabel': 'Categoria do Fornecedor',
+    'suppliers.categoryPlaceholder': 'Selecione uma categoria',
     'suppliers.nameLabel': 'Nome do Fornecedor/Responsável',
     'suppliers.namePlaceholder': 'Ex: Empresa de Segurança Ltda.',
     'suppliers.limitLabel': 'Limite de Cadastros',
@@ -97,10 +102,25 @@ const translations = {
     'suppliers.cancelButton': 'Cancelar',
     'suppliers.saveButton': 'Salvar',
     'suppliers.noNameError': 'O nome do fornecedor é obrigatório.',
+    'suppliers.noCategoryError': 'A categoria do fornecedor é obrigatória.',
     'suppliers.noSectorsError': 'Selecione ao menos um setor.',
     'suppliers.noLimitError': 'O limite de cadastro deve ser um número maior que zero.',
     'suppliers.deleteConfirm': (name: string) => `Tem certeza que deseja deletar o fornecedor "${name}"? Esta ação não pode ser desfeita.`,
     'suppliers.deleteErrorInUse': (name: string) => `O fornecedor "${name}" não pode ser excluído pois já possui participantes cadastrados.`,
+
+    // Supplier Categories
+    'supplierCategories.title': 'Gerenciar Categorias de Fornecedores',
+    'supplierCategories.noCategories': 'Nenhuma categoria cadastrada.',
+    'supplierCategories.noCategoriesSubtitle': 'Adicione categorias para organizar os fornecedores.',
+    'supplierCategories.createButton': 'Criar Nova Categoria',
+    'supplierCategories.form.nameLabel': 'Nome da Categoria',
+    'supplierCategories.form.namePlaceholder': 'Ex: Food Truck, Segurança',
+    'supplierCategories.form.createButton': 'Criar Categoria',
+    'supplierCategories.form.saveButton': 'Salvar Alterações',
+    'supplierCategories.form.noNameError': 'O nome da categoria é obrigatório.',
+    'supplierCategories.deleteConfirm': (name: string) => `Tem certeza que deseja deletar a categoria "${name}"?`,
+    'supplierCategories.deleteErrorInUse': (name: string) => `A categoria "${name}" não pode ser excluída pois está em uso por um ou mais fornecedores.`,
+
 
     // Sectors
     'sectors.title': 'Gerenciar Setores',
