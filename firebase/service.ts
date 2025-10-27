@@ -1,5 +1,4 @@
-import firebase from "firebase/compat/app";
-import { db, storage } from './config.ts';
+import { db, storage, FieldValue } from './config.ts';
 import { Attendee, CheckinStatus, Event, Sector, Supplier } from '../types.ts';
 
 // Helper to get eventId, otherwise throw error
@@ -64,7 +63,7 @@ export const addAttendee = async (
         photo: photoUrl,
         status: CheckinStatus.PENDING,
         eventId,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
     };
 
     await newAttendeeRef.set(newAttendee);
@@ -109,7 +108,7 @@ export const registerAttendeeForSupplier = async (
             supplierId: supplierId,
             status: CheckinStatus.PENDING,
             eventId,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
         };
 
         transaction.set(newAttendeeRef, newAttendee);
@@ -169,7 +168,7 @@ export const addAttendeesFromSpreadsheet = async (eventId: string, data: any[], 
             photo: placeholderPhoto,
             status: CheckinStatus.PENDING,
             eventId,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
         };
         batch.set(newAttendeeRef, newAttendee);
         cpfsInFile.add(rawCpf);
@@ -198,7 +197,7 @@ export const getEvents = (onUpdate: (events: Event[]) => void): (() => void) => 
 export const addEvent = async (name: string): Promise<string> => {
     const res = await db.collection('events').add({
         name,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
     });
     return res.id;
 };
