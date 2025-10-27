@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Attendee, CheckinStatus } from '../../types.ts';
 import AttendeeCard from '../AttendeeCard.tsx';
 import StatusUpdateModal from '../StatusUpdateModal.tsx';
+import VerificationModal from '../VerificationModal.tsx';
 import * as api from '../../firebase/service.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { SearchIcon, CheckCircleIcon, UsersIcon } from '../icons.tsx';
@@ -25,9 +26,23 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, currentEventId }) 
   const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [attendeeForStatusUpdate, setAttendeeForStatusUpdate] = useState<Attendee | null>(null);
+  const [attendeeForVerification, setAttendeeForVerification] = useState<Attendee | null>(null);
   
   const handleSelectAttendee = (attendee: Attendee) => {
-    setAttendeeForStatusUpdate(attendee);
+    // Open AI verification for pending check-ins
+    if (attendee.status === CheckinStatus.PENDING) {
+        setAttendeeForVerification(attendee);
+    } else {
+    // Open simple status update for all other cases
+        setAttendeeForStatusUpdate(attendee);
+    }
+  };
+
+  const handleConfirmCheckin = async () => {
+    if (attendeeForVerification) {
+        await api.updateAttendeeStatus(currentEventId, attendeeForVerification.id, CheckinStatus.CHECKED_IN);
+        setAttendeeForVerification(null);
+    }
   };
   
   const handleUpdateStatus = async (status: CheckinStatus) => {
@@ -102,6 +117,14 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, currentEventId }) 
           </div>
       )}
       
+      {attendeeForVerification && (
+          <VerificationModal
+            attendee={attendeeForVerification}
+            onClose={() => setAttendeeForVerification(null)}
+            onConfirm={handleConfirmCheckin}
+          />
+      )}
+
       {attendeeForStatusUpdate && (
           <StatusUpdateModal
             attendee={attendeeForStatusUpdate}

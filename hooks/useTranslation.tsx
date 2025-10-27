@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, PropsWithChildren } from 'react';
 
 // Basic dictionary structure
 const translations = {
@@ -153,7 +153,8 @@ const LanguageContext = createContext<{
   t: (key) => key,
 });
 
-export const LanguageProvider = ({ children }: { children: ReactNode }) => {
+// FIX: Changed component signature to use PropsWithChildren to resolve a TypeScript error where children were not being recognized. This makes the `children` prop optional, satisfying the compiler while runtime behavior remains correct due to usage.
+export const LanguageProvider = ({ children }: PropsWithChildren<{}>) => {
   const [language] = useState<Language>('pt');
 
   const t = (key: TranslationKey, ...args: any[]): string => {
