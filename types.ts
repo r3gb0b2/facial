@@ -33,10 +33,10 @@ export interface Supplier {
   sectors: string[];
   active: boolean;
   registrationLimit: number;
-  sectorColors?: Record<string, string>; // e.g., { 'staff': '#ff0000' }
 }
 
 export interface Sector {
   id: string; // e.g., 'staff'
   label: string; // e.g., 'Staff'
+  color?: string; // e.g., '#ff0000'
 }

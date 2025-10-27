@@ -7,8 +7,8 @@ import SectorModal from '../SectorModal';
 
 interface SectorManagementViewProps {
     sectors: Sector[];
-    onAddSector: (label: string) => Promise<void>;
-    onUpdateSector: (sectorId: string, label: string) => Promise<void>;
+    onAddSector: (label: string, color: string) => Promise<void>;
+    onUpdateSector: (sectorId: string, data: { label: string; color: string; }) => Promise<void>;
     onDeleteSector: (sector: Sector) => Promise<void>;
     setError: (message: string) => void;
 }
@@ -34,12 +34,12 @@ const SectorManagementView: React.FC<SectorManagementViewProps> = ({
         setIsModalOpen(false);
     };
 
-    const handleSave = async (label: string, sectorId?: string) => {
+    const handleSave = async (data: { label: string; color: string }, sectorId?: string) => {
         try {
             if (sectorId) {
-                await onUpdateSector(sectorId, label);
+                await onUpdateSector(sectorId, data);
             } else {
-                await onAddSector(label);
+                await onAddSector(data.label, data.color);
             }
             handleCloseModal();
         } catch (error) {
@@ -78,7 +78,10 @@ const SectorManagementView: React.FC<SectorManagementViewProps> = ({
                     <ul className="space-y-3">
                         {sectors.map((sector) => (
                             <li key={sector.id} className="bg-gray-900/70 p-4 rounded-lg flex items-center justify-between transition-all hover:bg-gray-800">
-                                <p className="font-semibold text-white">{sector.label}</p>
+                                <div className="flex items-center gap-3">
+                                    <span className="w-5 h-5 rounded-full border border-gray-600 flex-shrink-0" style={{ backgroundColor: sector.color || '#4B5563' }}></span>
+                                    <p className="font-semibold text-white">{sector.label}</p>
+                                </div>
                                 <div className="flex items-center gap-2">
                                     <button onClick={() => handleOpenModal(sector)} className="p-2 text-gray-400 hover:text-yellow-400 transition-colors rounded-full hover:bg-gray-700">
                                         <PencilIcon className="w-5 h-5" />

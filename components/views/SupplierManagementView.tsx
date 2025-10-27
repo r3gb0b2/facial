@@ -9,7 +9,7 @@ interface SupplierManagementViewProps {
     suppliers: Supplier[];
     attendees: Attendee[];
     sectors: Sector[];
-    onAddSupplier: (name: string, sectors: string[], registrationLimit: number, sectorColors: Record<string, string>) => Promise<void>;
+    onAddSupplier: (name: string, sectors: string[], registrationLimit: number) => Promise<void>;
     onUpdateSupplier: (supplierId: string, data: Partial<Supplier>) => Promise<void>;
     onDeleteSupplier: (supplier: Supplier) => Promise<void>;
     onSupplierStatusUpdate: (supplierId: string, active: boolean) => Promise<void>;
@@ -22,7 +22,6 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
     // State for the creation form
     const [supplierName, setSupplierName] = useState('');
     const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
-    const [sectorColors, setSectorColors] = useState<Record<string, string>>({});
     const [limit, setLimit] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     
@@ -46,40 +45,16 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
         const stateSetter = isEditing ? 
             (updater: (prev: Supplier) => Supplier) => setEditingSupplier(prev => prev ? updater(prev) : null) : 
             setSelectedSectors;
-
-        const colorsSetter = isEditing ?
-            (updater: (prev: Supplier) => Supplier) => setEditingSupplier(prev => prev ? updater(prev) : null) :
-            setSectorColors;
             
         const currentSectors = isEditing ? editingSupplier?.sectors || [] : selectedSectors;
 
         if (currentSectors.includes(sectorId)) {
             // Unchecking
             stateSetter((prev: any) => isEditing ? { ...prev, sectors: prev.sectors.filter((s: string) => s !== sectorId) } : prev.filter((s: string) => s !== sectorId));
-            colorsSetter((prev: any) => {
-                if(isEditing) {
-                    const newColors = {...prev.sectorColors};
-                    delete newColors[sectorId];
-                    return {...prev, sectorColors: newColors};
-                }
-                const newColors = {...prev};
-                delete newColors[sectorId];
-                return newColors;
-            });
         } else {
             // Checking
             stateSetter((prev: any) => isEditing ? { ...prev, sectors: [...prev.sectors, sectorId] } : [...prev, sectorId]);
         }
-    };
-
-    const handleColorChange = (sectorId: string, color: string, isEditing: boolean) => {
-        const stateSetter = isEditing ? setEditingSupplier : setSectorColors;
-        stateSetter((prev: any) => {
-             if (isEditing) {
-                return {...prev, sectorColors: {...prev.sectorColors, [sectorId]: color }};
-             }
-             return {...prev, [sectorId]: color };
-        });
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -100,10 +75,9 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
 
         setIsSubmitting(true);
         try {
-            await onAddSupplier(supplierName, selectedSectors, registrationLimit, sectorColors);
+            await onAddSupplier(supplierName, selectedSectors, registrationLimit);
             setSupplierName('');
             setSelectedSectors([]);
-            setSectorColors({});
             setLimit('');
         } finally {
             setIsSubmitting(false);
@@ -160,17 +134,16 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
         }
     };
     
-    const getSectorLabel = (id: string) => {
-        const sector = sectors.find(s => s.id === id);
-        return sector ? sector.label : id;
+    const getSectorInfo = (id: string) => {
+        return sectors.find(s => s.id === id) || { label: id, color: '#4B5563' };
     };
 
     const renderSectorCheckboxes = (isEditing: boolean) => {
         const currentSectors = isEditing ? editingSupplier?.sectors || [] : selectedSectors;
-        const currentColors = isEditing ? editingSupplier?.sectorColors || {} : sectorColors;
         
         return sectors.map(sector => (
-            <div key={sector.id} className="flex items-center space-x-2">
+            <div key={sector.id} className="flex items-center space-x-3">
+                <span className="w-5 h-5 rounded-full border border-gray-500 flex-shrink-0" style={{ backgroundColor: sector.color || '#4B5563' }}></span>
                 <input
                     type="checkbox"
                     id={`sector-${sector.id}-${isEditing}`}
@@ -180,16 +153,6 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                     disabled={isSubmitting && !isEditing}
                 />
                 <label htmlFor={`sector-${sector.id}-${isEditing}`} className="text-white cursor-pointer">{sector.label}</label>
-                {currentSectors.includes(sector.id) && (
-                     <label className="relative w-16 h-5 rounded-full cursor-pointer border border-gray-500" style={{ backgroundColor: currentColors[sector.id] || '#4B5563' }}>
-                        <input
-                            type="color"
-                            value={currentColors[sector.id] || '#4B5563'}
-                            onChange={(e) => handleColorChange(sector.id, e.target.value, isEditing)}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        />
-                    </label>
-                )}
             </div>
         ));
     };
@@ -278,12 +241,14 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                         <div className="text-sm text-gray-400 mt-1 flex items-center flex-wrap gap-x-4 gap-y-1">
                                             <span>Setores:</span>
                                             <div className="flex flex-wrap items-center gap-2">
-                                            {(supplier.sectors || []).map(sectorId => (
-                                                <div key={sectorId} className="flex items-center gap-1">
-                                                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: supplier.sectorColors?.[sectorId] || '#4B5563' }}></span>
-                                                    <span>{getSectorLabel(sectorId)}</span>
+                                            {(supplier.sectors || []).map(sectorId => {
+                                                const sector = getSectorInfo(sectorId);
+                                                return (
+                                                <div key={sectorId} className="flex items-center gap-1.5">
+                                                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: sector.color }}></span>
+                                                    <span>{sector.label}</span>
                                                 </div>
-                                            ))}
+                                            )})}
                                             </div>
                                         </div>
                                     </div>

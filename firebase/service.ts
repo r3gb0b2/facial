@@ -289,16 +289,16 @@ export const getSectorsForEvent = async (eventId: string): Promise<Sector[]> => 
 };
 
 
-export const addSector = async (eventId: string, label: string): Promise<string> => {
+export const addSector = async (eventId: string, label: string, color: string): Promise<string> => {
     const eventRef = db.collection('events').doc(ensureEventId(eventId));
     const id = label.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-    await eventRef.collection('sectors').doc(id).set({ label });
+    await eventRef.collection('sectors').doc(id).set({ label, color });
     return id;
 };
 
-export const updateSector = async (eventId: string, sectorId: string, label:string): Promise<void> => {
+export const updateSector = async (eventId: string, sectorId: string, data: { label: string; color: string }): Promise<void> => {
     const eventRef = db.collection('events').doc(ensureEventId(eventId));
-    await eventRef.collection('sectors').doc(sectorId).update({ label });
+    await eventRef.collection('sectors').doc(sectorId).update(data);
 };
 
 export const deleteSector = async (eventId: string, sectorId: string): Promise<void> => {
@@ -341,13 +341,12 @@ export const getAttendeeCountForSupplier = async (eventId: string, supplierId: s
 };
 
 
-export const addSupplier = async (eventId: string, name: string, sectors: string[], registrationLimit: number, sectorColors: Record<string, string>): Promise<string> => {
+export const addSupplier = async (eventId: string, name: string, sectors: string[], registrationLimit: number): Promise<string> => {
     const eventRef = db.collection('events').doc(ensureEventId(eventId));
     const newSupplier = {
         name,
         sectors,
         registrationLimit,
-        sectorColors,
         active: true,
     };
     const res = await eventRef.collection('suppliers').add(newSupplier);

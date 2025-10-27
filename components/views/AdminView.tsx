@@ -16,12 +16,12 @@ interface AdminViewProps {
     sectors: Sector[];
     onRegister: (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => Promise<void>;
     onImportAttendees: (data: any[]) => Promise<any>;
-    onAddSupplier: (name: string, sectors: string[], registrationLimit: number, sectorColors: Record<string, string>) => Promise<void>;
+    onAddSupplier: (name: string, sectors: string[], registrationLimit: number) => Promise<void>;
     onUpdateSupplier: (supplierId: string, data: Partial<Supplier>) => Promise<void>;
     onDeleteSupplier: (supplier: Supplier) => Promise<void>;
     onSupplierStatusUpdate: (supplierId: string, active: boolean) => Promise<void>;
-    onAddSector: (label: string) => Promise<void>;
-    onUpdateSector: (sectorId: string, label: string) => Promise<void>;
+    onAddSector: (label: string, color: string) => Promise<void>;
+    onUpdateSector: (sectorId: string, data: { label: string; color: string; }) => Promise<void>;
     onDeleteSector: (sector: Sector) => Promise<void>;
     onAttendeeDetailsUpdate: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector'>>) => Promise<void>;
     onDeleteAttendee: (attendeeId: string) => Promise<void>;

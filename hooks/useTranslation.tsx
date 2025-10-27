@@ -113,6 +113,7 @@ const translations = {
     'sectors.modal.editTitle': 'Editar Setor',
     'sectors.modal.labelLabel': 'Nome do Setor',
     'sectors.modal.labelPlaceholder': 'Ex: Staff, Imprensa, Convidado',
+    'sectors.modal.colorLabel': 'Cor da Pulseira',
     'sectors.modal.error': 'O nome do setor não pode ser vazio.',
     'sectors.modal.saveButton': 'Salvar',
     'sectors.modal.createButton': 'Criar Setor',
@@ -151,7 +152,8 @@ const translations = {
     'attendeeDetail.formError': 'Nome e CPF são obrigatórios.',
     'attendeeDetail.wristbandLabel': 'Nº da Pulseira (Opcional)',
     'attendeeDetail.wristbandPlaceholder': 'Digite o número',
-    
+    'attendeeCard.wristbandNumber': 'Pulseira',
+
     // Supplier Registration View
     'supplierRegistration.closedTitle': 'Cadastro Encerrado',
     'supplierRegistration.closedMessage': 'O link de cadastro não está mais ativo ou atingiu o limite.',

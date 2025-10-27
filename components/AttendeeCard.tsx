@@ -2,6 +2,7 @@ import React from 'react';
 import { Attendee, CheckinStatus } from '../types';
 // FIX: Added .tsx extension to module import.
 import { useTranslation } from '../hooks/useTranslation.tsx';
+import { TagIcon } from './icons.tsx';
 
 interface AttendeeCardProps {
   attendee: Attendee;
@@ -42,6 +43,13 @@ const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect }) => {
         <h3 className="font-bold text-lg text-white truncate">{attendee.name}</h3>
         <p className="text-sm text-gray-400">{formatCPF(attendee.cpf)}</p>
         <p className="text-sm text-indigo-400 mt-1 capitalize">{attendee.sector}</p>
+        {attendee.status === CheckinStatus.CHECKED_IN && attendee.wristbandNumber && (
+            <div className="mt-2 flex items-center gap-1 text-xs text-gray-300 bg-gray-700/50 px-2 py-1 rounded-md">
+                <TagIcon className="w-4 h-4 text-gray-400" />
+                <span className="font-semibold">{t('attendeeCard.wristbandNumber')}:</span>
+                <span>{attendee.wristbandNumber}</span>
+            </div>
+        )}
       </div>
     </div>
   );

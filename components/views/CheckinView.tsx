@@ -29,7 +29,7 @@ const normalizeString = (str: string) => {
 const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors, currentEventId, onUpdateAttendeeDetails, onDeleteAttendee, setError }) => {
   const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<CheckinStatus | 'ALL'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<CheckinStatus | 'ALL'>(CheckinStatus.PENDING);
   const [supplierFilter, setSupplierFilter] = useState<string | 'ALL'>('ALL');
   const [selectedAttendee, setSelectedAttendee] = useState<Attendee | null>(null);
 

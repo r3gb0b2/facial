@@ -7,22 +7,27 @@ import { XMarkIcon } from './icons';
 interface SectorModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (label: string, sectorId?: string) => void;
+  onSave: (data: { label: string, color: string }, sectorId?: string) => void;
   sectorToEdit?: Sector | null;
 }
 
 const SectorModal: React.FC<SectorModalProps> = ({ isOpen, onClose, onSave, sectorToEdit }) => {
   const { t } = useTranslation();
   const [sectorLabel, setSectorLabel] = useState('');
+  const [sectorColor, setSectorColor] = useState('#4f46e5'); // Default to indigo
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (sectorToEdit) {
-      setSectorLabel(sectorToEdit.label);
-    } else {
-      setSectorLabel('');
+    if (isOpen) {
+        if (sectorToEdit) {
+            setSectorLabel(sectorToEdit.label);
+            setSectorColor(sectorToEdit.color || '#4f46e5');
+        } else {
+            setSectorLabel('');
+            setSectorColor('#4f46e5');
+        }
+        setError('');
     }
-    setError('');
   }, [sectorToEdit, isOpen]);
 
   if (!isOpen) return null;
@@ -32,7 +37,7 @@ const SectorModal: React.FC<SectorModalProps> = ({ isOpen, onClose, onSave, sect
       setError(t('sectors.modal.error'));
       return;
     }
-    onSave(sectorLabel, sectorToEdit?.id);
+    onSave({ label: sectorLabel, color: sectorColor }, sectorToEdit?.id);
   };
 
   return (
@@ -46,7 +51,7 @@ const SectorModal: React.FC<SectorModalProps> = ({ isOpen, onClose, onSave, sect
             <XMarkIcon className="w-6 h-6" />
           </button>
         </div>
-        <div className="p-8 space-y-4">
+        <div className="p-8 space-y-6">
           <div>
             <label htmlFor="sectorLabel" className="block text-sm font-medium text-gray-300 mb-1">
               {t('sectors.modal.labelLabel')}
@@ -61,6 +66,21 @@ const SectorModal: React.FC<SectorModalProps> = ({ isOpen, onClose, onSave, sect
               autoFocus
             />
             {error && <p className="text-red-400 text-sm mt-1">{error}</p>}
+          </div>
+          <div>
+            <label htmlFor="sectorColor" className="block text-sm font-medium text-gray-300 mb-1">
+              {t('sectors.modal.colorLabel')}
+            </label>
+            <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full border border-gray-500" style={{ backgroundColor: sectorColor }}></div>
+                <input
+                  type="color"
+                  id="sectorColor"
+                  value={sectorColor}
+                  onChange={(e) => setSectorColor(e.target.value)}
+                  className="w-full h-10 bg-gray-900 border border-gray-600 rounded-md pl-10 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 appearance-none cursor-pointer"
+                />
+            </div>
           </div>
         </div>
         <div className="p-6 bg-gray-900/50 rounded-b-2xl">

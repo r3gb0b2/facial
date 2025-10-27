@@ -196,9 +196,9 @@ const App: React.FC = () => {
         return api.addAttendeesFromSpreadsheet(currentEvent.id, data, sectors, attendees);
     };
 
-    const handleAddSupplier = async (name: string, sectors: string[], registrationLimit: number, sectorColors: Record<string, string>) => {
+    const handleAddSupplier = async (name: string, sectors: string[], registrationLimit: number) => {
         if (!currentEvent) return Promise.reject();
-        await api.addSupplier(currentEvent.id, name, sectors, registrationLimit, sectorColors);
+        await api.addSupplier(currentEvent.id, name, sectors, registrationLimit);
     };
     
     const handleUpdateSupplier = (supplierId: string, data: Partial<Supplier>) => {
@@ -216,14 +216,14 @@ const App: React.FC = () => {
         return api.updateSupplier(currentEvent.id, supplierId, { active });
     };
 
-    const handleAddSector = async (label: string) => {
+    const handleAddSector = async (label: string, color: string) => {
         if (!currentEvent) return Promise.reject();
-        await api.addSector(currentEvent.id, label);
+        await api.addSector(currentEvent.id, label, color);
     };
 
-    const handleUpdateSector = (sectorId: string, label: string) => {
+    const handleUpdateSector = (sectorId: string, data: { label: string; color: string; }) => {
         if (!currentEvent) return Promise.reject();
-        return api.updateSector(currentEvent.id, sectorId, label);
+        return api.updateSector(currentEvent.id, sectorId, data);
     };
 
     const handleDeleteSector = (sector: Sector) => {
