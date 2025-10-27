@@ -8,6 +8,9 @@ const ensureEventId = (eventId?: string): string => {
     return eventId;
 };
 
+// Helper to check if a string is a data URL
+const isDataUrl = (s: string) => s.startsWith('data:image');
+
 
 // --- Photo Upload ---
 export const uploadPhoto = async (photoDataUrl: string, attendeeId: string): Promise<string> => {
@@ -51,8 +54,10 @@ export const addAttendee = async (
     const eventRef = db.collection('events').doc(eventId);
     const newAttendeeRef = eventRef.collection('attendees').doc();
     
-    // The photo upload can happen before or after, but doing it first ensures we have the URL.
-    const photoUrl = await uploadPhoto(attendeeData.photo, newAttendeeRef.id);
+    // If the photo is a new base64 string, upload it. Otherwise, use the existing URL.
+    const photoUrl = isDataUrl(attendeeData.photo)
+        ? await uploadPhoto(attendeeData.photo, newAttendeeRef.id)
+        : attendeeData.photo;
     
     const newAttendee = {
         ...attendeeData,
@@ -75,8 +80,10 @@ export const registerAttendeeForSupplier = async (
     const supplierRef = eventRef.collection('suppliers').doc(supplierId);
     const newAttendeeRef = eventRef.collection('attendees').doc();
 
-    // Perform photo upload outside the transaction
-    const photoUrl = await uploadPhoto(attendeeData.photo, newAttendeeRef.id);
+    // If the photo is a new base64 string, upload it. Otherwise, use the existing URL.
+    const photoUrl = isDataUrl(attendeeData.photo)
+        ? await uploadPhoto(attendeeData.photo, newAttendeeRef.id)
+        : attendeeData.photo;
 
     return db.runTransaction(async (transaction) => {
         const supplierDoc = await transaction.get(supplierRef);
