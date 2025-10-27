@@ -5,9 +5,10 @@ import CheckinView from './CheckinView.tsx';
 import RegisterView from './RegisterView.tsx';
 import SupplierManagementView from './SupplierManagementView.tsx';
 import SectorManagementView from './SectorManagementView.tsx';
+import WristbandReportView from './WristbandReportView.tsx';
 import { ArrowLeftOnRectangleIcon } from '../icons.tsx';
 
-type AdminTab = 'checkin' | 'register' | 'suppliers' | 'sectors';
+type AdminTab = 'checkin' | 'register' | 'suppliers' | 'sectors' | 'wristbands';
 
 interface AdminViewProps {
     currentEvent: Event;
@@ -38,6 +39,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
         { id: 'register', label: t('admin.tabs.register') },
         { id: 'suppliers', label: t('admin.tabs.suppliers') },
         { id: 'sectors', label: t('admin.tabs.sectors') },
+        { id: 'wristbands', label: t('admin.tabs.wristbands') },
     ];
     
     const renderContent = () => {
@@ -58,6 +60,8 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                 return <SupplierManagementView currentEventId={props.currentEvent.id} suppliers={props.suppliers} attendees={props.attendees} sectors={props.sectors} onAddSupplier={props.onAddSupplier} onUpdateSupplier={props.onUpdateSupplier} onDeleteSupplier={props.onDeleteSupplier} onSupplierStatusUpdate={props.onSupplierStatusUpdate} setError={props.setError} />;
             case 'sectors':
                 return <SectorManagementView sectors={props.sectors} onAddSector={props.onAddSector} onUpdateSector={props.onUpdateSector} onDeleteSector={props.onDeleteSector} setError={props.setError} />;
+            case 'wristbands':
+                return <WristbandReportView attendees={props.attendees} sectors={props.sectors} />;
             default:
                 return null;
         }

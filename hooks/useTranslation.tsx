@@ -31,6 +31,7 @@ const translations = {
     'admin.tabs.register': 'Cadastrar',
     'admin.tabs.suppliers': 'Fornecedores',
     'admin.tabs.sectors': 'Setores',
+    'admin.tabs.wristbands': 'Pulseiras',
     'admin.backButton': 'Voltar para Eventos',
 
     // Check-in
@@ -130,6 +131,19 @@ const translations = {
     'webcam.retakeButton': 'Tirar Outra Foto',
     'webcam.captureButton': 'Capturar Foto',
     'webcam.uploadButton': 'Carregar da Galeria',
+    
+    // Wristband Report
+    'wristbandReport.title': 'Relatório de Pulseiras Entregues',
+    'wristbandReport.stats.deliveredOf': (delivered: number, total: number) => `${delivered} de ${total} entregues`,
+    'wristbandReport.searchPlaceholder': 'Buscar por nome, CPF ou pulseira...',
+    'wristbandReport.filter.sector': 'Filtrar por Setor',
+    'wristbandReport.filter.allSectors': 'Todos os Setores',
+    'wristbandReport.list.header.name': 'Colaborador',
+    'wristbandReport.list.header.wristband': 'Nº da Pulseira',
+    'wristbandReport.list.header.sector': 'Setor',
+    'wristbandReport.list.header.color': 'Cor',
+    'wristbandReport.noWristbands': 'Nenhuma pulseira foi entregue ainda.',
+    'wristbandReport.noResults': 'Nenhum resultado encontrado para os filtros aplicados.',
 
     // Modals
     'verificationModal.title': 'Verificação de',
