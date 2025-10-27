@@ -50,15 +50,6 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
       setSelectedAttendee(null); // Close modal on success
   };
 
-  const suppliersWithPending = useMemo(() => {
-    const pendingSupplierIds = new Set(
-        attendees
-            .filter(a => a.status === CheckinStatus.PENDING && a.supplierId)
-            .map(a => a.supplierId!)
-    );
-    return suppliers.filter(s => pendingSupplierIds.has(s.id));
-  }, [attendees, suppliers]);
-
 
   const sectorMap = useMemo(() => {
     return new Map(sectors.map(s => [s.id, s]));
@@ -77,16 +68,23 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
       if (statusFilter !== 'ALL' && attendee.status !== statusFilter) {
         return false;
       }
+      
       // Supplier filter
-      if (supplierFilter !== 'ALL' && attendee.supplierId !== supplierFilter) {
-        return false;
+      if (supplierFilter !== 'ALL') {
+        if (supplierFilter === '') { // "Sem fornecedor" option
+          if (attendee.supplierId) return false;
+        } else { // A specific supplier is selected
+          if (attendee.supplierId !== supplierFilter) return false;
+        }
       }
+
       // Search term filter
       if (normalizedTerm) {
         const nameMatch = normalizeString(attendee.name).includes(normalizedTerm);
         const cpfMatch = attendee.cpf.replace(/\D/g, '').includes(normalizedTerm);
-        if (!nameMatch && !cpfMatch) {
-          return false; // if neither name nor CPF matches, filter it out
+        const wristbandMatch = attendee.wristbandNumber ? normalizeString(attendee.wristbandNumber).includes(normalizedTerm) : false;
+        if (!nameMatch && !cpfMatch && !wristbandMatch) {
+          return false; // if neither name, CPF nor wristband matches, filter it out
         }
       }
       return true; // if it passes all filters, include it
@@ -148,7 +146,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
             className="w-full md:w-1/2 bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="ALL">{t('checkin.filter.allSuppliers')}</option>
-            {suppliersWithPending.map(supplier => (
+            {suppliers.map(supplier => (
               <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
             ))}
              <option value="">Sem fornecedor</option>

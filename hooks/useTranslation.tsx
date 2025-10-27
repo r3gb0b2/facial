@@ -34,7 +34,7 @@ const translations = {
     'admin.backButton': 'Voltar para Eventos',
 
     // Check-in
-    'checkin.searchPlaceholder': 'Buscar por nome ou CPF...',
+    'checkin.searchPlaceholder': 'Buscar por nome, CPF ou pulseira...',
     'checkin.stats.checkedIn': 'Presentes',
     'checkin.stats.pending': 'Aguardando',
     'checkin.stats.total': 'Total',
