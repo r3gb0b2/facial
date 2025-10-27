@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import * as Papa from 'papaparse';
+import { parse } from 'papaparse';
 // FIX: Added .tsx extension to module import.
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { CheckCircleIcon, SpinnerIcon, XMarkIcon, UsersIcon } from '../icons';
@@ -27,7 +27,7 @@ const SpreadsheetUploadView: React.FC<SpreadsheetUploadViewProps> = ({ onImport,
     setIsLoading(true);
     setImportReport(null);
 
-    Papa.parse(file, {
+    parse(file, {
       header: true,
       skipEmptyLines: true,
       complete: async (results: any) => {
