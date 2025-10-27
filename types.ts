@@ -33,12 +33,6 @@ export interface Supplier {
   sectors: string[];
   active: boolean;
   registrationLimit: number;
-  categoryId?: string; // Link to the SupplierCategory
-}
-
-export interface SupplierCategory {
-  id: string;
-  name: string;
 }
 
 export interface Sector {

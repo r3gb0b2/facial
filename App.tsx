@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Attendee, Event, Sector, Supplier, SupplierCategory } from './types.ts';
+import { Attendee, Event, Sector, Supplier } from './types.ts';
 import * as api from './firebase/service.ts';
 import LoginView from './components/views/LoginView.tsx';
 import EventSelectionView from './components/views/EventSelectionView.tsx';
@@ -12,14 +12,6 @@ import { SpinnerIcon } from './components/icons.tsx';
 // Simple password check (replace with real auth in a real app)
 const ADMIN_PASSWORD = "12345";
 
-interface CategoryRegistrationInfo {
-    eventId: string;
-    category: SupplierCategory;
-    suppliers: Supplier[]; // suppliers in this category
-    sectors: Sector[]; // all sectors for the event
-    attendees: Attendee[]; // all attendees for the event
-}
-
 const App: React.FC = () => {
     // App State
     const [isLoading, setIsLoading] = useState(true);
@@ -28,7 +20,7 @@ const App: React.FC = () => {
     const [appError, setAppError] = useState('');
     
     // View State
-    const [currentView, setCurrentView] = useState<'login' | 'event_selection' | 'admin' | 'category_registration' | 'registration_closed'>('login');
+    const [currentView, setCurrentView] = useState<'login' | 'event_selection' | 'admin' | 'supplier_registration' | 'registration_closed'>('login');
     
     // Data State
     const [events, setEvents] = useState<Event[]>([]);
@@ -36,10 +28,9 @@ const App: React.FC = () => {
     const [attendees, setAttendees] = useState<Attendee[]>([]);
     const [suppliers, setSuppliers] = useState<Supplier[]>([]);
     const [sectors, setSectors] = useState<Sector[]>([]);
-    const [supplierCategories, setSupplierCategories] = useState<SupplierCategory[]>([]);
     
-    // Category registration state
-    const [categoryRegistrationInfo, setCategoryRegistrationInfo] = useState<CategoryRegistrationInfo | null>(null);
+    // Supplier specific state
+    const [supplierInfo, setSupplierInfo] = useState<{ id: string; eventId: string; data: Supplier; } | null>(null);
     
     // Modal State
     const [isEventModalOpen, setIsEventModalOpen] = useState(false);
@@ -49,11 +40,11 @@ const App: React.FC = () => {
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const eventId = params.get('eventId');
-        const categoryId = params.get('categoryId');
+        const supplierId = params.get('supplierId');
 
-        // Category links take priority over admin login
-        if (eventId && categoryId) {
-            handleCategoryLink(eventId, categoryId);
+        // Supplier links take priority over admin login
+        if (eventId && supplierId) {
+            handleSupplierLink(eventId, supplierId);
         } else {
             // If no supplier link, check for a persisted admin session
             const isAdminLoggedIn = sessionStorage.getItem('isFacialAdminLoggedIn');
@@ -76,25 +67,26 @@ const App: React.FC = () => {
     // This effect manages the real-time data listeners for the admin view.
     useEffect(() => {
         // If we are not in the admin view or there's no selected event, we should not have any listeners active.
+        // The cleanup function from the previous render will handle detaching them.
         if (currentView !== 'admin' || !currentEvent) {
             return;
         }
 
-        // Attach listeners.
+        // We are in the admin view with an event selected, so attach the listeners.
         const unsubAttendees = api.getAttendees(currentEvent.id, setAttendees);
         const unsubSuppliers = api.getSuppliers(currentEvent.id, setSuppliers);
         const unsubSectors = api.getSectors(currentEvent.id, setSectors);
-        const unsubSupplierCategories = api.getSupplierCategories(currentEvent.id, setSupplierCategories);
         
+        // This cleanup function is crucial. It runs when the dependencies change (e.g., when the user
+        // navigates away from the admin view by changing `currentView` or `currentEvent`).
         return () => {
             unsubAttendees();
             unsubSuppliers();
             unsubSectors();
-            unsubSupplierCategories();
+            // Clear the data to ensure no stale data flashes on the screen when returning to the admin view later.
             setAttendees([]);
             setSuppliers([]);
             setSectors([]);
-            setSupplierCategories([]);
         };
     }, [currentEvent, currentView]);
 
@@ -119,36 +111,28 @@ const App: React.FC = () => {
         }
     };
     
-    const handleCategoryLink = async (eventId: string, categoryId: string) => {
+    const handleSupplierLink = async (eventId: string, supplierId: string) => {
         try {
-            const [categoryData, suppliersInCategory, eventSectors, eventAttendees] = await Promise.all([
-                api.getSupplierCategory(eventId, categoryId),
-                api.getSuppliersForCategory(eventId, categoryId),
+            const [supplierData, eventSectors, registrationCount] = await Promise.all([
+                api.getSupplier(eventId, supplierId),
                 api.getSectorsForEvent(eventId),
-                api.getAttendeesOnce(eventId),
+                api.getAttendeeCountForSupplier(eventId, supplierId)
             ]);
 
-            if (categoryData && suppliersInCategory.length > 0) {
-                 setCategoryRegistrationInfo({
-                    eventId,
-                    category: categoryData,
-                    suppliers: suppliersInCategory,
-                    sectors: eventSectors,
-                    attendees: eventAttendees,
-                });
-                setCurrentView('category_registration');
+            if (supplierData && supplierData.active && registrationCount < supplierData.registrationLimit) {
+                setSectors(eventSectors); // Set sectors before rendering the view
+                setSupplierInfo({ id: supplierId, eventId, data: supplierData });
+                setCurrentView('supplier_registration');
             } else {
-                // No active suppliers in this category, or category doesn't exist.
                 setCurrentView('registration_closed');
             }
         } catch (error) {
-            console.error("Failed to process category link:", error);
+            console.error("Failed to process supplier link:", error);
             setCurrentView('registration_closed');
         } finally {
             setIsLoading(false);
         }
     };
-
 
     const handleSelectEvent = (event: Event) => {
         setCurrentEvent(event);
@@ -195,18 +179,9 @@ const App: React.FC = () => {
     };
     
     const handleSupplierRegister = async (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => {
-        if (!categoryRegistrationInfo || !newAttendee.supplierId) return;
+        if (!supplierInfo) return;
         try {
-            // Re-fetch attendees to get the latest count right before submission
-            const currentAttendees = await api.getAttendeesOnce(categoryRegistrationInfo.eventId);
-            const supplier = categoryRegistrationInfo.suppliers.find(s => s.id === newAttendee.supplierId);
-            const count = currentAttendees.filter(a => a.supplierId === newAttendee.supplierId).length;
-
-            if (supplier && count >= supplier.registrationLimit) {
-                 throw new Error("Limite de inscrições para este fornecedor foi atingido.");
-            }
-
-            await api.registerAttendeeForSupplier(categoryRegistrationInfo.eventId, newAttendee.supplierId, newAttendee);
+            await api.registerAttendeeForSupplier(supplierInfo.eventId, supplierInfo.id, newAttendee);
         } catch (e: any) {
              setAppError(e.message || 'Falha ao registrar participante.');
              if (e.message.includes("Limite")) {
@@ -221,9 +196,9 @@ const App: React.FC = () => {
         return api.addAttendeesFromSpreadsheet(currentEvent.id, data, sectors, attendees);
     };
 
-    const handleAddSupplier = async (name: string, categoryId: string, sectors: string[], registrationLimit: number) => {
+    const handleAddSupplier = async (name: string, sectors: string[], registrationLimit: number) => {
         if (!currentEvent) return Promise.reject();
-        await api.addSupplier(currentEvent.id, name, categoryId, sectors, registrationLimit);
+        await api.addSupplier(currentEvent.id, name, sectors, registrationLimit);
     };
     
     const handleUpdateSupplier = (supplierId: string, data: Partial<Supplier>) => {
@@ -256,21 +231,6 @@ const App: React.FC = () => {
         return api.deleteSector(currentEvent.id, sector.id);
     };
     
-    const handleAddSupplierCategory = async (name: string) => {
-        if (!currentEvent) return Promise.reject();
-        await api.addSupplierCategory(currentEvent.id, name);
-    };
-    
-    const handleUpdateSupplierCategory = async (categoryId: string, name: string) => {
-        if (!currentEvent) return Promise.reject();
-        await api.updateSupplierCategory(currentEvent.id, categoryId, name);
-    };
-
-    const handleDeleteSupplierCategory = (categoryId: string) => {
-        if (!currentEvent) return Promise.reject();
-        return api.deleteSupplierCategory(currentEvent.id, categoryId);
-    };
-
     const handleAttendeeDetailsUpdate = (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector' | 'wristbandNumber'>>) => {
         if (!currentEvent) return Promise.reject();
         return api.updateAttendeeDetails(currentEvent.id, attendeeId, data);
@@ -312,7 +272,6 @@ const App: React.FC = () => {
                     attendees={attendees}
                     suppliers={suppliers}
                     sectors={sectors}
-                    supplierCategories={supplierCategories}
                     onRegister={handleRegister}
                     onImportAttendees={handleImportAttendees}
                     onAddSupplier={handleAddSupplier}
@@ -322,23 +281,25 @@ const App: React.FC = () => {
                     onAddSector={handleAddSector}
                     onUpdateSector={handleUpdateSector}
                     onDeleteSector={handleDeleteSector}
-                    onAddSupplierCategory={handleAddSupplierCategory}
-                    onUpdateSupplierCategory={handleUpdateSupplierCategory}
-                    onDeleteSupplierCategory={handleDeleteSupplierCategory}
                     onAttendeeDetailsUpdate={handleAttendeeDetailsUpdate}
                     onDeleteAttendee={handleDeleteAttendee}
                     onBack={handleBackToEvents}
                     setError={setAppError}
                 />;
-            case 'category_registration':
-                if (!categoryRegistrationInfo) return <RegistrationClosedView />;
+            case 'supplier_registration':
+                if (!supplierInfo) return <RegistrationClosedView />;
+                
+                // Filter the main sectors list to only those allowed for this supplier
+                const allowedSectors = sectors.filter(s => supplierInfo.data.sectors.includes(s.id));
+                
                 return <RegisterView
                     onRegister={handleSupplierRegister}
                     setError={setAppError}
-                    sectors={categoryRegistrationInfo.sectors}
-                    categoryName={categoryRegistrationInfo.category.name}
-                    suppliersForCategory={categoryRegistrationInfo.suppliers}
-                    attendeesForEvent={categoryRegistrationInfo.attendees}
+                    sectors={allowedSectors} // Pass only the allowed sectors
+                    supplierName={supplierInfo.data.name}
+                    // If there's only one sector, predefine it to hide the dropdown.
+                    // Otherwise, pass the array of allowed sector IDs.
+                    predefinedSector={allowedSectors.length === 1 ? allowedSectors[0].id : supplierInfo.data.sectors}
                  />;
             case 'registration_closed':
                  return <RegistrationClosedView />;

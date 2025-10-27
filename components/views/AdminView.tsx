@@ -1,33 +1,28 @@
 import React, { useState } from 'react';
-import { Attendee, Sector, Supplier, Event, SupplierCategory } from '../../types.ts';
+import { Attendee, Sector, Supplier, Event } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import CheckinView from './CheckinView.tsx';
 import RegisterView from './RegisterView.tsx';
 import SupplierManagementView from './SupplierManagementView.tsx';
-import SupplierCategoryManagementView from './SupplierCategoryManagementView.tsx';
 import SectorManagementView from './SectorManagementView.tsx';
 import { ArrowLeftOnRectangleIcon } from '../icons.tsx';
 
-type AdminTab = 'checkin' | 'register' | 'suppliers' | 'supplier_categories' | 'sectors';
+type AdminTab = 'checkin' | 'register' | 'suppliers' | 'sectors';
 
 interface AdminViewProps {
     currentEvent: Event;
     attendees: Attendee[];
     suppliers: Supplier[];
     sectors: Sector[];
-    supplierCategories: SupplierCategory[];
     onRegister: (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => Promise<void>;
     onImportAttendees: (data: any[]) => Promise<any>;
-    onAddSupplier: (name: string, categoryId: string, sectors: string[], registrationLimit: number) => Promise<void>;
+    onAddSupplier: (name: string, sectors: string[], registrationLimit: number) => Promise<void>;
     onUpdateSupplier: (supplierId: string, data: Partial<Supplier>) => Promise<void>;
     onDeleteSupplier: (supplier: Supplier) => Promise<void>;
     onSupplierStatusUpdate: (supplierId: string, active: boolean) => Promise<void>;
     onAddSector: (label: string, color: string) => Promise<void>;
     onUpdateSector: (sectorId: string, data: { label: string; color: string; }) => Promise<void>;
     onDeleteSector: (sector: Sector) => Promise<void>;
-    onAddSupplierCategory: (name: string) => Promise<void>;
-    onUpdateSupplierCategory: (categoryId: string, name: string) => Promise<void>;
-    onDeleteSupplierCategory: (categoryId: string) => Promise<void>;
     onAttendeeDetailsUpdate: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector' | 'wristbandNumber'>>) => Promise<void>;
     onDeleteAttendee: (attendeeId: string) => Promise<void>;
     onBack: () => void;
@@ -42,7 +37,6 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
         { id: 'checkin', label: t('admin.tabs.checkin') },
         { id: 'register', label: t('admin.tabs.register') },
         { id: 'suppliers', label: t('admin.tabs.suppliers') },
-        { id: 'supplier_categories', label: t('admin.tabs.supplier_categories') },
         { id: 'sectors', label: t('admin.tabs.sectors') },
     ];
     
@@ -53,7 +47,6 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                     attendees={props.attendees} 
                     suppliers={props.suppliers} 
                     sectors={props.sectors}
-                    supplierCategories={props.supplierCategories}
                     currentEventId={props.currentEvent.id}
                     onUpdateAttendeeDetails={props.onAttendeeDetailsUpdate}
                     onDeleteAttendee={props.onDeleteAttendee}
@@ -62,27 +55,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
             case 'register':
                 return <RegisterView onRegister={props.onRegister} onImportAttendees={props.onImportAttendees} setError={props.setError} sectors={props.sectors} />;
             case 'suppliers':
-                return <SupplierManagementView 
-                    currentEventId={props.currentEvent.id} 
-                    suppliers={props.suppliers} 
-                    attendees={props.attendees} 
-                    sectors={props.sectors} 
-                    supplierCategories={props.supplierCategories}
-                    onAddSupplier={props.onAddSupplier} 
-                    onUpdateSupplier={props.onUpdateSupplier} 
-                    onDeleteSupplier={props.onDeleteSupplier} 
-                    onSupplierStatusUpdate={props.onSupplierStatusUpdate} 
-                    setError={props.setError} 
-                />;
-            case 'supplier_categories':
-                return <SupplierCategoryManagementView
-                    categories={props.supplierCategories}
-                    suppliers={props.suppliers}
-                    onAddCategory={props.onAddSupplierCategory}
-                    onUpdateCategory={props.onUpdateSupplierCategory}
-                    onDeleteCategory={props.onDeleteSupplierCategory}
-                    setError={props.setError}
-                />;
+                return <SupplierManagementView currentEventId={props.currentEvent.id} suppliers={props.suppliers} attendees={props.attendees} sectors={props.sectors} onAddSupplier={props.onAddSupplier} onUpdateSupplier={props.onUpdateSupplier} onDeleteSupplier={props.onDeleteSupplier} onSupplierStatusUpdate={props.onSupplierStatusUpdate} setError={props.setError} />;
             case 'sectors':
                 return <SectorManagementView sectors={props.sectors} onAddSector={props.onAddSector} onUpdateSector={props.onUpdateSector} onDeleteSector={props.onDeleteSector} setError={props.setError} />;
             default:
