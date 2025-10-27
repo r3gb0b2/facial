@@ -142,6 +142,16 @@ const translations = {
   'supplierCategories.noCategories': 'Nenhuma categoria encontrada.',
   'supplierCategories.noCategoriesSubtitle': 'Crie categorias para organizar seus fornecedores.',
   'supplierCategories.createButton': 'Criar Nova Categoria',
+  'wristbandReport.title': 'Relatório de Pulseiras',
+  'wristbandReport.printButton': 'Imprimir Relatório',
+  'wristbandReport.noResults': 'Nenhum participante encontrado com os filtros atuais.',
+  'wristbandReport.noData': 'Nenhum participante com check-in e pulseira registrada.',
+  'wristbandReport.searchPlaceholder': 'Buscar por nome, CPF ou pulseira...',
+  'wristbandReport.filter.allSectors': 'Todos os Setores',
+  'wristbandReport.table.name': 'Nome',
+  'wristbandReport.table.cpf': 'CPF',
+  'wristbandReport.table.sector': 'Setor',
+  'wristbandReport.table.wristband': 'Pulseira'
 };
 
 type LanguageContextType = {
