@@ -33,10 +33,11 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
     }
     try {
       setError(null);
+      // Simplified constraints for maximum compatibility, especially on Android devices.
+      // Instead of requesting a specific resolution, we let the device choose its default,
+      // which prevents the "white screen" issue on non-compliant browsers/hardware.
       const mediaStream = await navigator.mediaDevices.getUserMedia({ 
         video: {
-            width: { ideal: 720 },
-            height: { ideal: 720 },
             facingMode: 'user'
         }
       });
