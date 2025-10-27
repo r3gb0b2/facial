@@ -30,6 +30,7 @@ const translations = {
     'admin.tabs.checkin': 'Check-in',
     'admin.tabs.register': 'Cadastrar',
     'admin.tabs.suppliers': 'Fornecedores',
+    'admin.tabs.supplierCategories': 'Categorias',
     'admin.tabs.sectors': 'Setores',
     'admin.backButton': 'Voltar para Eventos',
 
@@ -40,14 +41,17 @@ const translations = {
     'checkin.stats.total': 'Total',
     'checkin.filter.status': 'Filtrar por Status',
     'checkin.filter.supplier': 'Filtrar por Fornecedor',
+    'checkin.filter.category': 'Filtrar por Categoria',
     'checkin.filter.allStatuses': 'Todos os Status',
     'checkin.filter.allSuppliers': 'Todos os Fornecedores',
+    'checkin.filter.allCategories': 'Todas as Categorias',
     'checkin.search.noResultsForTerm': (term: string) => `Nenhum cadastro encontrado para "${term}".`,
     'checkin.search.noResultsForFilter': 'Nenhum participante encontrado para os filtros selecionados.',
 
 
     // Register
     'register.title': 'Cadastrar Participante',
+    'register.titleSupplier': (categoryName: string) => `Cadastro de: ${categoryName}`,
     'register.checkingCpf': 'Verificando CPF...',
     'register.cpfFound': 'CPF encontrado. Dados carregados.',
     'register.cpfNotFound': 'CPF não encontrado. Preencha os dados.',
@@ -55,12 +59,16 @@ const translations = {
     'register.errors.cpfCheckIndexError': 'Erro de índice no Firestore. Crie o índice para CPF.',
     'register.errors.allFields': 'Todos os campos são obrigatórios, incluindo a foto.',
     'register.errors.invalidCpf': 'CPF inválido. Deve conter 11 dígitos.',
+    'register.errors.noCompanySelected': 'Por favor, selecione sua empresa.',
+    'register.errors.limitReachedForCompany': 'O limite de cadastros para esta empresa foi atingido.',
     'register.form.cpfLabel': 'CPF',
     'register.form.cpfPlaceholder': '000.000.000-00',
     'register.form.nameLabel': 'Nome Completo',
     'register.form.namePlaceholder': 'Digite o nome do participante',
     'register.form.sectorLabel': 'Setor',
     'register.form.sectorPlaceholder': 'Selecione um setor',
+    'register.form.selectCompanyLabel': 'Selecione sua Empresa',
+    'register.form.selectCompanyPlaceholder': 'Escolha uma opção',
     'register.form.button': 'Confirmar Cadastro',
     'register.import.title': 'Importar via Planilha (.csv)',
     'register.import.instructions': 'A planilha deve conter as colunas: nome, cpf, setor.',
@@ -76,15 +84,18 @@ const translations = {
     'register.successMessage': 'Cadastro realizado com sucesso!',
 
     // Suppliers
-    'suppliers.generateTitle': 'Gerar Link de Cadastro',
-    'suppliers.nameLabel': 'Nome do Fornecedor/Responsável',
-    'suppliers.namePlaceholder': 'Ex: Empresa de Segurança Ltda.',
+    'suppliers.generateByCategoryTitle': 'Gerar Link por Categoria',
+    'suppliers.selectCategory': 'Selecione uma categoria',
+    'suppliers.copyLinkButton': 'Copiar Link da Categoria',
+    'suppliers.addCompanyTitle': 'Adicionar Nova Empresa',
+    'suppliers.companyNameLabel': 'Nome da Empresa',
+    'suppliers.companyNamePlaceholder': 'Ex: Empresa de Segurança Ltda.',
     'suppliers.limitLabel': 'Limite de Cadastros',
     'suppliers.limitPlaceholder': 'Ex: 50',
     'suppliers.sectorsLabel': 'Setores Permitidos',
-    'suppliers.generateButton': 'Gerar Link',
-    'suppliers.existingLinks': 'Links Gerados',
-    'suppliers.noLinks': 'Nenhum link de fornecedor foi gerado ainda.',
+    'suppliers.addButton': 'Adicionar Empresa',
+    'suppliers.existingCompanies': 'Empresas Cadastradas',
+    'suppliers.noCompanies': 'Nenhuma empresa cadastrada ainda.',
     'suppliers.registrations': 'Cadastros',
     'suppliers.active': 'Ativo',
     'suppliers.inactive': 'Inativo',
@@ -96,11 +107,25 @@ const translations = {
     'suppliers.deleteButton': 'Deletar',
     'suppliers.cancelButton': 'Cancelar',
     'suppliers.saveButton': 'Salvar',
-    'suppliers.noNameError': 'O nome do fornecedor é obrigatório.',
+    'suppliers.noNameError': 'O nome da empresa é obrigatório.',
+    'suppliers.noCategoryError': 'Selecione uma categoria.',
     'suppliers.noSectorsError': 'Selecione ao menos um setor.',
     'suppliers.noLimitError': 'O limite de cadastro deve ser um número maior que zero.',
-    'suppliers.deleteConfirm': (name: string) => `Tem certeza que deseja deletar o fornecedor "${name}"? Esta ação não pode ser desfeita.`,
-    'suppliers.deleteErrorInUse': (name: string) => `O fornecedor "${name}" não pode ser excluído pois já possui participantes cadastrados.`,
+    'suppliers.deleteConfirm': (name: string) => `Tem certeza que deseja deletar a empresa "${name}"? Esta ação não pode ser desfeita.`,
+    'suppliers.deleteErrorInUse': (name: string) => `A empresa "${name}" não pode ser excluída pois já possui participantes cadastrados.`,
+    
+    // Supplier Categories
+    'supplierCategories.title': 'Categorias de Fornecedores',
+    'supplierCategories.noCategories': 'Nenhuma categoria cadastrada.',
+    'supplierCategories.noCategoriesSubtitle': 'Adicione categorias para agrupar suas empresas.',
+    'supplierCategories.createButton': 'Criar Nova Categoria',
+    'supplierCategories.deleteConfirm': (name: string) => `Tem certeza que deseja deletar a categoria "${name}"?`,
+    'supplierCategories.deleteErrorInUse': (name: string) => `A categoria "${name}" não pode ser excluída pois possui empresas vinculadas.`,
+    'supplierCategories.modal.createTitle': 'Criar Nova Categoria',
+    'supplierCategories.modal.editTitle': 'Editar Categoria',
+    'supplierCategories.modal.nameLabel': 'Nome da Categoria',
+    'supplierCategories.modal.namePlaceholder': 'Ex: Food Truck, Segurança, Limpeza',
+    'supplierCategories.modal.error': 'O nome da categoria não pode ser vazio.',
 
     // Sectors
     'sectors.title': 'Gerenciar Setores',
@@ -114,7 +139,6 @@ const translations = {
     'sectors.modal.labelLabel': 'Nome do Setor',
     'sectors.modal.labelPlaceholder': 'Ex: Staff, Imprensa, Convidado',
     'sectors.modal.colorLabel': 'Cor da Pulseira',
-    'sectors.modal.error': 'O nome do setor não pode ser vazio.',
     'sectors.modal.saveButton': 'Salvar',
     'sectors.modal.createButton': 'Criar Setor',
 
@@ -157,11 +181,11 @@ const translations = {
     'attendeeDetail.wristbandPlaceholder': 'Digite o número',
     'attendeeDetail.wristbandUpdateSuccess': 'Pulseira atualizada com sucesso!',
     'attendeeCard.wristbandNumber': 'Pulseira',
-    'attendeeCard.supplierLabel': 'Fornecedor',
+    'attendeeCard.supplierLabel': 'Empresa',
 
     // Supplier Registration View
     'supplierRegistration.closedTitle': 'Cadastro Encerrado',
-    'supplierRegistration.closedMessage': 'O link de cadastro não está mais ativo ou atingiu o limite.',
+    'supplierRegistration.closedMessage': 'O link de cadastro não está mais ativo ou todas as vagas foram preenchidas.',
   },
 };
 
@@ -177,9 +201,7 @@ const LanguageContext = createContext<{
   t: (key) => key,
 });
 
-// FIX: Changed component signature to use PropsWithChildren to resolve a TypeScript error where children were not being recognized. This makes the `children` prop optional, satisfying the compiler while runtime behavior remains correct due to usage.
 export const LanguageProvider = ({ children }: PropsWithChildren<{}>) => {
-  // FIX: Renamed state variable to avoid potential naming collision with the 'Language' type.
   const [currentLanguage] = useState<Language>('pt');
 
   const t = (key: TranslationKey, ...args: any[]): string => {
