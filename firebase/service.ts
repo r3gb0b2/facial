@@ -54,12 +54,12 @@ export const addAttendee = async (
     // The photo upload can happen before or after, but doing it first ensures we have the URL.
     const photoUrl = await uploadPhoto(attendeeData.photo, newAttendeeRef.id);
     
-    const newAttendee: Omit<Attendee, 'id'> = {
+    const newAttendee = {
         ...attendeeData,
         photo: photoUrl,
         status: CheckinStatus.PENDING,
         eventId,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp() as firebase.firestore.Timestamp,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
     };
 
     await newAttendeeRef.set(newAttendee);
@@ -96,13 +96,13 @@ export const registerAttendeeForSupplier = async (
             throw new Error("Limite de inscrições para este fornecedor foi atingido.");
         }
         
-        const newAttendee: Omit<Attendee, 'id'> = {
+        const newAttendee = {
             ...attendeeData,
             photo: photoUrl,
             supplierId: supplierId,
             status: CheckinStatus.PENDING,
             eventId,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp() as firebase.firestore.Timestamp,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         };
 
         transaction.set(newAttendeeRef, newAttendee);
@@ -155,14 +155,14 @@ export const addAttendeesFromSpreadsheet = async (eventId: string, data: any[], 
         const placeholderPhoto = `https://ui-avatars.com/api/?name=${encodeURIComponent(initials)}&background=random&color=fff&size=256`;
         
         const newAttendeeRef = eventRef.collection('attendees').doc();
-        const newAttendee: Omit<Attendee, 'id'> = {
+        const newAttendee = {
             name: nome,
             cpf: rawCpf,
             sector: sectorMatch.id,
             photo: placeholderPhoto,
             status: CheckinStatus.PENDING,
             eventId,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp() as firebase.firestore.Timestamp,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
         };
         batch.set(newAttendeeRef, newAttendee);
         cpfsInFile.add(rawCpf);

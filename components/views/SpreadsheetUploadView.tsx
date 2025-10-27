@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import Papa from 'papaparse';
+import * as Papa from 'papaparse';
 // FIX: Added .tsx extension to module import.
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { CheckCircleIcon, SpinnerIcon, XMarkIcon, UsersIcon } from '../icons';
@@ -30,7 +30,7 @@ const SpreadsheetUploadView: React.FC<SpreadsheetUploadViewProps> = ({ onImport,
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
-      complete: async (results) => {
+      complete: async (results: any) => {
         const requiredColumns = ['nome', 'cpf', 'setor'];
         const headers = results.meta.fields || [];
         const missingColumns = requiredColumns.filter(col => !headers.includes(col));

@@ -1,4 +1,5 @@
-import { Timestamp } from "firebase/firestore";
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/firestore';
 
 export enum CheckinStatus {
   PENDING = 'PENDING',
@@ -16,14 +17,14 @@ export interface Attendee {
   sector: string;
   status: CheckinStatus;
   eventId: string;
-  createdAt: Timestamp;
+  createdAt: firebase.firestore.Timestamp;
   supplierId?: string; // To track which supplier registered the attendee
 }
 
 export interface Event {
   id: string;
   name: string;
-  createdAt: Timestamp;
+  createdAt: firebase.firestore.Timestamp;
 }
 
 export interface Supplier {
