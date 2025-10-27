@@ -7,9 +7,11 @@ import { TagIcon } from './icons.tsx';
 interface AttendeeCardProps {
   attendee: Attendee;
   onSelect: (attendee: Attendee) => void;
+  sectorLabel: string;
+  sectorColor?: string;
 }
 
-const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect }) => {
+const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect, sectorLabel, sectorColor }) => {
   const { t } = useTranslation();
 
   const statusInfo = {
@@ -42,7 +44,12 @@ const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect }) => {
       <div className="p-4">
         <h3 className="font-bold text-lg text-white truncate">{attendee.name}</h3>
         <p className="text-sm text-gray-400">{formatCPF(attendee.cpf)}</p>
-        <p className="text-sm text-indigo-400 mt-1 capitalize">{attendee.sector}</p>
+        <p
+          className="text-sm font-semibold mt-1 capitalize truncate"
+          style={sectorColor ? { color: sectorColor } : { color: '#818cf8' }} // Fallback to indigo-400
+        >
+          {sectorLabel}
+        </p>
         {attendee.status === CheckinStatus.CHECKED_IN && attendee.wristbandNumber && (
             <div className="mt-2 flex items-center gap-1 text-xs text-gray-300 bg-gray-700/50 px-2 py-1 rounded-md">
                 <TagIcon className="w-4 h-4 text-gray-400" />

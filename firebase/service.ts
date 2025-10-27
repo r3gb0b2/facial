@@ -144,7 +144,7 @@ export const updateAttendeeStatus = async (eventId: string, attendeeId: string, 
     await eventRef.collection('attendees').doc(attendeeId).update(dataToUpdate);
 };
 
-export const updateAttendeeDetails = async (eventId: string, attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector'>>): Promise<void> => {
+export const updateAttendeeDetails = async (eventId: string, attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector' | 'wristbandNumber'>>): Promise<void> => {
     const eventRef = db.collection('events').doc(ensureEventId(eventId));
     await eventRef.collection('attendees').doc(attendeeId).update(data);
 };

@@ -8,7 +8,7 @@ interface AttendeeDetailModalProps {
   sectors: Sector[];
   onClose: () => void;
   onUpdateStatus: (status: CheckinStatus, wristbandNumber?: string) => void;
-  onUpdateDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector'>>) => Promise<void>;
+  onUpdateDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector' | 'wristbandNumber'>>) => Promise<void>;
   onDelete: (attendeeId: string) => Promise<void>;
   setError: (message: string) => void;
 }
@@ -72,49 +72,84 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
       onDelete(attendee.id);
     }
   };
+  
+  const handleWristbandSave = async () => {
+    await onUpdateDetails(attendee.id, { wristbandNumber });
+    // Add a visual confirmation if needed, but for now re-render is enough
+  };
 
-  const renderStatusButtons = () => (
-    <div className="grid grid-cols-1 gap-3 pt-4 border-t border-gray-700 mt-4">
-        {attendee.status === CheckinStatus.PENDING && (
-            <div className="space-y-3">
-                <div>
-                    <label htmlFor="wristband" className="block text-sm font-medium text-gray-300 mb-1">{t('attendeeDetail.wristbandLabel')}</label>
-                    <input
-                        type="text"
-                        id="wristband"
-                        value={wristbandNumber}
-                        onChange={(e) => setWristbandNumber(e.target.value)}
-                        className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        placeholder={t('attendeeDetail.wristbandPlaceholder')}
-                    />
+
+  const renderStatusButtons = () => {
+    const canBeCheckedIn = attendee.status === CheckinStatus.PENDING;
+    const canBeCancelledOut = attendee.status === CheckinStatus.CHECKED_IN;
+    const canBeMarkedMissed = attendee.status === CheckinStatus.PENDING;
+    const canBeSubstituted = [CheckinStatus.PENDING, CheckinStatus.MISSED].includes(attendee.status);
+    const canBeCancelled = [CheckinStatus.PENDING, CheckinStatus.MISSED, CheckinStatus.SUBSTITUTION].includes(attendee.status);
+    const canBeReactivated = attendee.status === CheckinStatus.CANCELLED;
+
+    return (
+        <div className="grid grid-cols-1 gap-3 pt-4 border-t border-gray-700 mt-4">
+            {canBeCheckedIn && (
+                <div className="space-y-3">
+                    <div>
+                        <label htmlFor="wristband" className="block text-sm font-medium text-gray-300 mb-1">{t('attendeeDetail.wristbandLabel')}</label>
+                        <input
+                            type="text" id="wristband" value={wristbandNumber}
+                            onChange={(e) => setWristbandNumber(e.target.value)}
+                            className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            placeholder={t('attendeeDetail.wristbandPlaceholder')}
+                        />
+                    </div>
+                    <button onClick={() => onUpdateStatus(CheckinStatus.CHECKED_IN, wristbandNumber)} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                        {t('statusUpdateModal.confirmCheckin')}
+                    </button>
                 </div>
-                <button onClick={() => onUpdateStatus(CheckinStatus.CHECKED_IN, wristbandNumber)} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
-                    {t('statusUpdateModal.confirmCheckin')}
+            )}
+            {canBeCancelledOut && (
+                 <div className="space-y-3">
+                    <div>
+                        <label htmlFor="wristbandEdit" className="block text-sm font-medium text-gray-300 mb-1">{t('attendeeDetail.wristbandLabel')}</label>
+                        <div className="flex gap-2">
+                            <input
+                                type="text" id="wristbandEdit" value={wristbandNumber}
+                                onChange={(e) => setWristbandNumber(e.target.value)}
+                                className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                placeholder={t('attendeeDetail.wristbandPlaceholder')}
+                            />
+                            <button onClick={handleWristbandSave} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex-shrink-0">
+                                {t('attendeeDetail.updateWristbandButton')}
+                            </button>
+                        </div>
+                    </div>
+                    <button onClick={() => onUpdateStatus(CheckinStatus.PENDING)} className="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                        {t('statusUpdateModal.cancelCheckin')}
+                    </button>
+                </div>
+            )}
+            {canBeReactivated && (
+                <button onClick={() => onUpdateStatus(CheckinStatus.PENDING)} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                    {t('statusUpdateModal.reactivateRegistration')}
                 </button>
-            </div>
-        )}
-        {attendee.status === CheckinStatus.CHECKED_IN && (
-            <button onClick={() => onUpdateStatus(CheckinStatus.PENDING)} className="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
-            {t('statusUpdateModal.cancelCheckin')}
-            </button>
-        )}
-        {attendee.status === CheckinStatus.PENDING && (
-            <button onClick={() => onUpdateStatus(CheckinStatus.MISSED)} className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
-            {t('statusUpdateModal.markAsMissed')}
-            </button>
-        )}
-        {[CheckinStatus.PENDING, CheckinStatus.MISSED].includes(attendee.status) && (
-            <button onClick={() => onUpdateStatus(CheckinStatus.SUBSTITUTION)} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
-            {t('statusUpdateModal.allowSubstitution')}
-            </button>
-        )}
-        {[CheckinStatus.PENDING, CheckinStatus.MISSED, CheckinStatus.SUBSTITUTION].includes(attendee.status) && (
-            <button onClick={() => onUpdateStatus(CheckinStatus.CANCELLED)} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
-                {t('statusUpdateModal.cancelRegistration')}
-            </button>
-        )}
-    </div>
-  );
+            )}
+            {canBeMarkedMissed && (
+                <button onClick={() => onUpdateStatus(CheckinStatus.MISSED)} className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                    {t('statusUpdateModal.markAsMissed')}
+                </button>
+            )}
+            {canBeSubstituted && (
+                <button onClick={() => onUpdateStatus(CheckinStatus.SUBSTITUTION)} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                    {t('statusUpdateModal.allowSubstitution')}
+                </button>
+            )}
+            {canBeCancelled && (
+                <button onClick={() => onUpdateStatus(CheckinStatus.CANCELLED)} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                    {t('statusUpdateModal.cancelRegistration')}
+                </button>
+            )}
+        </div>
+    );
+  };
+
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>

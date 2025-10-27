@@ -11,7 +11,7 @@ interface CheckinViewProps {
   suppliers: Supplier[];
   sectors: Sector[];
   currentEventId: string;
-  onUpdateAttendeeDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector'>>) => Promise<void>;
+  onUpdateAttendeeDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector' | 'wristbandNumber'>>) => Promise<void>;
   onDeleteAttendee: (attendeeId: string) => Promise<void>;
   setError: (message: string) => void;
 }
@@ -58,6 +58,11 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
     );
     return suppliers.filter(s => pendingSupplierIds.has(s.id));
   }, [attendees, suppliers]);
+
+
+  const sectorMap = useMemo(() => {
+    return new Map(sectors.map(s => [s.id, s]));
+  }, [sectors]);
 
 
   const filteredAttendees = useMemo(() => {
@@ -148,9 +153,18 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-        {filteredAttendees.map((attendee) => (
-          <AttendeeCard key={attendee.id} attendee={attendee} onSelect={handleSelectAttendee} />
-        ))}
+        {filteredAttendees.map((attendee) => {
+            const sector = sectorMap.get(attendee.sector);
+            return (
+              <AttendeeCard 
+                key={attendee.id} 
+                attendee={attendee} 
+                onSelect={handleSelectAttendee}
+                sectorLabel={sector?.label || attendee.sector}
+                sectorColor={sector?.color}
+              />
+            );
+        })}
       </div>
       
       {filteredAttendees.length === 0 && (
