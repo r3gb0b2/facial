@@ -125,7 +125,7 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
               </div>
               <div className="text-center">
                 <h3 className="text-lg font-semibold text-gray-300 mb-2">{t('verificationModal.liveVerification')}</h3>
-                <WebcamCapture onCapture={setVerificationPhoto} capturedImage={verificationPhoto} />
+                <WebcamCapture onCapture={setVerificationPhoto} capturedImage={verificationPhoto} allowUpload={true} />
                 {verificationPhoto && !verificationResult && (
                     <div className="mt-4 w-full">
                         <button

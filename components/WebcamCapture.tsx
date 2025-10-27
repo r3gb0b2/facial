@@ -7,9 +7,10 @@ interface WebcamCaptureProps {
   onCapture: (imageDataUrl: string) => void;
   capturedImage: string | null;
   disabled?: boolean;
+  allowUpload?: boolean;
 }
 
-const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage, disabled = false }) => {
+const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage, disabled = false, allowUpload = false }) => {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -138,23 +139,27 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
                         <CameraIcon className="w-5 h-5" />
                         {t('webcam.captureButton')}
                     </button>
-                    <input
-                        type="file"
-                        ref={fileInputRef}
-                        onChange={handleFileChange}
-                        className="hidden"
-                        accept="image/*"
-                        disabled={disabled}
-                    />
-                    <button
-                        type="button"
-                        onClick={handleUploadClick}
-                        disabled={disabled}
-                        className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed"
-                    >
-                        <ArrowUpTrayIcon className="w-5 h-5" />
-                        {t('webcam.uploadButton')}
-                    </button>
+                    {allowUpload && (
+                        <>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                className="hidden"
+                                accept="image/*"
+                                disabled={disabled}
+                            />
+                            <button
+                                type="button"
+                                onClick={handleUploadClick}
+                                disabled={disabled}
+                                className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed"
+                            >
+                                <ArrowUpTrayIcon className="w-5 h-5" />
+                                {t('webcam.uploadButton')}
+                            </button>
+                        </>
+                    )}
                 </div>
             )}
         </div>
