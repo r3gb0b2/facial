@@ -182,7 +182,7 @@ export const LanguageProvider = ({ children }: PropsWithChildren<{}>) => {
   return (
     <LanguageContext.Provider value={{ language: currentLanguage, t }}>
       {children}
-    </Language-Provider>
+    </LanguageContext.Provider>
   );
 };
 
