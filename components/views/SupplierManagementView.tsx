@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { Supplier, Sector, Attendee, SupplierCategory } from '../../types';
+import { Supplier, Sector, Attendee } from '../../types';
+// FIX: Added .tsx extension to module import.
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { LinkIcon, ClipboardDocumentIcon, NoSymbolIcon, CheckCircleIcon, PencilIcon, TrashIcon } from '../icons';
 
@@ -8,26 +9,21 @@ interface SupplierManagementViewProps {
     suppliers: Supplier[];
     attendees: Attendee[];
     sectors: Sector[];
-    categories: SupplierCategory[];
-    onAddSupplier: (name: string, sectors: string[], registrationLimit: number, categoryId: string) => Promise<void>;
+    onAddSupplier: (name: string, sectors: string[], registrationLimit: number) => Promise<void>;
     onUpdateSupplier: (supplierId: string, data: Partial<Supplier>) => Promise<void>;
     onDeleteSupplier: (supplier: Supplier) => Promise<void>;
     onSupplierStatusUpdate: (supplierId: string, active: boolean) => Promise<void>;
     setError: (message: string) => void;
 }
 
-const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ currentEventId, suppliers, attendees, sectors, categories, onAddSupplier, onUpdateSupplier, onDeleteSupplier, onSupplierStatusUpdate, setError }) => {
+const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ currentEventId, suppliers, attendees, sectors, onAddSupplier, onUpdateSupplier, onDeleteSupplier, onSupplierStatusUpdate, setError }) => {
     const { t } = useTranslation();
     
     // State for the creation form
     const [supplierName, setSupplierName] = useState('');
     const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
     const [limit, setLimit] = useState('');
-    const [selectedCategoryId, setSelectedCategoryId] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    
-    // State for link generation
-    const [categoryForLink, setCategoryForLink] = useState('');
     
     // State for inline editing
     const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
@@ -53,23 +49,33 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
         const currentSectors = isEditing ? editingSupplier?.sectors || [] : selectedSectors;
 
         if (currentSectors.includes(sectorId)) {
+            // Unchecking
             stateSetter((prev: any) => isEditing ? { ...prev, sectors: prev.sectors.filter((s: string) => s !== sectorId) } : prev.filter((s: string) => s !== sectorId));
         } else {
+            // Checking
             stateSetter((prev: any) => isEditing ? { ...prev, sectors: [...prev.sectors, sectorId] } : [...prev, sectorId]);
         }
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!supplierName.trim()) { setError(t('suppliers.noNameError')); return; }
-        if (!selectedCategoryId) { setError(t('suppliers.noCategoryError')); return; }
-        if (selectedSectors.length === 0) { setError(t('suppliers.noSectorsError')); return; }
+        if (!supplierName.trim()) {
+            setError(t('suppliers.noNameError'));
+            return;
+        }
+        if (selectedSectors.length === 0) {
+            setError(t('suppliers.noSectorsError'));
+            return;
+        }
         const registrationLimit = parseInt(limit, 10);
-        if (isNaN(registrationLimit) || registrationLimit <= 0) { setError(t('suppliers.noLimitError')); return; }
+        if (isNaN(registrationLimit) || registrationLimit <= 0) {
+            setError(t('suppliers.noLimitError'));
+            return;
+        }
 
         setIsSubmitting(true);
         try {
-            await onAddSupplier(supplierName, selectedSectors, registrationLimit, selectedCategoryId);
+            await onAddSupplier(supplierName, selectedSectors, registrationLimit);
             setSupplierName('');
             setSelectedSectors([]);
             setLimit('');
@@ -88,20 +94,29 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
     
     const handleSaveEdit = async () => {
         if (!editingSupplier) return;
-        if (!editingSupplier.name.trim()) { setError(t('suppliers.noNameError')); return; }
-        if (editingSupplier.sectors.length === 0) { setError(t('suppliers.noSectorsError')); return; }
-        if (isNaN(editingSupplier.registrationLimit) || editingSupplier.registrationLimit <= 0) { setError(t('suppliers.noLimitError')); return; }
+
+        if (!editingSupplier.name.trim()) {
+            setError(t('suppliers.noNameError'));
+            return;
+        }
+        if (editingSupplier.sectors.length === 0) {
+            setError(t('suppliers.noSectorsError'));
+            return;
+        }
+        if (isNaN(editingSupplier.registrationLimit) || editingSupplier.registrationLimit <= 0) {
+            setError(t('suppliers.noLimitError'));
+            return;
+        }
         
         const { id, ...dataToUpdate } = editingSupplier;
         await onUpdateSupplier(id, dataToUpdate);
         setEditingSupplier(null);
     };
 
-    const handleCopyLink = () => {
-        if (!categoryForLink) return;
-        const url = `${window.location.origin}?eventId=${currentEventId}&categoryId=${categoryForLink}`;
+    const handleCopyLink = (supplier: Supplier) => {
+        const url = `${window.location.origin}?eventId=${currentEventId}&supplierId=${supplier.id}`;
         navigator.clipboard.writeText(url);
-        setCopiedLink(categoryForLink);
+        setCopiedLink(supplier.id);
         setTimeout(() => setCopiedLink(null), 2000);
     };
 
@@ -143,46 +158,14 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
     };
 
     return (
-        <div className="w-full max-w-5xl mx-auto space-y-10">
+        <div className="w-full max-w-4xl mx-auto space-y-10">
+            {/* Form for new supplier */}
             <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
                 <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
                     <LinkIcon className="w-7 h-7"/>
                     {t('suppliers.generateTitle')}
                 </h2>
-                <div className="flex gap-4 items-end">
-                    <div className="flex-grow">
-                        <label htmlFor="categoryForLink" className="block text-sm font-medium text-gray-300 mb-1">{t('suppliers.categoryLabel')}</label>
-                        <select
-                            id="categoryForLink"
-                            value={categoryForLink}
-                            onChange={(e) => setCategoryForLink(e.target.value)}
-                            className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        >
-                            <option value="" disabled>{t('suppliers.selectCategoryPlaceholder')}</option>
-                            {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-                        </select>
-                    </div>
-                    <button onClick={handleCopyLink} disabled={!categoryForLink} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 justify-center h-10 disabled:bg-gray-700 disabled:cursor-not-allowed">
-                        {copiedLink === categoryForLink ? <><CheckCircleIcon className="w-5 h-5" /><span>{t('suppliers.copiedButton')}</span></> : <><ClipboardDocumentIcon className="w-5 h-5" /><span>{t('suppliers.copyLinkButton')}</span></>}
-                    </button>
-                </div>
-            </div>
-
-            <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
-                <h2 className="text-2xl font-bold text-white mb-6">{t('suppliers.addCompanyTitle')}</h2>
                 <form onSubmit={handleSubmit} className="space-y-6">
-                     <div>
-                        <label htmlFor="category" className="block text-sm font-medium text-gray-300 mb-1">{t('suppliers.categoryLabel')}</label>
-                        <select
-                            id="category" value={selectedCategoryId}
-                            onChange={(e) => setSelectedCategoryId(e.target.value)}
-                            className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            disabled={isSubmitting}
-                        >
-                            <option value="" disabled>{t('suppliers.selectCategoryPlaceholder')}</option>
-                            {categories.map(cat => <option key={cat.id} value={cat.id}>{cat.name}</option>)}
-                        </select>
-                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label htmlFor="supplierName" className="block text-sm font-medium text-gray-300 mb-1">{t('suppliers.nameLabel')}</label>
@@ -210,13 +193,14 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                         </div>
                     </div>
                     <button type="submit" disabled={isSubmitting} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:bg-indigo-400 disabled:cursor-wait">
-                        {isSubmitting ? 'Adicionando...' : t('suppliers.addButton')}
+                        {isSubmitting ? 'Gerando...' : t('suppliers.generateButton')}
                     </button>
                 </form>
             </div>
 
+            {/* List of existing suppliers */}
             <div>
-                <h3 className="text-xl font-bold text-white mb-4">{t('suppliers.existingSuppliers')}</h3>
+                <h3 className="text-xl font-bold text-white mb-4">{t('suppliers.existingLinks')}</h3>
                 {suppliers.length > 0 ? (
                     <div className="space-y-4">
                         {suppliers.map(supplier => (
@@ -251,9 +235,6 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                             {supplier.active ? t('suppliers.active') : t('suppliers.inactive')}
                                             </span>
                                         </div>
-                                         <p className="text-sm text-gray-500 font-medium mb-1">
-                                           Categoria: {categories.find(c => c.id === supplier.categoryId)?.name || 'N/A'}
-                                        </p>
                                         <p className="text-sm text-gray-400">
                                             {t('suppliers.registrations')}: {registrationCounts.get(supplier.id) || 0} / {supplier.registrationLimit}
                                         </p>
@@ -272,6 +253,9 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2 flex-shrink-0">
+                                        <button onClick={() => handleCopyLink(supplier)} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-3 rounded-lg flex items-center gap-2 justify-center w-32">
+                                            {copiedLink === supplier.id ? <><CheckCircleIcon className="w-5 h-5" /><span>{t('suppliers.copiedButton')}</span></> : <><ClipboardDocumentIcon className="w-5 h-5" /><span>{t('suppliers.copyButton')}</span></>}
+                                        </button>
                                         <button onClick={() => onSupplierStatusUpdate(supplier.id, !supplier.active)} className={`font-bold py-2 px-3 rounded-lg flex items-center gap-2 ${supplier.active ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white`}>
                                             {supplier.active ? <NoSymbolIcon className="w-4 h-4"/> : <CheckCircleIcon className="w-4 h-4"/>}
                                             {supplier.active ? t('suppliers.disableButton') : t('suppliers.enableButton')}
@@ -290,7 +274,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                         ))}
                     </div>
                 ) : (
-                    <p className="text-gray-500 text-center py-4">{t('suppliers.noSuppliers')}</p>
+                    <p className="text-gray-500 text-center py-4">{t('suppliers.noLinks')}</p>
                 )}
             </div>
         </div>
