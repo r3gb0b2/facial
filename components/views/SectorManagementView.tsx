@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { Sector } from '../../types.ts';
+import { Sector } from '../../types';
+// FIX: Added .tsx extension to module import.
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { PencilIcon, TagIcon, TrashIcon } from '../icons.tsx';
-import SectorModal from '../SectorModal.tsx';
+import { PencilIcon, TagIcon, TrashIcon } from '../icons';
+import SectorModal from '../SectorModal';
 
 interface SectorManagementViewProps {
     sectors: Sector[];

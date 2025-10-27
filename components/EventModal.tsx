@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Event } from '../types.ts';
+import { Event } from '../types';
+// FIX: Added .tsx extension to module import.
 import { useTranslation } from '../hooks/useTranslation.tsx';
-import { XMarkIcon } from './icons.tsx';
+import { XMarkIcon } from './icons';
 
 interface EventModalProps {
   isOpen: boolean;

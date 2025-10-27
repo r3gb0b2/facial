@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Attendee, Event, Sector, Supplier } from './types.ts';
 import * as api from './firebase/service.ts';
-import { firebaseInitialized } from './firebase/config.ts';
 import LoginView from './components/views/LoginView.tsx';
 import EventSelectionView from './components/views/EventSelectionView.tsx';
 import AdminView from './components/views/AdminView.tsx';
@@ -12,25 +11,6 @@ import { SpinnerIcon } from './components/icons.tsx';
 
 // Simple password check (replace with real auth in a real app)
 const ADMIN_PASSWORD = "12345";
-
-const FirebaseConfigError: React.FC = () => (
-    <div className="flex items-center justify-center min-h-screen p-4">
-        <div className="w-full max-w-2xl mx-auto bg-red-900/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-red-700 text-center">
-            <h1 className="text-3xl font-bold text-red-300 mb-4">Erro de Configuração do Firebase</h1>
-            <p className="text-red-200 mb-6">
-                As credenciais do Firebase não foram encontradas. A aplicação não pode se conectar ao banco de dados.
-            </p>
-            <div className="bg-gray-900 p-4 rounded-lg text-left font-mono text-sm text-yellow-300">
-                <p className="font-bold mb-2">Ação Necessária:</p>
-                <p>1. Abra o arquivo <code className="bg-gray-700 px-1 rounded">firebase/config.ts</code>.</p>
-                <p>2. Encontre o objeto <code className="bg-gray-700 px-1 rounded">firebaseConfig</code>.</p>
-                <p>3. Cole as credenciais do seu projeto Firebase nesse objeto.</p>
-                <p className="mt-4 text-xs text-gray-400">Você pode encontrar suas credenciais nas Configurações do Projeto do seu console Firebase.</p>
-            </div>
-        </div>
-    </div>
-);
-
 
 const App: React.FC = () => {
     // App State
@@ -55,11 +35,6 @@ const App: React.FC = () => {
     // Modal State
     const [isEventModalOpen, setIsEventModalOpen] = useState(false);
     const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
-    
-    // Check for Firebase config before doing anything else
-    if (!firebaseInitialized) {
-        return <FirebaseConfigError />;
-    }
 
     // Handle URL parameters for supplier links
     useEffect(() => {
