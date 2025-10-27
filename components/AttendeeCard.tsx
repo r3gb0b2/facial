@@ -33,7 +33,7 @@ const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect }) => {
       className="bg-gray-800 rounded-lg shadow-lg overflow-hidden cursor-pointer transition-transform transform hover:scale-105 border border-gray-700 hover:border-indigo-500"
     >
       <div className="relative">
-        <img src={attendee.photo} alt={attendee.name} className="w-full h-48 object-cover object-top" />
+        <img src={attendee.photo} alt={attendee.name} className="w-full h-48 object-contain bg-black" />
         <div className={`absolute top-2 right-2 px-2 py-1 text-xs font-bold rounded ${statusInfo.bg} ${statusInfo.text}`}>
           {statusInfo.label}
         </div>

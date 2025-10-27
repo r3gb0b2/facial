@@ -85,7 +85,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
         <div className="relative w-full aspect-square bg-gray-900 rounded-lg overflow-hidden border-2 border-gray-600 shadow-lg">
             {error && <div className="absolute inset-0 flex items-center justify-center text-center text-red-400 p-4">{error}</div>}
             {capturedImage ? (
-                <img src={capturedImage} alt="Captured" className="w-full h-full object-cover" />
+                <img src={capturedImage} alt="Captured" className="w-full h-full object-contain" />
             ) : (
                 <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" muted></video>
             )}
