@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
 import * as Papa from 'papaparse';
-// FIX: Added .tsx extension to module import.
-import { useTranslation } from '../../hooks/useTranslation.tsx';
+// FIX: Removed .tsx extension from module import to fix module resolution error.
+import { useTranslation } from '../../hooks/useTranslation';
 import { CheckCircleIcon, SpinnerIcon, XMarkIcon, UsersIcon } from '../icons';
 
 interface SpreadsheetUploadViewProps {

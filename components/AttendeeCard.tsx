@@ -1,8 +1,8 @@
 import React from 'react';
 import { Attendee, CheckinStatus } from '../types';
-// FIX: Added .tsx extension to module import.
-import { useTranslation } from '../hooks/useTranslation.tsx';
-import { TagIcon } from './icons.tsx';
+// FIX: Removed .tsx extension from module import to fix module resolution error.
+import { useTranslation } from '../hooks/useTranslation';
+import { TagIcon } from './icons';
 
 interface AttendeeCardProps {
   attendee: Attendee;

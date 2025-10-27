@@ -1,9 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-// FIX: Added .tsx extension to module import.
-import App from './App.tsx';
-// FIX: Added .tsx extension to module import.
-import { LanguageProvider } from './hooks/useTranslation.tsx';
+// FIX: Removed .tsx extension from module imports to fix module resolution errors.
+import App from './App';
+import { LanguageProvider } from './hooks/useTranslation';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {

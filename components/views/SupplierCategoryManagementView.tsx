@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { SupplierCategory, Supplier } from '../../types';
-import { useTranslation } from '../../hooks/useTranslation.tsx';
+import { useTranslation } from '../../hooks/useTranslation';
 import { PencilIcon, TagIcon, TrashIcon } from '../icons';
 
 interface SupplierCategoryManagementViewProps {
