@@ -5,6 +5,7 @@ import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { UsersIcon, CheckCircleIcon, SpinnerIcon } from '../icons';
 import * as api from '../../firebase/service.ts';
 import SpreadsheetUploadView from './SpreadsheetUploadView';
+import RegistrationClosedView from './RegistrationClosedView.tsx';
 
 interface RegisterViewProps {
   onRegister: (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => Promise<void>;
@@ -88,6 +89,12 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
         setLimitError('');
     }
   }, [selectedSupplierId, suppliers, registrationCounts, t, isCategoryView]);
+  
+  // If the category link is valid but there are no active suppliers, show a specific message.
+  if (isCategoryView && suppliers.length === 0) {
+      return <RegistrationClosedView message={t('supplierRegistration.noActiveSuppliers')} />;
+  }
+
 
   const clearForm = () => {
     setName('');

@@ -124,7 +124,9 @@ const App: React.FC = () => {
                 api.getAttendeesOnce(eventId), // Fetch all attendees once to check limits
             ]);
 
-            if (category && suppliers.length > 0) {
+            // The link is valid as long as the category exists.
+            // The RegisterView will handle the case where there are no *active* suppliers.
+            if (category) {
                 setCategoryRegistrationInfo({ eventId, category, suppliers, sectors, attendees });
                 setCurrentView('category_registration');
             } else {

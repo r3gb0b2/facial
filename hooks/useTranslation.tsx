@@ -204,6 +204,7 @@ const translations = {
     // Supplier Registration View
     'supplierRegistration.closedTitle': 'Cadastro Encerrado',
     'supplierRegistration.closedMessage': 'O link de cadastro não está mais ativo ou atingiu o limite.',
+    'supplierRegistration.noActiveSuppliers': 'Nenhuma empresa ativa para cadastro nesta categoria no momento.',
   },
 };
 
