@@ -129,6 +129,7 @@ const translations = {
     'webcam.starting': 'Iniciando câmera...',
     'webcam.retakeButton': 'Tirar Outra Foto',
     'webcam.captureButton': 'Capturar Foto',
+    'webcam.uploadButton': 'Carregar da Galeria',
 
     // Modals
     'verificationModal.title': 'Verificação de',

@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { CameraIcon, RefreshIcon } from './icons';
+import { CameraIcon, RefreshIcon, ArrowUpTrayIcon } from './icons';
 // FIX: Added .tsx extension to module import.
 import { useTranslation } from '../hooks/useTranslation.tsx';
 
@@ -12,6 +12,7 @@ interface WebcamCaptureProps {
 const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage, disabled = false }) => {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [isStreamActive, setIsStreamActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,6 +81,26 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
       onCapture('');
   };
 
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const dataUrl = reader.result as string;
+        onCapture(dataUrl);
+      };
+      reader.readAsDataURL(file);
+    }
+    // Reset file input to allow re-uploading the same file if needed
+    if (event.target) {
+        event.target.value = "";
+    }
+  };
+
   return (
     <div className="w-full max-w-sm mx-auto flex flex-col items-center">
         <div className="relative w-full aspect-square bg-gray-900 rounded-lg overflow-hidden border-2 border-gray-600 shadow-lg">
@@ -107,15 +128,34 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
                     {t('webcam.retakeButton')}
                 </button>
             ) : (
-                <button
-                    type="button"
-                    onClick={handleCapture}
-                    disabled={!isStreamActive || disabled}
-                    className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed"
-                >
-                    <CameraIcon className="w-5 h-5" />
-                    {t('webcam.captureButton')}
-                </button>
+                <div className="space-y-2">
+                    <button
+                        type="button"
+                        onClick={handleCapture}
+                        disabled={!isStreamActive || disabled}
+                        className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed"
+                    >
+                        <CameraIcon className="w-5 h-5" />
+                        {t('webcam.captureButton')}
+                    </button>
+                    <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileChange}
+                        className="hidden"
+                        accept="image/*"
+                        disabled={disabled}
+                    />
+                    <button
+                        type="button"
+                        onClick={handleUploadClick}
+                        disabled={disabled}
+                        className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed"
+                    >
+                        <ArrowUpTrayIcon className="w-5 h-5" />
+                        {t('webcam.uploadButton')}
+                    </button>
+                </div>
             )}
         </div>
     </div>
