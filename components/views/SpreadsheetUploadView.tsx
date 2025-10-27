@@ -1,6 +1,5 @@
 import React, { useState, useRef } from 'react';
 import { parse } from 'papaparse';
-// FIX: Added .tsx extension to module import.
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { CheckCircleIcon, SpinnerIcon, XMarkIcon, UsersIcon } from '../icons';
 
