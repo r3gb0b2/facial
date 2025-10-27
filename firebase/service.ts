@@ -1,7 +1,7 @@
 // In firebase/service.ts
 
 import { db, storage, FieldValue } from './config.ts';
-import { Attendee, CheckinStatus, Event, Sector, Supplier } from '../types.ts';
+import { Attendee, CheckinStatus, Event, Sector, Supplier, SupplierCategory } from '../types.ts';
 
 // Helper to get eventId, otherwise throw error
 const ensureEventId = (eventId?: string): string => {
@@ -32,7 +32,12 @@ const imageUrlToDataUrl = async (url: string): Promise<string> => {
 export const uploadPhoto = async (photoDataUrl: string, attendeeId: string): Promise<string> => {
     const storageRef = storage.ref();
     const photoRef = storageRef.child(`attendees/${attendeeId}.png`);
-    await photoRef.putString(photoDataUrl, 'data_url');
+    
+    // Convert data URL to Blob for more efficient upload
+    const response = await fetch(photoDataUrl);
+    const blob = await response.blob();
+
+    await photoRef.put(blob);
     return photoRef.getDownloadURL();
 };
 
@@ -51,6 +56,15 @@ export const getAttendees = (eventId: string, onUpdate: (attendees: Attendee[]) 
       }, error => {
         console.error("Error getting attendees:", error);
       });
+};
+
+export const getAttendeesOnce = async (eventId: string): Promise<Attendee[]> => {
+    const eventRef = db.collection('events').doc(eventId);
+    const snapshot = await eventRef.collection('attendees').get();
+    return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+    } as Attendee));
 };
 
 export const findAttendeeByCpf = async (cpf: string): Promise<Attendee | null> => {
@@ -106,71 +120,6 @@ export const addAttendee = async (
 
     await newAttendeeRef.set(newAttendee);
     return newAttendeeRef.id;
-};
-
-export const registerAttendeeForSupplier = async (
-    eventId: string,
-    supplierId: string,
-    attendeeData: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt' | 'supplierId'>
-): Promise<string> => {
-    const eventRef = db.collection('events').doc(ensureEventId(eventId));
-    const supplierRef = eventRef.collection('suppliers').doc(supplierId);
-    const newAttendeeRef = eventRef.collection('attendees').doc();
-
-    let finalPhotoUrl = attendeeData.photo;
-    // If a new photo was captured (data URL), upload it.
-    if (isDataUrl(attendeeData.photo)) {
-        finalPhotoUrl = await uploadPhoto(attendeeData.photo, newAttendeeRef.id);
-    } 
-    // If an existing photo is being reused, re-upload it for the new record.
-    else if (attendeeData.photo.includes('firebasestorage')) {
-        try {
-            const newDataUrl = await imageUrlToDataUrl(attendeeData.photo);
-            finalPhotoUrl = await uploadPhoto(newDataUrl, newAttendeeRef.id);
-        } catch (error) {
-            console.error("Failed to re-upload existing photo for supplier registration, using original URL as fallback.", error);
-            // Fallback to original URL if re-upload fails
-        }
-    }
-
-    return db.runTransaction(async (transaction) => {
-        const supplierDoc = await transaction.get(supplierRef);
-        if (!supplierDoc.exists) {
-            throw new Error("Fornecedor não encontrado.");
-        }
-
-        const supplier = supplierDoc.data() as Supplier;
-        if (!supplier.active) {
-            throw new Error("Este link de cadastro não está mais ativo.");
-        }
-        
-        // Check for existing CPF within the same event
-        const attendeesCollectionRef = eventRef.collection('attendees');
-        const cpfQuery = attendeesCollectionRef.where('cpf', '==', attendeeData.cpf);
-        const existingAttendeeSnapshot = await cpfQuery.get();
-        if (!existingAttendeeSnapshot.empty) {
-            throw new Error("Este CPF já foi cadastrado para este evento.");
-        }
-
-        const attendeesForSupplierQuery = eventRef.collection('attendees').where('supplierId', '==', supplierId);
-        const attendeesForSupplierSnapshot = await attendeesForSupplierQuery.get();
-
-        if (attendeesForSupplierSnapshot.size >= supplier.registrationLimit) {
-            throw new Error("Limite de inscrições para este fornecedor foi atingido.");
-        }
-        
-        const newAttendee = {
-            ...attendeeData,
-            photo: finalPhotoUrl,
-            supplierId: supplierId,
-            status: CheckinStatus.PENDING,
-            eventId,
-            createdAt: FieldValue.serverTimestamp(),
-        };
-
-        transaction.set(newAttendeeRef, newAttendee);
-        return newAttendeeRef.id;
-    });
 };
 
 
@@ -316,10 +265,6 @@ export const getSectors = (eventId: string, onUpdate: (sectors: Sector[]) => voi
     });
 };
 
-/**
- * Fetches all sectors for a given event in a single call.
- * This is used for views that need the sector list upfront, like supplier registration.
- */
 export const getSectorsForEvent = async (eventId: string): Promise<Sector[]> => {
     const eventRef = db.collection('events').doc(ensureEventId(eventId));
     const snapshot = await eventRef.collection('sectors').orderBy('label').get();
@@ -344,7 +289,6 @@ export const updateSector = async (eventId: string, sectorId: string, data: { la
 
 export const deleteSector = async (eventId: string, sectorId: string): Promise<void> => {
     const eventRef = db.collection('events').doc(ensureEventId(eventId));
-    // Here we should check if the sector is in use by attendees or suppliers.
     const attendeesSnapshot = await eventRef.collection('attendees').where('sector', '==', sectorId).limit(1).get();
     const suppliersSnapshot = await eventRef.collection('suppliers').where('sectors', 'array-contains', sectorId).limit(1).get();
     
@@ -353,6 +297,44 @@ export const deleteSector = async (eventId: string, sectorId: string): Promise<v
     }
     
     await eventRef.collection('sectors').doc(sectorId).delete();
+};
+
+// --- Supplier Category Management ---
+export const getSupplierCategories = (eventId: string, onUpdate: (categories: SupplierCategory[]) => void): (() => void) => {
+    const eventRef = db.collection('events').doc(ensureEventId(eventId));
+    return eventRef.collection('supplierCategories').orderBy('name').onSnapshot(snapshot => {
+        const categoriesData = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+        } as SupplierCategory));
+        onUpdate(categoriesData);
+    });
+};
+
+export const getSupplierCategory = async (eventId: string, categoryId: string): Promise<SupplierCategory | null> => {
+    const doc = await db.collection('events').doc(eventId).collection('supplierCategories').doc(categoryId).get();
+    if (!doc.exists) return null;
+    return { id: doc.id, ...doc.data() } as SupplierCategory;
+};
+
+export const addSupplierCategory = async (eventId: string, name: string): Promise<string> => {
+    const eventRef = db.collection('events').doc(ensureEventId(eventId));
+    const res = await eventRef.collection('supplierCategories').add({ name });
+    return res.id;
+};
+
+export const updateSupplierCategory = async (eventId: string, categoryId: string, name: string): Promise<void> => {
+    const eventRef = db.collection('events').doc(ensureEventId(eventId));
+    await eventRef.collection('supplierCategories').doc(categoryId).update({ name });
+};
+
+export const deleteSupplierCategory = async (eventId: string, categoryId: string): Promise<void> => {
+    const eventRef = db.collection('events').doc(ensureEventId(eventId));
+    const suppliersSnapshot = await eventRef.collection('suppliers').where('categoryId', '==', categoryId).limit(1).get();
+    if (!suppliersSnapshot.empty) {
+        throw new Error('Category is in use and cannot be deleted.');
+    }
+    await eventRef.collection('supplierCategories').doc(categoryId).delete();
 };
 
 
@@ -369,25 +351,26 @@ export const getSuppliers = (eventId: string, onUpdate: (suppliers: Supplier[]) 
     });
 };
 
-export const getSupplier = async (eventId: string, supplierId: string): Promise<Supplier | null> => {
-    const doc = await db.collection('events').doc(eventId).collection('suppliers').doc(supplierId).get();
-    if (!doc.exists) return null;
-    return { id: doc.id, ...doc.data() } as Supplier;
+export const getSuppliersForCategory = async (eventId: string, categoryId: string): Promise<Supplier[]> => {
+    const eventRef = db.collection('events').doc(ensureEventId(eventId));
+    const snapshot = await eventRef.collection('suppliers')
+        .where('categoryId', '==', categoryId)
+        .where('active', '==', true)
+        .orderBy('name')
+        .get();
+    return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+    } as Supplier));
 };
 
-export const getAttendeeCountForSupplier = async (eventId: string, supplierId: string): Promise<number> => {
-    const query = db.collection('events').doc(eventId).collection('attendees').where('supplierId', '==', supplierId);
-    const snapshot = await query.get();
-    return snapshot.size;
-};
-
-
-export const addSupplier = async (eventId: string, name: string, sectors: string[], registrationLimit: number): Promise<string> => {
+export const addSupplier = async (eventId: string, name: string, sectors: string[], registrationLimit: number, categoryId: string): Promise<string> => {
     const eventRef = db.collection('events').doc(ensureEventId(eventId));
     const newSupplier = {
         name,
         sectors,
         registrationLimit,
+        categoryId,
         active: true,
     };
     const res = await eventRef.collection('suppliers').add(newSupplier);
@@ -401,7 +384,6 @@ export const updateSupplier = async (eventId: string, supplierId: string, data: 
 
 export const deleteSupplier = async (eventId: string, supplierId: string): Promise<void> => {
     const eventRef = db.collection('events').doc(ensureEventId(eventId));
-    // Safety check: prevent deletion if the supplier has registered attendees.
     const attendeesSnapshot = await eventRef.collection('attendees').where('supplierId', '==', supplierId).limit(1).get();
     if (!attendeesSnapshot.empty) {
         throw new Error('Supplier has registered attendees and cannot be deleted.');

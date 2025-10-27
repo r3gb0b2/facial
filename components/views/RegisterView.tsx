@@ -1,50 +1,93 @@
-import React, { useState, useEffect } from 'react';
-import { Attendee, Sector } from '../../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Attendee, Sector, SupplierCategory, Supplier } from '../../types';
 import WebcamCapture from '../WebcamCapture';
-// FIX: Added .tsx extension to module import.
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { UsersIcon, CheckCircleIcon, SpinnerIcon } from '../icons';
-// FIX: Added .ts extension to module import.
 import * as api from '../../firebase/service.ts';
 import SpreadsheetUploadView from './SpreadsheetUploadView';
 
 interface RegisterViewProps {
   onRegister: (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => Promise<void>;
-  onImportAttendees?: (data: any[]) => Promise<any>;
   setError: (message: string) => void;
-  sectors: Sector[];
-  predefinedSector?: string | string[];
-  supplierName?: string;
+  // Admin props
+  onImportAttendees?: (data: any[]) => Promise<any>;
+  sectors?: Sector[];
+  // Category registration props
+  categoryRegistrationInfo?: {
+      category: SupplierCategory;
+      suppliers: Supplier[];
+      sectors: Sector[];
+      attendees: Attendee[];
+  };
 }
 
-const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttendees, setError, sectors, predefinedSector, supplierName }) => {
+const RegisterView: React.FC<RegisterViewProps> = (props) => {
+  const { onRegister, setError, onImportAttendees, sectors: adminSectors, categoryRegistrationInfo } = props;
   const { t } = useTranslation();
+
   const [name, setName] = useState('');
   const [cpf, setCpf] = useState('');
   const [sector, setSector] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
+  const [selectedSupplierId, setSelectedSupplierId] = useState('');
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCheckingCpf, setIsCheckingCpf] = useState(false);
   const [cpfCheckMessage, setCpfCheckMessage] = useState('');
   const [existingAttendeeFound, setExistingAttendeeFound] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  
-  const isSupplierWithMultipleSectors = Array.isArray(predefinedSector);
-  const isSupplierWithSingleSector = typeof predefinedSector === 'string';
-  const isAdminView = !predefinedSector; // True if it's the main admin view, not a supplier link
+  const [limitError, setLimitError] = useState('');
 
-  useEffect(() => {
-    let initialSector = '';
-    if (isSupplierWithSingleSector) {
-      initialSector = predefinedSector as string;
-    } else if (isSupplierWithMultipleSectors) {
-       // Find the full sector object from the list of available sectors
-      const availableSectors = sectors.filter(s => (predefinedSector as string[]).includes(s.id));
-      initialSector = availableSectors.length > 0 ? availableSectors[0].id : '';
-    }
-    setSector(initialSector);
-  }, [predefinedSector, isSupplierWithSingleSector, isSupplierWithMultipleSectors, sectors]);
+  const isCategoryView = !!categoryRegistrationInfo;
+  const isAdminView = !isCategoryView;
+
+  const sectors = isCategoryView ? categoryRegistrationInfo.sectors : adminSectors || [];
+  const suppliers = isCategoryView ? categoryRegistrationInfo.suppliers : [];
   
+  const registrationCounts = useMemo(() => {
+    if (!isCategoryView) return new Map();
+    const counts = new Map<string, number>();
+    for (const attendee of categoryRegistrationInfo.attendees) {
+        if (attendee.supplierId) {
+            counts.set(attendee.supplierId, (counts.get(attendee.supplierId) || 0) + 1);
+        }
+    }
+    return counts;
+  }, [categoryRegistrationInfo]);
+
+  const availableSectors = useMemo(() => {
+    if (isAdminView || !selectedSupplierId) {
+        return sectors;
+    }
+    const selectedSupplier = suppliers.find(s => s.id === selectedSupplierId);
+    if (!selectedSupplier) return [];
+    return sectors.filter(s => selectedSupplier.sectors.includes(s.id));
+  }, [isAdminView, selectedSupplierId, suppliers, sectors]);
+  
+  // Effect to reset sector if it becomes unavailable after supplier change
+  useEffect(() => {
+    if (isCategoryView && selectedSupplierId) {
+        const isCurrentSectorValid = availableSectors.some(s => s.id === sector);
+        if (!isCurrentSectorValid) {
+            setSector(availableSectors.length > 0 ? availableSectors[0].id : '');
+        }
+    }
+  }, [selectedSupplierId, availableSectors, sector, isCategoryView]);
+
+  // Effect to check registration limit when supplier changes
+  useEffect(() => {
+    if (isCategoryView && selectedSupplierId) {
+        const supplier = suppliers.find(s => s.id === selectedSupplierId);
+        const count = registrationCounts.get(selectedSupplierId) || 0;
+        if (supplier && count >= supplier.registrationLimit) {
+            setLimitError(t('register.errors.limitReached'));
+        } else {
+            setLimitError('');
+        }
+    } else {
+        setLimitError('');
+    }
+  }, [selectedSupplierId, suppliers, registrationCounts, t, isCategoryView]);
 
   const clearForm = () => {
     setName('');
@@ -52,18 +95,14 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
     setPhoto(null);
     setCpfCheckMessage('');
     setExistingAttendeeFound(false);
-    if (!predefinedSector) {
-      setSector('');
-    } else if (isSupplierWithMultipleSectors) {
-      const availableSectors = sectors.filter(s => (predefinedSector as string[]).includes(s.id));
-      setSector(availableSectors.length > 0 ? availableSectors[0].id : '');
-    }
+    setSector(isAdminView ? '' : (availableSectors.length > 0 ? availableSectors[0].id : ''));
+    setSelectedSupplierId('');
   };
 
   const formatCPF = (value: string) => {
     return value
-      .replace(/\D/g, '') // Remove all non-digit characters
-      .slice(0, 11) // Limit to 11 digits
+      .replace(/\D/g, '')
+      .slice(0, 11)
       .replace(/(\d{3})(\d)/, '$1.$2')
       .replace(/(\d{3})(\d)/, '$1.$2')
       .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
@@ -93,12 +132,8 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
             setCpfCheckMessage(t('register.cpfNotFound'));
         }
     } catch (error: any) {
-        console.error("Error checking CPF:", error);
         let errorMessage = t('register.errors.cpfCheckError');
-        if (error.code === 'failed-precondition') {
-            errorMessage = t('register.errors.cpfCheckIndexError');
-            console.error("Firestore index missing for CPF lookup. Please create a composite index on the 'attendees' collection group for the 'cpf' field.");
-        }
+        if (error.code === 'failed-precondition') errorMessage = t('register.errors.cpfCheckIndexError');
         setError(errorMessage);
         setCpfCheckMessage('');
     } finally {
@@ -109,22 +144,21 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const rawCpf = cpf.replace(/\D/g, '');
+    const supplierId = isCategoryView ? selectedSupplierId : undefined;
 
-    if (!name || !rawCpf || !photo || !sector) {
+    if (!name || !rawCpf || !photo || !sector || (isCategoryView && !supplierId)) {
       setError(t('register.errors.allFields'));
-      setTimeout(() => setError(''), 3000);
       return;
     }
     if (rawCpf.length !== 11) {
       setError(t('register.errors.invalidCpf'));
-      setTimeout(() => setError(''), 3000);
       return;
     }
 
     setIsSubmitting(true);
     setShowSuccess(false);
     try {
-      await onRegister({ name, cpf: rawCpf, photo, sector });
+      await onRegister({ name, cpf: rawCpf, photo, sector, supplierId });
       clearForm();
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 4000);
@@ -134,31 +168,8 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
       setIsSubmitting(false);
     }
   };
-  
-  const renderSectorInput = () => {
-    if (isSupplierWithSingleSector) {
-      return null; // Sector is predefined and hidden
-    }
 
-    let sectorOptions = sectors;
-    if (isSupplierWithMultipleSectors) {
-        sectorOptions = sectors.filter(s => (predefinedSector as string[]).includes(s.id));
-    }
-
-    return (
-        <div>
-          <label htmlFor="sector" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.sectorLabel')}</label>
-          <select
-            id="sector" value={sector} onChange={(e) => setSector(e.target.value)}
-            className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
-            disabled={isSubmitting || isCheckingCpf}
-          >
-            {isSupplierWithMultipleSectors ? null : <option value="" disabled>{t('register.form.sectorPlaceholder')}</option>}
-            {sectorOptions.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-          </select>
-        </div>
-    );
-  };
+  const formIsDisabled = isSubmitting || isCheckingCpf || !!limitError;
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-10">
@@ -166,63 +177,84 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
         <div className="text-center mb-6">
             <h2 className="text-3xl font-bold text-white flex items-center justify-center gap-3">
               <UsersIcon className="w-8 h-8"/>
-              {t('register.title')}
+              {isCategoryView ? t('register.title.supplier') : t('register.title')}
             </h2>
-            {supplierName && <p className="text-lg font-medium text-gray-400 mt-1">{supplierName}</p>}
+            {isCategoryView && <p className="text-lg font-medium text-gray-400 mt-1">{categoryRegistrationInfo.category.name}</p>}
         </div>
 
         <form onSubmit={handleRegisterSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
           <div className="space-y-6">
-            <div>
-              <label htmlFor="cpf" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.cpfLabel')}</label>
-              <input
-                type="text" id="cpf" value={cpf} onChange={(e) => setCpf(formatCPF(e.target.value))}
-                onBlur={handleCpfBlur}
-                className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
-                placeholder={t('register.form.cpfPlaceholder')}
-                disabled={isSubmitting || isCheckingCpf}
-              />
-              {cpfCheckMessage && (
-                  <p className="text-sm mt-1 text-gray-400 flex items-center gap-2">
-                      {isCheckingCpf && <SpinnerIcon className="w-4 h-4" />}
-                      {cpfCheckMessage}
-                  </p>
-              )}
-            </div>
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.nameLabel')}</label>
-              <input
-                type="text" id="name" value={name} onChange={(e) => setName(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
-                placeholder={t('register.form.namePlaceholder')}
-                disabled={isSubmitting || isCheckingCpf}
-              />
-            </div>
-            {renderSectorInput()}
-            <div className="space-y-4">
-                <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-indigo-400 disabled:cursor-wait" disabled={!name || !cpf || !photo || !sector || isSubmitting || isCheckingCpf}>
-                  {isSubmitting ? (
-                    <>
-                      <SpinnerIcon className="w-5 h-5" />
-                      Registrando...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircleIcon className="w-5 h-5"/>
-                      {t('register.form.button')}
-                    </>
-                  )}
-                </button>
-                 {showSuccess && (
-                    <div className="text-center p-3 rounded-lg bg-green-500/20 text-green-300 border border-green-500 flex items-center justify-center gap-2">
-                        <CheckCircleIcon className="w-5 h-5" />
-                        <p className="text-sm font-medium">{t('register.successMessage')}</p>
-                    </div>
-                )}
-            </div>
+            {isCategoryView && (
+                 <div>
+                    <label htmlFor="supplier" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.supplierLabel')}</label>
+                    <select
+                        id="supplier" value={selectedSupplierId} onChange={(e) => setSelectedSupplierId(e.target.value)}
+                        className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        disabled={isSubmitting || isCheckingCpf}
+                    >
+                        <option value="" disabled>{t('register.form.supplierPlaceholder')}</option>
+                        {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                    {limitError && <p className="text-sm mt-1 text-red-400">{limitError}</p>}
+                </div>
+            )}
+            
+            <fieldset disabled={isCategoryView && !selectedSupplierId} className="space-y-6">
+                 <div>
+                    <label htmlFor="cpf" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.cpfLabel')}</label>
+                    <input
+                        type="text" id="cpf" value={cpf} onChange={(e) => setCpf(formatCPF(e.target.value))}
+                        onBlur={handleCpfBlur}
+                        className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                        placeholder={t('register.form.cpfPlaceholder')}
+                        disabled={formIsDisabled}
+                    />
+                    {cpfCheckMessage && (
+                        <p className="text-sm mt-1 text-gray-400 flex items-center gap-2">
+                            {isCheckingCpf && <SpinnerIcon className="w-4 h-4" />}
+                            {cpfCheckMessage}
+                        </p>
+                    )}
+                </div>
+                <div>
+                    <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.nameLabel')}</label>
+                    <input
+                        type="text" id="name" value={name} onChange={(e) => setName(e.target.value)}
+                        className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                        placeholder={t('register.form.namePlaceholder')}
+                        disabled={formIsDisabled}
+                    />
+                </div>
+                <div>
+                    <label htmlFor="sector" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.sectorLabel')}</label>
+                    <select
+                        id="sector" value={sector} onChange={(e) => setSector(e.target.value)}
+                        className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                        disabled={formIsDisabled || availableSectors.length <= 1}
+                    >
+                        {isAdminView && <option value="" disabled>{t('register.form.sectorPlaceholder')}</option>}
+                        {availableSectors.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                    </select>
+                </div>
+                <div className="space-y-4">
+                    <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-indigo-400 disabled:cursor-wait" disabled={!name || !cpf || !photo || !sector || (isCategoryView && !selectedSupplierId) || formIsDisabled}>
+                    {isSubmitting ? (
+                        <><SpinnerIcon className="w-5 h-5" /> Registrando...</>
+                    ) : (
+                        <><CheckCircleIcon className="w-5 h-5"/> {t('register.form.button')}</>
+                    )}
+                    </button>
+                    {showSuccess && (
+                        <div className="text-center p-3 rounded-lg bg-green-500/20 text-green-300 border border-green-500 flex items-center justify-center gap-2">
+                            <CheckCircleIcon className="w-5 h-5" />
+                            <p className="text-sm font-medium">{t('register.successMessage')}</p>
+                        </div>
+                    )}
+                </div>
+            </fieldset>
           </div>
           <div className="flex flex-col items-center">
-              <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting || isCheckingCpf || existingAttendeeFound} allowUpload={isAdminView} />
+              <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={formIsDisabled || existingAttendeeFound} allowUpload={isAdminView} />
           </div>
         </form>
       </div>
