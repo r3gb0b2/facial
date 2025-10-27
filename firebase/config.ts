@@ -1,4 +1,3 @@
-// CORRIGIDO PARA RESOLVER ERRO DE BUILD NA VERCEL
 // FIX: Switched to Firebase v8 compat libraries to resolve "initializeApp" import error,
 // which typically occurs when using v9 syntax with an older Firebase SDK version.
 // FIX: Changed to default import for firebase compat app, which is the correct way to import the main firebase object.
