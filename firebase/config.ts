@@ -9,6 +9,25 @@ import "firebase/compat/storage";
 // SE VOCÊ COPIOU E COLOU ESTE ARQUIVO SEM ALTERAR AS CREDENCIAIS ABAIXO, ELE NÃO VAI FUNCIONAR.
 // A APLICAÇÃO PRECISA DAS CHAVES DO *SEU* PROJETO FIREBASE PARA SE CONECTAR.
 // =================================================================================================
+// FIX: Added a type annotation for the config object to inform TypeScript of its shape, resolving an error on 'firebaseConfig.apiKey'.
+const firebaseConfig: {
+  apiKey?: string;
+  authDomain?: string;
+  projectId?: string;
+  storageBucket?: string;
+  messagingSenderId?: string;
+  appId?: string;
+} = {
+  // COLE SUAS CREDENCIAIS AQUI
+  // Exemplo:
+  // apiKey: "AIza....",
+  // authDomain: "seu-projeto.firebaseapp.com",
+  // projectId: "seu-projeto",
+  // storageBucket: "seu-projeto.appspot.com",
+  // messagingSenderId: "...",
+  // appId: "1:..."
+};
+// =================================================================================================
 //
 // == CHECKLIST DE SOLUÇÃO DE PROBLEMAS ============================================================
 // Se os dados não estão sendo salvos, verifique estes 3 pontos no seu painel do Firebase:
@@ -36,52 +55,25 @@ import "firebase/compat/storage";
 //          }
 //        }
 //      }
-//
-//    - No Storage (Build > Storage > Aba "Regras"):
-//      Cole isto e clique em "Publicar".
-//      rules_version = '2';
-//      service firebase.storage {
-//        match /b/{bucket}/o {
-//          match /{allPaths=**} {
-//            allow read, write: if true;
-//          }
-//        }
-//      }
 // =================================================================================================
 
-const firebaseConfig = {
-  apiKey: "AIzaSyDlaBCtgD74608i4JdOMQYJ0433V-c0bjI",
-  authDomain: "facial-244d7.firebaseapp.com",
-  databaseURL: "https://facial-244d7-default-rtdb.firebaseio.com",
-  projectId: "facial-244d7",
-  storageBucket: "facial-244d7.firebasestorage.app",
-  messagingSenderId: "979969706148",
-  appId: "1:979969706148:web:14fbcd486911fe40dc3e31"
-};
-
-// Verifica se as credenciais de exemplo ainda estão em uso e alerta o desenvolvedor.
-if (firebaseConfig.apiKey === "AIzaSyDlaBCtgD74608i4JdOMQYJ0433V-c0bjI") {
-    const errorMessage = "CONFIGURAÇÃO NECESSÁRIA: As credenciais do Firebase em 'firebase/config.ts' são valores de exemplo e precisam ser substituídas pelas chaves do SEU projeto. A aplicação não funcionará corretamente até que você as atualize seguindo o checklist no arquivo.";
-    console.error("======================================================================================");
-    console.error("🔥🔥🔥 ERRO DE CONFIGURAÇÃO DO FIREBASE 🔥🔥🔥");
-    console.error(errorMessage);
-    console.error("======================================================================================");
+// Initialize Firebase
+if (!firebase.apps.length) {
+  // A simple check to avoid initializing the app multiple times.
+  // We also check if the config object has an apiKey before trying to initialize.
+  if (firebaseConfig.apiKey) {
+    firebase.initializeApp(firebaseConfig);
+  } else {
+    console.error("Firebase config is missing. Please add your credentials to firebase/config.ts");
+  }
 }
 
-
-// Initialize Firebase
-const app = firebase.initializeApp(firebaseConfig);
-// FIX: Use firebaseConfig.projectId directly as app.options was not correctly typed.
-console.log("Firebase Initialized Successfully with projectId:", firebaseConfig.projectId);
-
-
-// Initialize Cloud Firestore and get a reference to the service
 const db = firebase.firestore();
-
-// Initialize Firebase Storage
 const storage = firebase.storage();
-
-// FIX: Export FieldValue to ensure a single instance is used across the app, preventing type mismatch errors.
 const FieldValue = firebase.firestore.FieldValue;
+const Timestamp = firebase.firestore.Timestamp;
 
-export { db, storage, FieldValue };
+// FIX: Explicitly export the Timestamp instance type for use in type annotations elsewhere.
+export type FirebaseTimestamp = firebase.firestore.Timestamp;
+
+export { db, storage, FieldValue, Timestamp };

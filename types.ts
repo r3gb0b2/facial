@@ -1,5 +1,5 @@
-import firebase from 'firebase/compat/app';
-import 'firebase/compat/firestore';
+// FIX: Replaced the value import with a type-only import for the Timestamp, aliasing the exported FirebaseTimestamp type.
+import type { FirebaseTimestamp as Timestamp } from './firebase/config.ts';
 
 export enum CheckinStatus {
   PENDING = 'PENDING',
@@ -17,14 +17,14 @@ export interface Attendee {
   sector: string;
   status: CheckinStatus;
   eventId: string;
-  createdAt: firebase.firestore.Timestamp;
+  createdAt: Timestamp;
   supplierId?: string; // To track which supplier registered the attendee
 }
 
 export interface Event {
   id: string;
   name: string;
-  createdAt: firebase.firestore.Timestamp;
+  createdAt: Timestamp;
 }
 
 export interface Supplier {
