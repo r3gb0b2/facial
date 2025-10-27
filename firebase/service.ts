@@ -53,6 +53,13 @@ export const getAttendees = (eventId: string, onUpdate: (attendees: Attendee[]) 
       });
 };
 
+export const getAttendeesOnce = async (eventId: string): Promise<Attendee[]> => {
+    const eventRef = db.collection('events').doc(ensureEventId(eventId));
+    const snapshot = await eventRef.collection('attendees').get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Attendee));
+};
+
+
 export const findAttendeeByCpf = async (cpf: string): Promise<Attendee | null> => {
     // This query requires a composite index on the 'attendees' collection group.
     const snapshot = await db.collectionGroup('attendees').where('cpf', '==', cpf).limit(1).get();
@@ -147,13 +154,13 @@ export const registerAttendeeForSupplier = async (
         // Check for existing CPF within the same event
         const attendeesCollectionRef = eventRef.collection('attendees');
         const cpfQuery = attendeesCollectionRef.where('cpf', '==', attendeeData.cpf);
-        const existingAttendeeSnapshot = await cpfQuery.get();
+        const existingAttendeeSnapshot = await transaction.get(cpfQuery);
         if (!existingAttendeeSnapshot.empty) {
             throw new Error("Este CPF já foi cadastrado para este evento.");
         }
 
         const attendeesForSupplierQuery = eventRef.collection('attendees').where('supplierId', '==', supplierId);
-        const attendeesForSupplierSnapshot = await attendeesForSupplierQuery.get();
+        const attendeesForSupplierSnapshot = await transaction.get(attendeesForSupplierQuery);
 
         if (attendeesForSupplierSnapshot.size >= supplier.registrationLimit) {
             throw new Error("Limite de inscrições para este fornecedor foi atingido.");
@@ -369,6 +376,14 @@ export const getSupplierCategories = (eventId: string, onUpdate: (categories: Su
     });
 };
 
+export const getSupplierCategory = async (eventId: string, categoryId: string): Promise<SupplierCategory | null> => {
+    const eventRef = db.collection('events').doc(ensureEventId(eventId));
+    const doc = await eventRef.collection('supplierCategories').doc(categoryId).get();
+    if (!doc.exists) return null;
+    return { id: doc.id, ...doc.data() } as SupplierCategory;
+};
+
+
 export const addSupplierCategory = async (eventId: string, name: string): Promise<string> => {
     const eventRef = db.collection('events').doc(ensureEventId(eventId));
     const res = await eventRef.collection('supplierCategories').add({ name });
@@ -402,6 +417,17 @@ export const getSuppliers = (eventId: string, onUpdate: (suppliers: Supplier[]) 
         onUpdate(suppliersData);
     });
 };
+
+export const getSuppliersForCategory = async (eventId: string, categoryId: string): Promise<Supplier[]> => {
+    const eventRef = db.collection('events').doc(ensureEventId(eventId));
+    const snapshot = await eventRef.collection('suppliers')
+        .where('categoryId', '==', categoryId)
+        .where('active', '==', true)
+        .orderBy('name')
+        .get();
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Supplier));
+};
+
 
 export const getSupplier = async (eventId: string, supplierId: string): Promise<Supplier | null> => {
     const doc = await db.collection('events').doc(eventId).collection('suppliers').doc(supplierId).get();

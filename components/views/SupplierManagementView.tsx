@@ -32,6 +32,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
 
     // State for UI feedback
     const [copiedLink, setCopiedLink] = useState<string | null>(null);
+    const [categoryForLink, setCategoryForLink] = useState('');
     
     const registrationCounts = useMemo(() => {
         const counts = new Map<string, number>();
@@ -124,10 +125,11 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
         setEditingSupplier(null);
     };
 
-    const handleCopyLink = (supplier: Supplier) => {
-        const url = `${window.location.origin}?eventId=${currentEventId}&supplierId=${supplier.id}`;
+    const handleCopyCategoryLink = (categoryId: string) => {
+        if (!categoryId) return;
+        const url = `${window.location.origin}?eventId=${currentEventId}&categoryId=${categoryId}`;
         navigator.clipboard.writeText(url);
-        setCopiedLink(supplier.id);
+        setCopiedLink(categoryId);
         setTimeout(() => setCopiedLink(null), 2000);
     };
 
@@ -172,11 +174,37 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
 
     return (
         <div className="w-full max-w-4xl mx-auto space-y-10">
-            {/* Form for new supplier */}
+            {/* Link Generation Section */}
             <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
                 <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
                     <LinkIcon className="w-7 h-7"/>
-                    {t('suppliers.generateTitle')}
+                    {t('suppliers.generateByCategoryTitle')}
+                </h2>
+                <div className="flex gap-2">
+                    <select
+                        value={categoryForLink}
+                        onChange={(e) => setCategoryForLink(e.target.value)}
+                        className="flex-grow bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                        <option value="" disabled>{t('suppliers.categoryPlaceholder')}</option>
+                        {supplierCategories.map(cat => (
+                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                        ))}
+                    </select>
+                    <button 
+                      onClick={() => handleCopyCategoryLink(categoryForLink)} 
+                      disabled={!categoryForLink}
+                      className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-3 rounded-lg flex items-center gap-2 justify-center w-40 transition-colors disabled:bg-gray-700 disabled:cursor-not-allowed"
+                    >
+                        {copiedLink === categoryForLink ? <><CheckCircleIcon className="w-5 h-5" /><span>{t('suppliers.copiedButton')}</span></> : <><ClipboardDocumentIcon className="w-5 h-5" /><span>{t('suppliers.copyButton')}</span></>}
+                    </button>
+                </div>
+            </div>
+
+            {/* Form for new supplier */}
+            <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
+                <h2 className="text-2xl font-bold text-white mb-6">
+                    {t('suppliers.createNewSupplierTitle')}
                 </h2>
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -220,7 +248,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                         </div>
                     </div>
                     <button type="submit" disabled={isSubmitting} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:bg-indigo-400 disabled:cursor-wait">
-                        {isSubmitting ? 'Gerando...' : t('suppliers.generateButton')}
+                        {isSubmitting ? 'Criando...' : t('suppliers.generateButton')}
                     </button>
                 </form>
             </div>
@@ -292,9 +320,6 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2 flex-shrink-0">
-                                        <button onClick={() => handleCopyLink(supplier)} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-3 rounded-lg flex items-center gap-2 justify-center w-32">
-                                            {copiedLink === supplier.id ? <><CheckCircleIcon className="w-5 h-5" /><span>{t('suppliers.copiedButton')}</span></> : <><ClipboardDocumentIcon className="w-5 h-5" /><span>{t('suppliers.copyButton')}</span></>}
-                                        </button>
                                         <button onClick={() => onSupplierStatusUpdate(supplier.id, !supplier.active)} className={`font-bold py-2 px-3 rounded-lg flex items-center gap-2 ${supplier.active ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white`}>
                                             {supplier.active ? <NoSymbolIcon className="w-4 h-4"/> : <CheckCircleIcon className="w-4 h-4"/>}
                                             {supplier.active ? t('suppliers.disableButton') : t('suppliers.enableButton')}

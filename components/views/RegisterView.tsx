@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Attendee, Sector } from '../../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Attendee, Sector, Supplier } from '../../types';
 import WebcamCapture from '../WebcamCapture';
 // FIX: Added .tsx extension to module import.
 import { useTranslation } from '../../hooks/useTranslation.tsx';
@@ -12,52 +12,85 @@ interface RegisterViewProps {
   onRegister: (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => Promise<void>;
   onImportAttendees?: (data: any[]) => Promise<any>;
   setError: (message: string) => void;
-  sectors: Sector[];
-  predefinedSector?: string | string[];
-  supplierName?: string;
+  sectors: Sector[]; // Full list of sectors for the event
+  // For category registration flow
+  categoryName?: string;
+  suppliersForCategory?: Supplier[];
+  attendeesForEvent?: Attendee[];
 }
 
-const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttendees, setError, sectors, predefinedSector, supplierName }) => {
+
+const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttendees, setError, sectors, categoryName, suppliersForCategory, attendeesForEvent }) => {
   const { t } = useTranslation();
+  // Form state
   const [name, setName] = useState('');
   const [cpf, setCpf] = useState('');
   const [sector, setSector] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
+  
+  // UI/Logic State
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCheckingCpf, setIsCheckingCpf] = useState(false);
   const [cpfCheckMessage, setCpfCheckMessage] = useState('');
   const [existingAttendeeFound, setExistingAttendeeFound] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   
-  const isSupplierWithMultipleSectors = Array.isArray(predefinedSector);
-  const isSupplierWithSingleSector = typeof predefinedSector === 'string';
-  const isAdminView = !predefinedSector; // True if it's the main admin view, not a supplier link
-
-  useEffect(() => {
-    let initialSector = '';
-    if (isSupplierWithSingleSector) {
-      initialSector = predefinedSector as string;
-    } else if (isSupplierWithMultipleSectors) {
-       // Find the full sector object from the list of available sectors
-      const availableSectors = sectors.filter(s => (predefinedSector as string[]).includes(s.id));
-      initialSector = availableSectors.length > 0 ? availableSectors[0].id : '';
-    }
-    setSector(initialSector);
-  }, [predefinedSector, isSupplierWithSingleSector, isSupplierWithMultipleSectors, sectors]);
+  // Category registration specific state
+  const [selectedSupplierId, setSelectedSupplierId] = useState('');
+  const [limitError, setLimitError] = useState('');
   
+  const isCategoryMode = !!suppliersForCategory;
+  const isAdminView = !isCategoryMode;
 
-  const clearForm = () => {
+  // Memoize calculations for performance
+  const registrationCounts = useMemo(() => {
+    if (!attendeesForEvent) return new Map<string, number>();
+    const counts = new Map<string, number>();
+    for (const attendee of attendeesForEvent) {
+      if (attendee.supplierId) {
+        counts.set(attendee.supplierId, (counts.get(attendee.supplierId) || 0) + 1);
+      }
+    }
+    return counts;
+  }, [attendeesForEvent]);
+
+  const selectedSupplier = useMemo(() => {
+    return suppliersForCategory?.find(s => s.id === selectedSupplierId);
+  }, [selectedSupplierId, suppliersForCategory]);
+  
+  const availableSectors = useMemo(() => {
+      if (!isCategoryMode) return sectors; // Admin sees all sectors
+      if (!selectedSupplier) return []; // No sectors if no supplier is selected
+      return sectors.filter(s => selectedSupplier.sectors.includes(s.id));
+  }, [isCategoryMode, selectedSupplier, sectors]);
+  
+  // Effect to handle supplier selection changes
+  useEffect(() => {
+    if (selectedSupplier) {
+      const count = registrationCounts.get(selectedSupplier.id) || 0;
+      if (count >= selectedSupplier.registrationLimit) {
+        setLimitError(t('register.errors.supplierLimitReached'));
+      } else {
+        setLimitError('');
+      }
+      // Reset sector if the current one is not available for the new supplier
+      if (!selectedSupplier.sectors.includes(sector)) {
+        setSector(selectedSupplier.sectors[0] || '');
+      }
+    } else {
+       setLimitError('');
+    }
+  }, [selectedSupplier, registrationCounts, sector, t]);
+
+
+  const clearForm = (clearSupplier = true) => {
     setName('');
     setCpf('');
     setPhoto(null);
     setCpfCheckMessage('');
     setExistingAttendeeFound(false);
-    if (!predefinedSector) {
-      setSector('');
-    } else if (isSupplierWithMultipleSectors) {
-      const availableSectors = sectors.filter(s => (predefinedSector as string[]).includes(s.id));
-      setSector(availableSectors.length > 0 ? availableSectors[0].id : '');
-    }
+    if(clearSupplier) setSelectedSupplierId('');
+    setSector(availableSectors.length > 0 ? availableSectors[0].id : '');
   };
 
   const formatCPF = (value: string) => {
@@ -110,22 +143,31 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
     e.preventDefault();
     const rawCpf = cpf.replace(/\D/g, '');
 
+    if (isCategoryMode && !selectedSupplierId) {
+      setError(t('register.errors.selectCompany'));
+      return;
+    }
     if (!name || !rawCpf || !photo || !sector) {
       setError(t('register.errors.allFields'));
-      setTimeout(() => setError(''), 3000);
       return;
     }
     if (rawCpf.length !== 11) {
       setError(t('register.errors.invalidCpf'));
-      setTimeout(() => setError(''), 3000);
       return;
     }
 
     setIsSubmitting(true);
     setShowSuccess(false);
     try {
-      await onRegister({ name, cpf: rawCpf, photo, sector });
-      clearForm();
+      const attendeePayload: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'> = {
+          name,
+          cpf: rawCpf,
+          photo,
+          sector,
+          supplierId: isCategoryMode ? selectedSupplierId : undefined,
+      };
+      await onRegister(attendeePayload);
+      clearForm(false); // Don't clear supplier selection, user might register another person
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 4000);
     } catch (error) {
@@ -135,30 +177,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
     }
   };
   
-  const renderSectorInput = () => {
-    if (isSupplierWithSingleSector) {
-      return null; // Sector is predefined and hidden
-    }
-
-    let sectorOptions = sectors;
-    if (isSupplierWithMultipleSectors) {
-        sectorOptions = sectors.filter(s => (predefinedSector as string[]).includes(s.id));
-    }
-
-    return (
-        <div>
-          <label htmlFor="sector" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.sectorLabel')}</label>
-          <select
-            id="sector" value={sector} onChange={(e) => setSector(e.target.value)}
-            className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
-            disabled={isSubmitting || isCheckingCpf}
-          >
-            {isSupplierWithMultipleSectors ? null : <option value="" disabled>{t('register.form.sectorPlaceholder')}</option>}
-            {sectorOptions.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-          </select>
-        </div>
-    );
-  };
+  const isFormDisabled = isSubmitting || isCheckingCpf || (isCategoryMode && (!selectedSupplierId || !!limitError));
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-10">
@@ -168,11 +187,26 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
               <UsersIcon className="w-8 h-8"/>
               {t('register.title')}
             </h2>
-            {supplierName && <p className="text-lg font-medium text-gray-400 mt-1">{supplierName}</p>}
+            {categoryName && <p className="text-lg font-medium text-gray-400 mt-1">{categoryName}</p>}
         </div>
 
         <form onSubmit={handleRegisterSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
           <div className="space-y-6">
+            {isCategoryMode && (
+                <div>
+                  <label htmlFor="company" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.companyLabel')}</label>
+                  <select
+                    id="company" value={selectedSupplierId}
+                    onChange={(e) => setSelectedSupplierId(e.target.value)}
+                    className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    disabled={isSubmitting || isCheckingCpf}
+                  >
+                    <option value="" disabled>{t('register.form.companyPlaceholder')}</option>
+                    {suppliersForCategory?.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                  {limitError && <p className="text-sm mt-1 text-red-400">{limitError}</p>}
+                </div>
+            )}
             <div>
               <label htmlFor="cpf" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.cpfLabel')}</label>
               <input
@@ -180,7 +214,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
                 onBlur={handleCpfBlur}
                 className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
                 placeholder={t('register.form.cpfPlaceholder')}
-                disabled={isSubmitting || isCheckingCpf}
+                disabled={isFormDisabled || isCheckingCpf}
               />
               {cpfCheckMessage && (
                   <p className="text-sm mt-1 text-gray-400 flex items-center gap-2">
@@ -195,12 +229,22 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
                 type="text" id="name" value={name} onChange={(e) => setName(e.target.value)}
                 className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
                 placeholder={t('register.form.namePlaceholder')}
-                disabled={isSubmitting || isCheckingCpf}
+                disabled={isFormDisabled}
               />
             </div>
-            {renderSectorInput()}
+            <div>
+              <label htmlFor="sector" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.sectorLabel')}</label>
+              <select
+                id="sector" value={sector} onChange={(e) => setSector(e.target.value)}
+                className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                disabled={isFormDisabled || (isCategoryMode && availableSectors.length <= 1)}
+              >
+                {isAdminView && <option value="" disabled>{t('register.form.sectorPlaceholder')}</option>}
+                {availableSectors.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+              </select>
+            </div>
             <div className="space-y-4">
-                <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-indigo-400 disabled:cursor-wait" disabled={!name || !cpf || !photo || !sector || isSubmitting || isCheckingCpf}>
+                <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-indigo-400 disabled:cursor-wait" disabled={!name || !cpf || !photo || !sector || isFormDisabled}>
                   {isSubmitting ? (
                     <>
                       <SpinnerIcon className="w-5 h-5" />
@@ -222,7 +266,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
             </div>
           </div>
           <div className="flex flex-col items-center">
-              <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting || isCheckingCpf || existingAttendeeFound} />
+              <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isFormDisabled || existingAttendeeFound} />
           </div>
         </form>
       </div>
