@@ -27,18 +27,12 @@ export interface Event {
   createdAt: Timestamp;
 }
 
-export interface SupplierCategory {
-  id: string;
-  name: string;
-}
-
 export interface Supplier {
   id: string;
   name: string;
   sectors: string[];
   active: boolean;
   registrationLimit: number;
-  categoryId: string;
 }
 
 export interface Sector {

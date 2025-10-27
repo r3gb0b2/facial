@@ -1,3 +1,6 @@
+// FIX: Switched to Firebase v8 compat libraries to resolve "initializeApp" import error,
+// which typically occurs when using v9 syntax with an older Firebase SDK version.
+// FIX: Changed to default import for firebase compat app, which is the correct way to import the main firebase object.
 import firebase from "firebase/compat/app";
 import "firebase/compat/firestore";
 import "firebase/compat/storage";
@@ -20,7 +23,7 @@ import "firebase/compat/storage";
 //    - Vá para "Build > Firestore Database".
 //    - Se você vir um botão "Criar banco de dados", clique nele e inicie em "modo de teste".
 //
-// ✅ 3. AS REGRAS DE SEGURANça FORAM ATUALIZADAS?
+// ✅ 3. AS REGRAS DE SEGURANÇA FORAM ATUALIZADAS?
 //    - Por padrão, ninguém pode ler ou escrever. Você PRECISA liberar o acesso.
 //
 //    - No Firestore (Build > Firestore Database > Aba "Regras"):
