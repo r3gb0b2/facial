@@ -18,6 +18,7 @@ export interface Attendee {
   eventId: string;
   createdAt: Timestamp;
   supplierId?: string; // To track which supplier registered the attendee
+  wristbandNumber?: string; // Optional wristband number assigned at check-in
 }
 
 export interface Event {
@@ -32,6 +33,7 @@ export interface Supplier {
   sectors: string[];
   active: boolean;
   registrationLimit: number;
+  sectorColors?: Record<string, string>; // e.g., { 'staff': '#ff0000' }
 }
 
 export interface Sector {

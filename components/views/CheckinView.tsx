@@ -37,11 +37,11 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
     setSelectedAttendee(attendee);
   };
 
-  const handleUpdateStatus = async (status: CheckinStatus) => {
+  const handleUpdateStatus = async (status: CheckinStatus, wristbandNumber?: string) => {
     if (selectedAttendee) {
-      await api.updateAttendeeStatus(currentEventId, selectedAttendee.id, status);
+      await api.updateAttendeeStatus(currentEventId, selectedAttendee.id, status, wristbandNumber);
       // Optimistically update local state for a smoother UI
-      setSelectedAttendee(prev => prev ? { ...prev, status } : null);
+      setSelectedAttendee(prev => prev ? { ...prev, status, wristbandNumber } : null);
     }
   };
   
@@ -49,6 +49,16 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
       await onDeleteAttendee(attendeeId);
       setSelectedAttendee(null); // Close modal on success
   };
+
+  const suppliersWithPending = useMemo(() => {
+    const pendingSupplierIds = new Set(
+        attendees
+            .filter(a => a.status === CheckinStatus.PENDING && a.supplierId)
+            .map(a => a.supplierId!)
+    );
+    return suppliers.filter(s => pendingSupplierIds.has(s.id));
+  }, [attendees, suppliers]);
+
 
   const filteredAttendees = useMemo(() => {
     const normalizedTerm = normalizeString(searchTerm);
@@ -129,7 +139,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
             className="w-full md:w-1/2 bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="ALL">{t('checkin.filter.allSuppliers')}</option>
-            {suppliers.map(supplier => (
+            {suppliersWithPending.map(supplier => (
               <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
             ))}
              <option value="">Sem fornecedor</option>

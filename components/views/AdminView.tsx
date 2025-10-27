@@ -16,7 +16,7 @@ interface AdminViewProps {
     sectors: Sector[];
     onRegister: (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => Promise<void>;
     onImportAttendees: (data: any[]) => Promise<any>;
-    onAddSupplier: (name: string, sectors: string[], registrationLimit: number) => Promise<void>;
+    onAddSupplier: (name: string, sectors: string[], registrationLimit: number, sectorColors: Record<string, string>) => Promise<void>;
     onUpdateSupplier: (supplierId: string, data: Partial<Supplier>) => Promise<void>;
     onDeleteSupplier: (supplier: Supplier) => Promise<void>;
     onSupplierStatusUpdate: (supplierId: string, active: boolean) => Promise<void>;

@@ -196,9 +196,9 @@ const App: React.FC = () => {
         return api.addAttendeesFromSpreadsheet(currentEvent.id, data, sectors, attendees);
     };
 
-    const handleAddSupplier = async (name: string, sectors: string[], registrationLimit: number) => {
+    const handleAddSupplier = async (name: string, sectors: string[], registrationLimit: number, sectorColors: Record<string, string>) => {
         if (!currentEvent) return Promise.reject();
-        await api.addSupplier(currentEvent.id, name, sectors, registrationLimit);
+        await api.addSupplier(currentEvent.id, name, sectors, registrationLimit, sectorColors);
     };
     
     const handleUpdateSupplier = (supplierId: string, data: Partial<Supplier>) => {

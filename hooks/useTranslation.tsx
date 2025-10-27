@@ -149,6 +149,8 @@ const translations = {
     'attendeeDetail.deleteButton': 'Excluir Cadastro',
     'attendeeDetail.deleteConfirm': (name: string) => `Tem certeza que deseja excluir o cadastro de "${name}"? Esta ação removerá a foto e todos os dados.`,
     'attendeeDetail.formError': 'Nome e CPF são obrigatórios.',
+    'attendeeDetail.wristbandLabel': 'Nº da Pulseira (Opcional)',
+    'attendeeDetail.wristbandPlaceholder': 'Digite o número',
     
     // Supplier Registration View
     'supplierRegistration.closedTitle': 'Cadastro Encerrado',
