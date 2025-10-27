@@ -27,12 +27,46 @@ const imageUrlToDataUrl = async (url: string): Promise<string> => {
     });
 };
 
+// Helper to convert a data URL string to a Blob object, which is more memory-efficient for uploads.
+const dataURLToBlob = (dataURL: string): Blob => {
+    const parts = dataURL.split(',');
+    const header = parts[0];
+    const data = parts[1];
+    
+    if (!header || !data) {
+        throw new Error("Invalid dataURL format");
+    }
+
+    const mimeMatch = header.match(/:(.*?);/);
+    if (!mimeMatch || mimeMatch.length < 2) {
+         throw new Error("Could not parse MIME type from dataURL");
+    }
+    const mimeString = mimeMatch[1];
+    
+    const byteString = atob(data);
+    const arrayBuffer = new ArrayBuffer(byteString.length);
+    const uint8Array = new Uint8Array(arrayBuffer);
+
+    for (let i = 0; i < byteString.length; i++) {
+        uint8Array[i] = byteString.charCodeAt(i);
+    }
+
+    return new Blob([uint8Array], { type: mimeString });
+};
+
 
 // --- Photo Upload ---
 export const uploadPhoto = async (photoDataUrl: string, attendeeId: string): Promise<string> => {
     const storageRef = storage.ref();
     const photoRef = storageRef.child(`attendees/${attendeeId}.png`);
-    await photoRef.putString(photoDataUrl, 'data_url');
+    
+    // Convert the data URL to a Blob for a more efficient and stable upload,
+    // especially on mobile devices which can struggle with large base64 strings.
+    const photoBlob = dataURLToBlob(photoDataUrl);
+    
+    // Use put() for Blobs, which is generally more memory-efficient than putString().
+    await photoRef.put(photoBlob);
+    
     return photoRef.getDownloadURL();
 };
 
