@@ -1,5 +1,4 @@
-// FIX: Import the initialized firebase instance from config.ts to ensure type consistency.
-import { firebase } from './firebase/config.ts';
+import type { Timestamp } from './firebase/config.ts';
 
 export enum CheckinStatus {
   PENDING = 'PENDING',
@@ -17,14 +16,14 @@ export interface Attendee {
   sector: string;
   status: CheckinStatus;
   eventId: string;
-  createdAt: firebase.firestore.Timestamp;
+  createdAt: Timestamp;
   supplierId?: string; // To track which supplier registered the attendee
 }
 
 export interface Event {
   id: string;
   name: string;
-  createdAt: firebase.firestore.Timestamp;
+  createdAt: Timestamp;
 }
 
 export interface Supplier {

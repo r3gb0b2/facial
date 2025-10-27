@@ -81,5 +81,10 @@ const db = firebase.firestore();
 // Initialize Firebase Storage
 const storage = firebase.storage();
 
-// FIX: Export the main firebase object instead of FieldValue to ensure consistency.
-export { db, storage, firebase };
+// Explicitly export the necessary members from the single, initialized firebase instance.
+// This is the most robust way to prevent instance mismatch errors.
+const FieldValue = firebase.firestore.FieldValue;
+type Timestamp = firebase.firestore.Timestamp;
+
+export { db, storage, FieldValue };
+export type { Timestamp };
