@@ -18,14 +18,15 @@ const firebaseConfig: {
   messagingSenderId?: string;
   appId?: string;
 } = {
-  // COLE SUAS CREDENCIAIS AQUI
-  // Exemplo:
-  // apiKey: "AIza....",
-  // authDomain: "seu-projeto.firebaseapp.com",
-  // projectId: "seu-projeto",
-  // storageBucket: "seu-projeto.appspot.com",
-  // messagingSenderId: "...",
-  // appId: "1:..."
+ const firebaseConfig = {
+  apiKey: "AIzaSyDlaBCtgD74608i4JdOMQYJ0433V-c0bjI",
+  authDomain: "facial-244d7.firebaseapp.com",
+  databaseURL: "https://facial-244d7-default-rtdb.firebaseio.com",
+  projectId: "facial-244d7",
+  storageBucket: "facial-244d7.firebasestorage.app",
+  messagingSenderId: "979969706148",
+  appId: "1:979969706148:web:14fbcd486911fe40dc3e31"
+};
 };
 // =================================================================================================
 //
