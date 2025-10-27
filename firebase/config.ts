@@ -20,7 +20,7 @@ import "firebase/compat/storage";
 //    - Vá para "Build > Firestore Database".
 //    - Se você vir um botão "Criar banco de dados", clique nele e inicie em "modo de teste".
 //
-// ✅ 3. AS REGRAS DE SEGURANÇA FORAM ATUALIZADAS?
+// ✅ 3. AS REGRAS DE SEGURANça FORAM ATUALIZADAS?
 //    - Por padrão, ninguém pode ler ou escrever. Você PRECISA liberar o acesso.
 //
 //    - No Firestore (Build > Firestore Database > Aba "Regras"):
