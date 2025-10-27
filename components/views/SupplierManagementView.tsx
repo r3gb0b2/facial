@@ -248,8 +248,9 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                             <PencilIcon className="w-4 h-4" />
                                             {t('suppliers.editButton')}
                                         </button>
-                                         <button onClick={() => handleDelete(supplier)} className="bg-red-600 hover:bg-red-700 text-white font-bold p-2.5 rounded-lg flex items-center gap-2">
+                                         <button onClick={() => handleDelete(supplier)} className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-lg flex items-center gap-2">
                                             <TrashIcon className="w-4 h-4" />
+                                            <span>{t('suppliers.deleteButton')}</span>
                                         </button>
                                     </div>
                                 </div>

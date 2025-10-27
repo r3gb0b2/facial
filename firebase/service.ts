@@ -143,6 +143,33 @@ export const updateAttendeeDetails = async (eventId: string, attendeeId: string,
     await eventRef.collection('attendees').doc(attendeeId).update(data);
 };
 
+export const deleteAttendee = async (eventId: string, attendeeId: string): Promise<void> => {
+    const eventRef = db.collection('events').doc(ensureEventId(eventId));
+    const attendeeRef = eventRef.collection('attendees').doc(attendeeId);
+
+    const attendeeDoc = await attendeeRef.get();
+    if (!attendeeDoc.exists) {
+        throw new Error("Attendee not found.");
+    }
+
+    const attendeeData = attendeeDoc.data() as Attendee;
+
+    // Delete photo from storage, handle potential errors (e.g., placeholder URLs)
+    if (attendeeData.photo && attendeeData.photo.includes('firebasestorage')) {
+        try {
+            const photoRef = storage.refFromURL(attendeeData.photo);
+            await photoRef.delete();
+        } catch (error) {
+            console.warn(`Could not delete photo for attendee ${attendeeId}:`, error);
+            // Don't block deletion of the record if photo deletion fails
+        }
+    }
+    
+    // Delete the Firestore document
+    await attendeeRef.delete();
+};
+
+
 export const addAttendeesFromSpreadsheet = async (eventId: string, data: any[], existingSectors: Sector[], existingAttendees: Attendee[]): Promise<{ successCount: number; errors: { row: number; message: string }[] }> => {
     const eventRef = db.collection('events').doc(ensureEventId(eventId));
     const batch = db.batch();

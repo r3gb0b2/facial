@@ -24,6 +24,7 @@ interface AdminViewProps {
     onUpdateSector: (sectorId: string, label: string) => Promise<void>;
     onDeleteSector: (sector: Sector) => Promise<void>;
     onAttendeeDetailsUpdate: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector'>>) => Promise<void>;
+    onDeleteAttendee: (attendeeId: string) => Promise<void>;
     onBack: () => void;
     setError: (message: string) => void;
 }
@@ -42,7 +43,15 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
     const renderContent = () => {
         switch(activeTab) {
             case 'checkin':
-                return <CheckinView attendees={props.attendees} suppliers={props.suppliers} currentEventId={props.currentEvent.id} />;
+                return <CheckinView 
+                    attendees={props.attendees} 
+                    suppliers={props.suppliers} 
+                    sectors={props.sectors}
+                    currentEventId={props.currentEvent.id}
+                    onUpdateAttendeeDetails={props.onAttendeeDetailsUpdate}
+                    onDeleteAttendee={props.onDeleteAttendee}
+                    setError={props.setError}
+                />;
             case 'register':
                 return <RegisterView onRegister={props.onRegister} onImportAttendees={props.onImportAttendees} setError={props.setError} sectors={props.sectors} />;
             case 'suppliers':

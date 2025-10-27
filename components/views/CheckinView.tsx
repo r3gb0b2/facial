@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Attendee, CheckinStatus, Supplier } from '../../types.ts';
+import { Attendee, CheckinStatus, Supplier, Sector } from '../../types.ts';
 import AttendeeCard from '../AttendeeCard.tsx';
-import StatusUpdateModal from '../StatusUpdateModal.tsx';
+import AttendeeDetailModal from '../AttendeeDetailModal.tsx';
 import * as api from '../../firebase/service.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { SearchIcon, CheckCircleIcon, UsersIcon } from '../icons.tsx';
@@ -9,7 +9,11 @@ import { SearchIcon, CheckCircleIcon, UsersIcon } from '../icons.tsx';
 interface CheckinViewProps {
   attendees: Attendee[];
   suppliers: Supplier[];
+  sectors: Sector[];
   currentEventId: string;
+  onUpdateAttendeeDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector'>>) => Promise<void>;
+  onDeleteAttendee: (attendeeId: string) => Promise<void>;
+  setError: (message: string) => void;
 }
 
 // Helper function for accent-insensitive search
@@ -22,22 +26,28 @@ const normalizeString = (str: string) => {
     .trim();
 };
 
-const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, currentEventId }) => {
+const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors, currentEventId, onUpdateAttendeeDetails, onDeleteAttendee, setError }) => {
   const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<CheckinStatus | 'ALL'>('ALL');
   const [supplierFilter, setSupplierFilter] = useState<string | 'ALL'>('ALL');
-  const [attendeeForStatusUpdate, setAttendeeForStatusUpdate] = useState<Attendee | null>(null);
+  const [selectedAttendee, setSelectedAttendee] = useState<Attendee | null>(null);
 
   const handleSelectAttendee = (attendee: Attendee) => {
-    setAttendeeForStatusUpdate(attendee);
+    setSelectedAttendee(attendee);
   };
 
   const handleUpdateStatus = async (status: CheckinStatus) => {
-    if (attendeeForStatusUpdate) {
-      await api.updateAttendeeStatus(currentEventId, attendeeForStatusUpdate.id, status);
-      setAttendeeForStatusUpdate(null);
+    if (selectedAttendee) {
+      await api.updateAttendeeStatus(currentEventId, selectedAttendee.id, status);
+      // Optimistically update local state for a smoother UI
+      setSelectedAttendee(prev => prev ? { ...prev, status } : null);
     }
+  };
+  
+  const handleDelete = async (attendeeId: string) => {
+      await onDeleteAttendee(attendeeId);
+      setSelectedAttendee(null); // Close modal on success
   };
 
   const filteredAttendees = useMemo(() => {
@@ -138,11 +148,15 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, current
           </div>
       )}
       
-      {attendeeForStatusUpdate && (
-        <StatusUpdateModal
-          attendee={attendeeForStatusUpdate}
-          onClose={() => setAttendeeForStatusUpdate(null)}
+      {selectedAttendee && (
+        <AttendeeDetailModal
+          attendee={selectedAttendee}
+          sectors={sectors}
+          onClose={() => setSelectedAttendee(null)}
           onUpdateStatus={handleUpdateStatus}
+          onUpdateDetails={onUpdateAttendeeDetails}
+          onDelete={handleDelete}
+          setError={setError}
         />
       )}
     </div>

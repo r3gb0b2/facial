@@ -140,6 +140,13 @@ const translations = {
     'statusUpdateModal.allowSubstitution': 'Permitir Substituição',
     'statusUpdateModal.cancelRegistration': 'Cancelar Inscrição',
     'statusUpdateModal.closeButton': 'Fechar',
+    'attendeeDetail.title': 'Detalhes do Participante',
+    'attendeeDetail.editButton': 'Editar',
+    'attendeeDetail.saveButton': 'Salvar',
+    'attendeeDetail.cancelButton': 'Cancelar',
+    'attendeeDetail.deleteButton': 'Excluir Cadastro',
+    'attendeeDetail.deleteConfirm': (name: string) => `Tem certeza que deseja excluir o cadastro de "${name}"? Esta ação removerá a foto e todos os dados.`,
+    'attendeeDetail.formError': 'Nome e CPF são obrigatórios.',
     
     // Supplier Registration View
     'supplierRegistration.closedTitle': 'Cadastro Encerrado',
@@ -175,7 +182,7 @@ export const LanguageProvider = ({ children }: PropsWithChildren<{}>) => {
   return (
     <LanguageContext.Provider value={{ language: currentLanguage, t }}>
       {children}
-    </LanguageContext.Provider>
+    </Language-Provider>
   );
 };
 

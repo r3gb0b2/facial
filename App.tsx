@@ -236,6 +236,17 @@ const App: React.FC = () => {
         return api.updateAttendeeDetails(currentEvent.id, attendeeId, data);
     };
 
+    const handleDeleteAttendee = async (attendeeId: string) => {
+        if (!currentEvent) return;
+        if (window.confirm('Tem certeza que deseja deletar este participante? Esta ação é irreversível.')) {
+            try {
+                await api.deleteAttendee(currentEvent.id, attendeeId);
+            } catch (e) {
+                setAppError('Falha ao deletar participante.');
+            }
+        }
+    };
+
     // --- Render Logic ---
     
     const renderContent = () => {
@@ -271,6 +282,7 @@ const App: React.FC = () => {
                     onUpdateSector={handleUpdateSector}
                     onDeleteSector={handleDeleteSector}
                     onAttendeeDetailsUpdate={handleAttendeeDetailsUpdate}
+                    onDeleteAttendee={handleDeleteAttendee}
                     onBack={handleBackToEvents}
                     setError={setAppError}
                 />;
