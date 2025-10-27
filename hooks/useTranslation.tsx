@@ -66,6 +66,7 @@ const translations = {
     'register.import.errors.missingColumns': 'A planilha está faltando colunas obrigatórias (nome, cpf, setor).',
     'register.import.errors.parsing': 'Erro ao processar o arquivo.',
     'register.import.errors.rowError': (row: number, message: string) => `Linha ${row}: ${message}`,
+    'register.successMessage': 'Cadastro realizado com sucesso!',
 
     // Suppliers
     'suppliers.generateTitle': 'Gerar Link de Cadastro',

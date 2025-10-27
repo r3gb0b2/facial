@@ -51,6 +51,14 @@ export const addAttendee = async (
     attendeeData: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>
 ): Promise<string> => {
     const eventRef = db.collection('events').doc(eventId);
+    
+    // Check for existing CPF within the same event
+    const existingAttendeeQuery = eventRef.collection('attendees').where('cpf', '==', attendeeData.cpf);
+    const existingAttendeeSnapshot = await existingAttendeeQuery.get();
+    if (!existingAttendeeSnapshot.empty) {
+        throw new Error("Este CPF já foi cadastrado para este evento.");
+    }
+    
     const newAttendeeRef = eventRef.collection('attendees').doc();
     
     // If the photo is a new base64 string, upload it. Otherwise, use the existing URL.
@@ -94,11 +102,16 @@ export const registerAttendeeForSupplier = async (
         if (!supplier.active) {
             throw new Error("Este link de cadastro não está mais ativo.");
         }
+        
+        // Check for existing CPF within the same event
+        const attendeesCollectionRef = eventRef.collection('attendees');
+        const cpfQuery = attendeesCollectionRef.where('cpf', '==', attendeeData.cpf);
+        const existingAttendeeSnapshot = await cpfQuery.get();
+        if (!existingAttendeeSnapshot.empty) {
+            throw new Error("Este CPF já foi cadastrado para este evento.");
+        }
 
         const attendeesForSupplierQuery = eventRef.collection('attendees').where('supplierId', '==', supplierId);
-        // FIX: transaction.get() expects a DocumentReference, but was passed a Query.
-        // The query is now executed directly with .get(). This resolves both the type error
-        // for transaction.get() and the subsequent error on .size, as query.get() returns a QuerySnapshot.
         const attendeesForSupplierSnapshot = await attendeesForSupplierQuery.get();
 
         if (attendeesForSupplierSnapshot.size >= supplier.registrationLimit) {

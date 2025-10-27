@@ -26,6 +26,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
   const [isCheckingCpf, setIsCheckingCpf] = useState(false);
   const [cpfCheckMessage, setCpfCheckMessage] = useState('');
   const [existingAttendeeFound, setExistingAttendeeFound] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
   
   const isSupplierWithMultipleSectors = Array.isArray(predefinedSector);
   const isSupplierWithSingleSector = typeof predefinedSector === 'string';
@@ -120,9 +121,12 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
     }
 
     setIsSubmitting(true);
+    setShowSuccess(false);
     try {
       await onRegister({ name, cpf: rawCpf, photo, sector });
       clearForm();
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 4000);
     } catch (error) {
       console.error("Registration failed:", error);
     } finally {
@@ -190,19 +194,27 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
               />
             </div>
             {renderSectorInput()}
-            <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-indigo-400 disabled:cursor-wait" disabled={!name || !cpf || !photo || !sector || isSubmitting || isCheckingCpf}>
-              {isSubmitting ? (
-                <>
-                  <SpinnerIcon className="w-5 h-5" />
-                  Registrando...
-                </>
-              ) : (
-                <>
-                  <CheckCircleIcon className="w-5 h-5"/>
-                  {t('register.form.button')}
-                </>
-              )}
-            </button>
+            <div className="space-y-4">
+                <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-indigo-400 disabled:cursor-wait" disabled={!name || !cpf || !photo || !sector || isSubmitting || isCheckingCpf}>
+                  {isSubmitting ? (
+                    <>
+                      <SpinnerIcon className="w-5 h-5" />
+                      Registrando...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircleIcon className="w-5 h-5"/>
+                      {t('register.form.button')}
+                    </>
+                  )}
+                </button>
+                 {showSuccess && (
+                    <div className="text-center p-3 rounded-lg bg-green-500/20 text-green-300 border border-green-500 flex items-center justify-center gap-2">
+                        <CheckCircleIcon className="w-5 h-5" />
+                        <p className="text-sm font-medium">{t('register.successMessage')}</p>
+                    </div>
+                )}
+            </div>
           </div>
           <div className="flex flex-col items-center">
               <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting || isCheckingCpf || existingAttendeeFound} />
