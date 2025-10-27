@@ -57,23 +57,37 @@ const firebaseConfig: {
 //      }
 // =================================================================================================
 
-// Initialize Firebase
+// Safely initialize Firebase and export instances
+let db: firebase.firestore.Firestore | null = null;
+let storage: firebase.storage.Storage | null = null;
+let firebaseInitialized = false;
+
 if (!firebase.apps.length) {
-  // A simple check to avoid initializing the app multiple times.
-  // We also check if the config object has an apiKey before trying to initialize.
-  if (firebaseConfig.apiKey) {
-    firebase.initializeApp(firebaseConfig);
-  } else {
-    console.error("Firebase config is missing. Please add your credentials to firebase/config.ts");
-  }
+    // We also check if the config object has an apiKey before trying to initialize.
+    if (firebaseConfig.apiKey) {
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            storage = firebase.storage();
+            firebaseInitialized = true;
+        } catch (e) {
+            console.error("Error initializing Firebase:", e)
+        }
+    } else {
+        console.error("Firebase config is missing. Please add your credentials to firebase/config.ts");
+    }
+} else {
+    // App is already initialized, get instances
+    db = firebase.firestore();
+    storage = firebase.storage();
+    firebaseInitialized = true;
 }
 
-const db = firebase.firestore();
-const storage = firebase.storage();
+
 const FieldValue = firebase.firestore.FieldValue;
 const Timestamp = firebase.firestore.Timestamp;
 
 // FIX: Explicitly export the Timestamp instance type for use in type annotations elsewhere.
 export type FirebaseTimestamp = firebase.firestore.Timestamp;
 
-export { db, storage, FieldValue, Timestamp };
+export { db, storage, FieldValue, Timestamp, firebaseInitialized };
