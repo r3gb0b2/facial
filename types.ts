@@ -1,5 +1,5 @@
-import firebase from 'firebase/compat/app';
-import 'firebase/compat/firestore';
+// FIX: Import the initialized firebase instance from config.ts to ensure type consistency.
+import { firebase } from './firebase/config.ts';
 
 export enum CheckinStatus {
   PENDING = 'PENDING',

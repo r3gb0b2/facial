@@ -84,4 +84,4 @@ const storage = firebase.storage();
 // FIX: Export FieldValue to ensure a single instance is used across the app, preventing type mismatch errors.
 const FieldValue = firebase.firestore.FieldValue;
 
-export { db, storage, FieldValue };
+export { db, storage, FieldValue, firebase };
