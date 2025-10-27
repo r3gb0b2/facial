@@ -96,7 +96,10 @@ export const registerAttendeeForSupplier = async (
         }
 
         const attendeesForSupplierQuery = eventRef.collection('attendees').where('supplierId', '==', supplierId);
-        const attendeesForSupplierSnapshot = await transaction.get(attendeesForSupplierQuery);
+        // FIX: transaction.get() expects a DocumentReference, but was passed a Query.
+        // The query is now executed directly with .get(). This resolves both the type error
+        // for transaction.get() and the subsequent error on .size, as query.get() returns a QuerySnapshot.
+        const attendeesForSupplierSnapshot = await attendeesForSupplierQuery.get();
 
         if (attendeesForSupplierSnapshot.size >= supplier.registrationLimit) {
             throw new Error("Limite de inscrições para este fornecedor foi atingido.");

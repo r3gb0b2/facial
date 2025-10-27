@@ -1,5 +1,6 @@
 // FIX: Switched to Firebase v8 compat libraries to resolve "initializeApp" import error,
 // which typically occurs when using v9 syntax with an older Firebase SDK version.
+// FIX: Changed to default import for firebase compat app, which is the correct way to import the main firebase object.
 import firebase from "firebase/compat/app";
 import "firebase/compat/firestore";
 import "firebase/compat/storage";
@@ -69,10 +70,12 @@ if (firebaseConfig.apiKey === "AIzaSyDlaBCtgD74608i4JdOMQYJ0433V-c0bjI") {
 }
 
 
-// Initialize Firebase
-const app = firebase.initializeApp(firebaseConfig);
-// FIX: Use firebaseConfig.projectId directly as app.options was not correctly typed.
-console.log("Firebase Initialized Successfully with projectId:", firebaseConfig.projectId);
+// Initialize Firebase, but only if it hasn't been initialized already.
+// This is a safeguard against issues caused by module re-evaluation.
+if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+    console.log("Firebase Initialized with projectId:", firebaseConfig.projectId);
+}
 
 
 // Initialize Cloud Firestore and get a reference to the service
