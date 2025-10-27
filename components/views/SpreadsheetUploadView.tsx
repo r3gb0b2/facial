@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react';
-import * as Papa from 'papaparse';
+import { parse } from 'papaparse';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { CheckCircleIcon, SpinnerIcon, XMarkIcon, UsersIcon } from '../icons';
+import { CheckCircleIcon, SpinnerIcon, XMarkIcon, UsersIcon } from '../icons.tsx';
 
 interface SpreadsheetUploadViewProps {
   onImport: (data: any[]) => Promise<{ successCount: number; errors: { row: number; message: string }[] }>;
@@ -26,7 +26,7 @@ const SpreadsheetUploadView: React.FC<SpreadsheetUploadViewProps> = ({ onImport,
     setIsLoading(true);
     setImportReport(null);
 
-    Papa.parse(file, {
+    parse(file, {
       header: true,
       skipEmptyLines: true,
       complete: async (results: any) => {

@@ -1,8 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Supplier, Sector, Attendee } from '../../types';
-// FIX: Added .tsx extension to module import.
+import { Supplier, Sector, Attendee } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { LinkIcon, ClipboardDocumentIcon, NoSymbolIcon, CheckCircleIcon, PencilIcon, TrashIcon } from '../icons';
+import { LinkIcon, ClipboardDocumentIcon, NoSymbolIcon, CheckCircleIcon, PencilIcon, TrashIcon } from '../icons.tsx';
 
 interface SupplierManagementViewProps {
     currentEventId: string;

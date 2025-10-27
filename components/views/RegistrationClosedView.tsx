@@ -1,7 +1,6 @@
 import React from 'react';
-// FIX: Added .tsx extension to module import.
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { NoSymbolIcon } from '../icons';
+import { NoSymbolIcon } from '../icons.tsx';
 
 interface RegistrationClosedViewProps {
   message?: string;

@@ -1,6 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { CameraIcon, RefreshIcon } from './icons';
-// FIX: Added .tsx extension to module import.
+import { CameraIcon, RefreshIcon } from './icons.tsx';
 import { useTranslation } from '../hooks/useTranslation.tsx';
 
 interface WebcamCaptureProps {
