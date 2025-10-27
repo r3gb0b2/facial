@@ -36,16 +36,24 @@ const App: React.FC = () => {
     const [isEventModalOpen, setIsEventModalOpen] = useState(false);
     const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
 
-    // Handle URL parameters for supplier links
+    // Handle URL parameters and persisted login state on initial load
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const eventId = params.get('eventId');
         const supplierId = params.get('supplierId');
-        
+
+        // Supplier links take priority over admin login
         if (eventId && supplierId) {
             handleSupplierLink(eventId, supplierId);
         } else {
-            setIsLoading(false); // No supplier link, proceed to normal auth flow
+            // If no supplier link, check for a persisted admin session
+            const isAdminLoggedIn = sessionStorage.getItem('isFacialAdminLoggedIn');
+            if (isAdminLoggedIn === 'true') {
+                setIsLoggedIn(true);
+                setCurrentView('event_selection');
+            }
+            // In either case (logged in or not), we're done with initial checks.
+            setIsLoading(false);
         }
     }, []);
     
@@ -94,6 +102,7 @@ const App: React.FC = () => {
     
     const handleLogin = (password: string) => {
         if (password === ADMIN_PASSWORD) {
+            sessionStorage.setItem('isFacialAdminLoggedIn', 'true'); // Persist login state
             setIsLoggedIn(true);
             setCurrentView('event_selection');
             setLoginError(null);
