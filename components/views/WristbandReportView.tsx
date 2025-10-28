@@ -64,11 +64,12 @@ const WristbandReportView: React.FC<WristbandReportViewProps> = ({ attendees, se
             <div key={stat.id} className="bg-gray-800/50 p-4 rounded-lg border border-gray-700 flex flex-col justify-between">
               <div className="flex items-center gap-2">
                 <span className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: stat.color }}></span>
-                <h3 className="font-bold text-white truncate">{stat.label}</h3>
+                <h3 className="font-bold text-white truncate">{stat.label || stat.id || 'Setor sem nome'}</h3>
               </div>
               <div>
                 <p className="text-2xl font-bold text-indigo-400">{stat.delivered}</p>
-                <p className="text-xs text-gray-400 font-medium">{t('wristbandReport.stats.deliveredOf', stat.delivered, stat.total)}</p>
+                {/* FIX: Explicitly cast stat values to numbers to ensure type compatibility with the translation function. */}
+                <p className="text-xs text-gray-400 font-medium">{t('wristbandReport.stats.deliveredOf', stat.delivered as number, stat.total as number)}</p>
               </div>
             </div>
           ))}
@@ -129,9 +130,9 @@ const WristbandReportView: React.FC<WristbandReportViewProps> = ({ attendees, se
                                <span
                                 className="w-3 h-3 rounded-full flex-shrink-0"
                                 style={{ backgroundColor: sector.color || '#4B5563' }}
-                                title={sector.label || sector.id}
+                                title={sector.label || sector.id || 'Setor sem nome'}
                               ></span>
-                              <span className="font-semibold">{sector.label || sector.id}:</span>
+                              <span className="font-semibold">{sector.label || sector.id || 'Setor sem nome'}:</span>
                             </div>
                           ))}
                         </div>

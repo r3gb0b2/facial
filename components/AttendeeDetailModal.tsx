@@ -85,7 +85,8 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   };
 
   const handleDelete = () => {
-    if (window.confirm(t('attendeeDetail.deleteConfirm', attendee.name))) {
+    // FIX: Explicitly cast attendee.name to string to ensure type compatibility with the translation function.
+    if (window.confirm(t('attendeeDetail.deleteConfirm', attendee.name as string))) {
       onDelete(attendee.id);
     }
   };
