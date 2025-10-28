@@ -438,26 +438,37 @@ export const regenerateSupplierAdminToken = async (eventId: string, supplierId: 
 
 export const getSupplierDataForAdminView = async (adminToken: string): Promise<{ supplierName: string; attendees: Attendee[] } | null> => {
     try {
-        const supplierQuery = db.collectionGroup('suppliers').where('adminToken', '==', adminToken).limit(1);
-        const supplierSnapshot = await supplierQuery.get();
+        // Step 1: Get all events. This is less efficient than a collectionGroup query
+        // but it is far more robust as it does NOT require a manual Firestore index.
+        const eventsSnapshot = await db.collection('events').get();
+        
+        let foundSupplierData: { supplier: Supplier; eventId: string } | null = null;
 
-        if (supplierSnapshot.empty) {
+        // Step 2: Loop through each event to find the supplier with the matching token.
+        // This uses a standard subcollection query which does not require special indexes.
+        for (const eventDoc of eventsSnapshot.docs) {
+            const eventId = eventDoc.id;
+            const supplierQuery = db.collection('events').doc(eventId).collection('suppliers').where('adminToken', '==', adminToken).limit(1);
+            const supplierSnapshot = await supplierQuery.get();
+
+            // If we find the supplier, store its data and break the loop.
+            if (!supplierSnapshot.empty) {
+                const supplierDoc = supplierSnapshot.docs[0];
+                const supplier = { id: supplierDoc.id, ...supplierDoc.data() } as Supplier;
+                foundSupplierData = { supplier, eventId };
+                break;
+            }
+        }
+        
+        // Step 3: If no supplier was found after checking all events, return null.
+        if (!foundSupplierData) {
             console.error(`No supplier found with adminToken: ${adminToken}`);
             return null;
         }
 
-        const supplierDoc = supplierSnapshot.docs[0];
-        const supplier = { id: supplierDoc.id, ...supplierDoc.data() } as Supplier;
-        
-        // A document's reference path looks like: /events/{eventId}/suppliers/{supplierId}
-        // So, ref.parent is the 'suppliers' collection, and ref.parent.parent is the event document.
-        const eventDocRef = supplierDoc.ref.parent.parent;
-        if (!eventDocRef) {
-             console.error(`Could not determine parent event for supplier ${supplier.id}`);
-             return null;
-        }
-        const eventId = eventDocRef.id;
+        const { supplier, eventId } = foundSupplierData;
 
+        // Step 4: Fetch all attendees for the found supplier.
         const attendeesQuery = db.collection('events').doc(eventId).collection('attendees').where('supplierId', '==', supplier.id).orderBy('name');
         const attendeesSnapshot = await attendeesQuery.get();
         
@@ -472,16 +483,8 @@ export const getSupplierDataForAdminView = async (adminToken: string): Promise<{
         };
 
     } catch (error: any) {
-        if (error.code === 'failed-precondition') {
-            console.error("======================================================================================");
-            console.error("🔥🔥🔥 FIRESTORE INDEX ERROR 🔥🔥🔥");
-            console.error("The query for the supplier admin link failed. This usually means a Firestore index is missing.");
-            console.error("Please visit the link in your browser's error console to create the required index. The feature will not work correctly until the index is created and enabled (this may take a few minutes).");
-            console.error("======================================================================================");
-            throw new Error("Índice do Firestore ausente. Verifique o console do navegador para obter o link de criação.");
-        }
+        // This will now only catch general network or permission errors.
         console.error("Error fetching supplier data for admin view:", error);
-        // For any other type of error, we just return null and let the caller handle it.
         return null;
     }
 };
