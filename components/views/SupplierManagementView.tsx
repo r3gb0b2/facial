@@ -381,5 +381,4 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
     );
 };
 
-// FIX: Added missing default export.
 export default SupplierManagementView;

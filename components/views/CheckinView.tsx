@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Attendee, CheckinStatus, Supplier, Sector } from '../../types.ts';
 import AttendeeCard from '../AttendeeCard.tsx';
-import AttendeeDetailModal from '../AttendeeDetailModal.tsx';
+// FIX: Changed to a named import to resolve module error.
+import { AttendeeDetailModal } from '../AttendeeDetailModal.tsx';
 import * as api from '../../firebase/service.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { SearchIcon, CheckCircleIcon, UsersIcon } from '../icons.tsx';

@@ -1,5 +1,5 @@
-// FIX: Changed import to get the Timestamp type from firebase/firestore namespace which is where it is defined, aligning with its usage in firebase/config.ts.
-import type { firestore } from 'firebase/firestore';
+// FIX: Replaced Timestamp value with FirebaseTimestamp type to resolve conflict between value and type.
+import type { FirebaseTimestamp } from './firebase/config.ts';
 
 export enum CheckinStatus {
   PENDING = 'PENDING',
@@ -18,7 +18,7 @@ export interface Attendee {
   sectors: string[];
   status: CheckinStatus;
   eventId: string;
-  createdAt: firestore.Timestamp;
+  createdAt: FirebaseTimestamp;
   supplierId?: string; // To track which supplier registered the attendee
   subCompany?: string; // The attendee's specific company under a supplier
   wristbands?: { [sectorId: string]: string }; // Maps sectorId to wristband number
@@ -32,7 +32,7 @@ export interface Attendee {
 export interface Event {
   id: string;
   name: string;
-  createdAt: firestore.Timestamp;
+  createdAt: FirebaseTimestamp;
 }
 
 export interface SubCompany {
