@@ -6,6 +6,7 @@ import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon } from './icons.tsx';
 interface AttendeeDetailModalProps {
   attendee: Attendee;
   sectors: Sector[];
+  allAttendees: Attendee[];
   onClose: () => void;
   onUpdateStatus: (status: CheckinStatus, wristbands?: { [sectorId: string]: string }) => void;
   onUpdateDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'wristbands' | 'subCompany'>>) => Promise<void>;
@@ -17,6 +18,7 @@ interface AttendeeDetailModalProps {
 const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   attendee,
   sectors,
+  allAttendees,
   onClose,
   onUpdateStatus,
   onUpdateDetails,
@@ -27,6 +29,7 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [wristbands, setWristbands] = useState(attendee.wristbands || {});
+  const [wristbandErrors, setWristbandErrors] = useState<Set<string>>(new Set());
   const [showWristbandSuccess, setShowWristbandSuccess] = useState(false);
   const [editData, setEditData] = useState({
     name: attendee.name,
@@ -52,6 +55,7 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     setWristbands(attendee.wristbands || {});
     setIsEditing(false); // Reset editing state when attendee changes
     setShowWristbandSuccess(false);
+    setWristbandErrors(new Set());
   }, [attendee]);
 
   const statusInfo = {
@@ -86,12 +90,58 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     }
   };
   
+  // --- Wristband Validation and Saving ---
+
+  const validateWristbands = (currentWristbands: { [sectorId: string]: string }): string[] => {
+    const newErrors = new Set<string>();
+    const numbersInForm = new Set<string>();
+    
+    // 1. Check for duplicates within the current form's inputs
+    for (const number of Object.values(currentWristbands)) {
+        if (!number) continue;
+        if (numbersInForm.has(number)) {
+            newErrors.add(number);
+        }
+        numbersInForm.add(number);
+    }
+
+    // 2. Check for duplicates against all other attendees in the event
+    for (const number of Object.values(currentWristbands)) {
+        if (!number) continue;
+        for (const otherAttendee of allAttendees) {
+            if (otherAttendee.id === attendee.id) continue; // Skip self
+            if (otherAttendee.wristbands && Object.values(otherAttendee.wristbands).includes(number)) {
+                newErrors.add(number);
+                break; // Found a duplicate for this number, no need to check further
+            }
+        }
+    }
+    
+    setWristbandErrors(newErrors);
+    return Array.from(newErrors);
+  };
+
   const handleWristbandSave = async () => {
+    const duplicates = validateWristbands(wristbands);
+    if (duplicates.length > 0) {
+      setError(t('attendeeDetail.wristbandsDuplicateError', duplicates.join(', ')));
+      return;
+    }
+    
     await onUpdateDetails(attendee.id, { wristbands });
     setShowWristbandSuccess(true);
     setTimeout(() => {
         setShowWristbandSuccess(false);
     }, 3000);
+  };
+  
+  const handleConfirmCheckin = () => {
+      const duplicates = validateWristbands(wristbands);
+      if (duplicates.length > 0) {
+        setError(t('attendeeDetail.wristbandsDuplicateError', duplicates.join(', ')));
+        return;
+      }
+      onUpdateStatus(CheckinStatus.CHECKED_IN, wristbands);
   };
 
   const handleSubCompanyChange = (subCompanyName: string) => {
@@ -105,6 +155,10 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   
   const handleWristbandChange = (sectorId: string, value: string) => {
     setWristbands(prev => ({...prev, [sectorId]: value }));
+    // Clear errors on change to allow user to correct mistakes
+    if (wristbandErrors.size > 0) {
+      setWristbandErrors(new Set());
+    }
   };
 
 
@@ -118,20 +172,24 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
 
     const renderWristbandInputs = () => (
         <div className="space-y-3">
-            {attendeeSectors.map(sector => (
-                <div key={sector.id}>
-                    <label htmlFor={`wristband-${sector.id}`} className="block text-sm font-medium text-gray-300 mb-1 flex items-center gap-2">
-                         <span className="w-3 h-3 rounded-full" style={{ backgroundColor: sector.color }}></span>
-                         {t('attendeeDetail.wristbandLabel')} ({sector.label})
-                    </label>
-                    <input
-                        type="text" id={`wristband-${sector.id}`} value={wristbands[sector.id] || ''}
-                        onChange={(e) => handleWristbandChange(sector.id, e.target.value)}
-                        className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        placeholder={t('attendeeDetail.wristbandPlaceholder')}
-                    />
-                </div>
-            ))}
+            {attendeeSectors.map(sector => {
+                const numberValue = wristbands[sector.id] || '';
+                const hasError = wristbandErrors.has(numberValue);
+                return (
+                    <div key={sector.id}>
+                        <label htmlFor={`wristband-${sector.id}`} className="block text-sm font-medium text-gray-300 mb-1 flex items-center gap-2">
+                             <span className="w-3 h-3 rounded-full" style={{ backgroundColor: sector.color }}></span>
+                             {t('attendeeDetail.wristbandLabel')} ({sector.label})
+                        </label>
+                        <input
+                            type="text" id={`wristband-${sector.id}`} value={numberValue}
+                            onChange={(e) => handleWristbandChange(sector.id, e.target.value)}
+                            className={`w-full bg-gray-900 border rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2  ${hasError ? 'border-red-500 focus:ring-red-500' : 'border-gray-600 focus:ring-indigo-500'}`}
+                            placeholder={t('attendeeDetail.wristbandPlaceholder')}
+                        />
+                    </div>
+                );
+            })}
         </div>
     );
 
@@ -140,7 +198,7 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
             {canBeCheckedIn && (
                 <div className="space-y-3">
                     {renderWristbandInputs()}
-                    <button onClick={() => onUpdateStatus(CheckinStatus.CHECKED_IN, wristbands)} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                    <button onClick={handleConfirmCheckin} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
                         {t('statusUpdateModal.confirmCheckin')}
                     </button>
                 </div>

@@ -180,7 +180,6 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
               <p className="text-gray-400">
                 {searchTerm.trim()
                   ? t('checkin.search.noResultsForTerm', searchTerm)
-                  // @ts-ignore
                   : t('checkin.search.noResultsForFilter')
                 }
               </p>
@@ -194,6 +193,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
             <AttendeeDetailModal
               attendee={selectedAttendee}
               sectors={sectors}
+              allAttendees={attendees}
               onClose={() => setSelectedAttendee(null)}
               onUpdateStatus={handleUpdateStatus}
               onUpdateDetails={onUpdateAttendeeDetails}
