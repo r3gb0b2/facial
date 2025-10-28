@@ -30,7 +30,7 @@ export interface Event {
 
 export interface SubCompany {
   name: string;
-  color: string;
+  sector: string; // The ID of the sector this sub-company belongs to
 }
 
 export interface Supplier {

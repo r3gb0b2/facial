@@ -37,21 +37,33 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
   const hasSubCompanies = !!(supplierInfo?.data.subCompanies && supplierInfo.data.subCompanies.length > 0);
 
   useEffect(() => {
-    let initialSector = '';
-    if (isSupplierWithSingleSector) {
-      initialSector = predefinedSector as string;
-    } else if (isSupplierWithMultipleSectors) {
-       // Find the full sector object from the list of available sectors
-      const availableSectors = sectors.filter(s => (predefinedSector as string[]).includes(s.id));
-      initialSector = availableSectors.length > 0 ? availableSectors[0].id : '';
-    }
-    setSector(initialSector);
-
     if (hasSubCompanies) {
+      // If there are sub-companies, sector is determined by them.
+      // Set to empty initially, will be set when a sub-company is chosen.
+      setSector('');
       setSubCompany(''); // Reset to default/placeholder
+    } else {
+      // Standard behavior without sub-companies
+      let initialSector = '';
+      if (isSupplierWithSingleSector) {
+        initialSector = predefinedSector as string;
+      } else if (isSupplierWithMultipleSectors) {
+        const availableSectors = sectors.filter(s => (predefinedSector as string[]).includes(s.id));
+        initialSector = availableSectors.length > 0 ? availableSectors[0].id : '';
+      }
+      setSector(initialSector);
     }
-
   }, [predefinedSector, isSupplierWithSingleSector, isSupplierWithMultipleSectors, sectors, hasSubCompanies]);
+
+  // Effect to auto-select sector when a sub-company is chosen
+  useEffect(() => {
+      if (hasSubCompanies && subCompany) {
+          const selected = supplierInfo?.data.subCompanies?.find(sc => sc.name === subCompany);
+          if (selected) {
+              setSector(selected.sector);
+          }
+      }
+  }, [subCompany, hasSubCompanies, supplierInfo]);
   
 
   const clearForm = () => {
@@ -62,8 +74,9 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
     setExistingAttendeeFound(false);
     if (hasSubCompanies) {
       setSubCompany('');
+      setSector('');
     }
-    if (!predefinedSector) {
+    else if (!predefinedSector) {
       setSector('');
     } else if (isSupplierWithMultipleSectors) {
       const availableSectors = sectors.filter(s => (predefinedSector as string[]).includes(s.id));
@@ -156,6 +169,9 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
   };
   
   const renderSectorInput = () => {
+    // If supplier has sub-companies, the sector is derived, so don't show this input.
+    if (hasSubCompanies) return null;
+    
     if (isSupplierWithSingleSector) {
       return null; // Sector is predefined and hidden
     }
@@ -195,7 +211,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
             <option value="" disabled>{t('register.form.subCompanyPlaceholder')}</option>
             {supplierInfo?.data.subCompanies?.map(sc => 
                 <option key={sc.name} value={sc.name}>
-                    {`\u25CF ${sc.name}`}
+                    {sc.name}
                 </option>
             )}
           </select>

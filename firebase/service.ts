@@ -158,9 +158,22 @@ export const registerAttendeeForSupplier = async (
         if (attendeesForSupplierSnapshot.size >= supplier.registrationLimit) {
             throw new Error("Limite de inscrições para este fornecedor foi atingido.");
         }
+
+        // If a subCompany was selected, find its associated sector and override the sector in attendeeData
+        let finalSector = attendeeData.sector;
+        if (attendeeData.subCompany && supplier.subCompanies) {
+            const subCompanyInfo = supplier.subCompanies.find(sc => sc.name === attendeeData.subCompany);
+            if (subCompanyInfo) {
+                finalSector = subCompanyInfo.sector;
+            } else {
+                // Handle case where subCompany name is sent but doesn't match any on the list
+                console.warn(`Sub-company "${attendeeData.subCompany}" not found for supplier "${supplier.name}". Falling back to default sector.`);
+            }
+        }
         
         const newAttendee = {
             ...attendeeData,
+            sector: finalSector, // Use the derived or original sector
             photo: finalPhotoUrl,
             supplierId: supplierId,
             status: CheckinStatus.PENDING,

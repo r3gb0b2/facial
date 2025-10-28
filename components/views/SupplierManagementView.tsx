@@ -16,17 +16,6 @@ interface SupplierManagementViewProps {
     setError: (message: string) => void;
 }
 
-// Helper to determine text color based on background
-const getTextColorForBackground = (hexcolor: string): 'black' | 'white' => {
-  if (!hexcolor) return 'white';
-  const hex = hexcolor.replace("#", "");
-  const r = parseInt(hex.substring(0, 2), 16);
-  const g = parseInt(hex.substring(2, 4), 16);
-  const b = parseInt(hex.substring(4, 6), 16);
-  const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-  return (yiq >= 128) ? 'black' : 'white';
-};
-
 
 const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ currentEventId, suppliers, attendees, sectors, onAddSupplier, onUpdateSupplier, onDeleteSupplier, onSupplierStatusUpdate, setError }) => {
     const { t } = useTranslation();
@@ -37,13 +26,13 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
     const [limit, setLimit] = useState('');
     const [subCompanies, setSubCompanies] = useState<SubCompany[]>([]);
     const [currentSubCompanyName, setCurrentSubCompanyName] = useState('');
-    const [currentSubCompanyColor, setCurrentSubCompanyColor] = useState('#4f46e5'); // Default indigo
+    const [currentSubCompanySector, setCurrentSubCompanySector] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     // State for inline editing
     const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
     const [editSubCompanyName, setEditSubCompanyName] = useState('');
-    const [editSubCompanyColor, setEditSubCompanyColor] = useState('#4f46e5');
+    const [editSubCompanySector, setEditSubCompanySector] = useState('');
 
     // State for UI feedback
     const [copiedLink, setCopiedLink] = useState<string | null>(null);
@@ -57,6 +46,8 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
         }
         return counts;
     }, [attendees]);
+
+    const sectorMap = useMemo(() => new Map(sectors.map(s => [s.id, s])), [sectors]);
 
     const handleSectorChange = (sectorId: string, isEditing: boolean) => {
         if (isEditing) {
@@ -78,24 +69,24 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
     // --- Sub-company handlers ---
     const handleAddSubCompany = (isEditing: boolean) => {
         const name = (isEditing ? editSubCompanyName : currentSubCompanyName).trim();
-        const color = isEditing ? editSubCompanyColor : currentSubCompanyColor;
-        if (!name) return;
+        const sector = isEditing ? editSubCompanySector : currentSubCompanySector;
+        if (!name || !sector) return;
 
         if (isEditing) {
             if (editingSupplier) {
                 const existingCompanies = editingSupplier.subCompanies || [];
                 if (!existingCompanies.some(sc => sc.name === name)) {
-                    setEditingSupplier({ ...editingSupplier, subCompanies: [...existingCompanies, { name, color }] });
+                    setEditingSupplier({ ...editingSupplier, subCompanies: [...existingCompanies, { name, sector }] });
                 }
             }
             setEditSubCompanyName('');
-            setEditSubCompanyColor('#4f46e5');
+            setEditSubCompanySector('');
         } else {
             if (!subCompanies.some(sc => sc.name === name)) {
-                setSubCompanies([...subCompanies, { name, color }]);
+                setSubCompanies([...subCompanies, { name, sector }]);
             }
             setCurrentSubCompanyName('');
-            setCurrentSubCompanyColor('#4f46e5');
+            setCurrentSubCompanySector('');
         }
     };
     
@@ -141,6 +132,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
     
     const handleEditClick = (supplier: Supplier) => {
         setEditingSupplier({...supplier});
+        setEditSubCompanySector(sectors.length > 0 ? sectors[0].id : '');
     };
 
     const handleCancelEdit = () => {
@@ -189,10 +181,6 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
         }
     };
     
-    const getSectorInfo = (id: string) => {
-        return sectors.find(s => s.id === id) || { label: id, color: '#4B5563' };
-    };
-
     const renderSectorCheckboxes = (isEditing: boolean) => {
         const currentSectors = isEditing ? editingSupplier?.sectors || [] : selectedSectors;
         
@@ -216,8 +204,8 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
         const currentList = isEditing ? editingSupplier?.subCompanies || [] : subCompanies;
         const nameValue = isEditing ? editSubCompanyName : currentSubCompanyName;
         const setNameValue = isEditing ? setEditSubCompanyName : setCurrentSubCompanyName;
-        const colorValue = isEditing ? editSubCompanyColor : currentSubCompanyColor;
-        const setColorValue = isEditing ? setEditSubCompanyColor : setCurrentSubCompanyColor;
+        const sectorValue = isEditing ? editSubCompanySector : currentSubCompanySector;
+        const setSectorValue = isEditing ? setEditSubCompanySector : setCurrentSubCompanySector;
         
         return (
             <div>
@@ -227,31 +215,32 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                         type="text"
                         value={nameValue}
                         onChange={(e) => setNameValue(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSubCompany(isEditing))}
                         className="flex-grow bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder={t('suppliers.subCompaniesPlaceholder')}
                     />
-                    <div className="flex items-center gap-2">
-                        <label htmlFor={`color-picker-${isEditing}`} className="text-sm font-medium text-gray-300">{t('suppliers.subCompanyColorLabel')}:</label>
-                        <input
-                            type="color"
-                            id={`color-picker-${isEditing}`}
-                            value={colorValue}
-                            onChange={(e) => setColorValue(e.target.value)}
-                            className="h-10 w-12 bg-gray-900 border border-gray-600 rounded-md cursor-pointer"
-                        />
-                        <button type="button" onClick={() => handleAddSubCompany(isEditing)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex-shrink-0">{t('suppliers.addSubCompanyButton')}</button>
-                    </div>
+                    <select
+                        value={sectorValue}
+                        onChange={(e) => setSectorValue(e.target.value)}
+                        className="bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                        <option value="" disabled>{t('suppliers.subCompanySectorPlaceholder')}</option>
+                        {sectors.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                    </select>
+                    <button type="button" onClick={() => handleAddSubCompany(isEditing)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex-shrink-0">{t('suppliers.addSubCompanyButton')}</button>
                 </div>
                 <div className="flex flex-wrap gap-2 mt-3">
-                    {currentList.map(company => (
-                        <div key={company.name} className="text-sm font-medium px-3 py-1 rounded-full flex items-center gap-2" style={{ backgroundColor: company.color, color: getTextColorForBackground(company.color) }}>
-                            <span>{company.name}</span>
-                            <button type="button" onClick={() => handleRemoveSubCompany(company.name, isEditing)} className="text-current opacity-70 hover:opacity-100">
-                                <XMarkIcon className="w-4 h-4" />
-                            </button>
-                        </div>
-                    ))}
+                    {currentList.map(company => {
+                        const sectorInfo = sectorMap.get(company.sector);
+                        return (
+                            <div key={company.name} className="text-sm font-medium px-3 py-1 rounded-full flex items-center gap-2 bg-gray-600 text-white">
+                                {sectorInfo && <span className="w-3 h-3 rounded-full" style={{ backgroundColor: sectorInfo.color }}></span>}
+                                <span>{company.name} ({sectorInfo?.label || 'N/A'})</span>
+                                <button type="button" onClick={() => handleRemoveSubCompany(company.name, isEditing)} className="text-current opacity-70 hover:opacity-100">
+                                    <XMarkIcon className="w-4 h-4" />
+                                </button>
+                            </div>
+                        )
+                    })}
                 </div>
             </div>
         );
@@ -347,11 +336,11 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                             <span>Setores:</span>
                                             <div className="flex flex-wrap items-center gap-2">
                                             {(supplier.sectors || []).map(sectorId => {
-                                                const sector = getSectorInfo(sectorId);
+                                                const sector = sectorMap.get(sectorId);
                                                 return (
                                                 <div key={sectorId} className="flex items-center gap-1.5">
-                                                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: sector.color }}></span>
-                                                    <span>{sector.label}</span>
+                                                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: sector?.color }}></span>
+                                                    <span>{sector?.label}</span>
                                                 </div>
                                             )})}
                                             </div>
@@ -360,11 +349,14 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                             <div className="text-sm text-gray-400 mt-2">
                                                 <span className="font-medium">Sub-empresas:</span>
                                                 <div className="flex flex-wrap gap-2 mt-1">
-                                                    {supplier.subCompanies.map(sc => (
-                                                        <span key={sc.name} className="px-2 py-1 text-xs rounded-full" style={{ backgroundColor: sc.color, color: getTextColorForBackground(sc.color) }}>
-                                                            {sc.name}
-                                                        </span>
-                                                    ))}
+                                                    {supplier.subCompanies.map(sc => {
+                                                        const sector = sectorMap.get(sc.sector);
+                                                        return (
+                                                            <span key={sc.name} className="px-2 py-1 text-xs rounded-full bg-gray-600 text-white">
+                                                                {sc.name} ({sector?.label || 'N/A'})
+                                                            </span>
+                                                        );
+                                                    })}
                                                 </div>
                                             </div>
                                         )}

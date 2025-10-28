@@ -10,10 +10,9 @@ interface AttendeeCardProps {
   sectorLabel: string;
   sectorColor?: string;
   supplierName?: string;
-  subCompanyColor?: string;
 }
 
-const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect, sectorLabel, sectorColor, supplierName, subCompanyColor }) => {
+const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect, sectorLabel, sectorColor, supplierName }) => {
   const { t } = useTranslation();
 
   const statusInfo = {
@@ -58,7 +57,6 @@ const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect, sectorL
             )}
             {attendee.subCompany && (
                 <div className="flex items-center gap-1.5 text-xs text-gray-400 font-medium truncate">
-                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: subCompanyColor || '#4B5563' }}></span>
                     <span className="truncate">{attendee.subCompany}</span>
                 </div>
             )}

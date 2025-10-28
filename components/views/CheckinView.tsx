@@ -159,7 +159,6 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
         {filteredAttendees.map((attendee) => {
             const sector = sectorMap.get(attendee.sector);
             const supplier = attendee.supplierId ? supplierMap.get(attendee.supplierId) : undefined;
-            const subCompanyColor = supplier?.subCompanies?.find(sc => sc.name === attendee.subCompany)?.color;
             
             return (
               <AttendeeCard 
@@ -169,7 +168,6 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
                 sectorLabel={sector?.label || attendee.sector}
                 sectorColor={sector?.color}
                 supplierName={supplier?.name}
-                subCompanyColor={subCompanyColor}
               />
             );
         })}
@@ -189,7 +187,6 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
       
       {selectedAttendee && (() => {
           const supplier = selectedAttendee.supplierId ? supplierMap.get(selectedAttendee.supplierId) : undefined;
-          const subCompanyColor = supplier?.subCompanies?.find(sc => sc.name === selectedAttendee.subCompany)?.color;
           
           return (
             <AttendeeDetailModal
@@ -200,8 +197,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
               onUpdateDetails={onUpdateAttendeeDetails}
               onDelete={handleDelete}
               setError={setError}
-              supplierName={supplier?.name}
-              subCompanyColor={subCompanyColor}
+              supplier={supplier}
             />
           );
       })()}

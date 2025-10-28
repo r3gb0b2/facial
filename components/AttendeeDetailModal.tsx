@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Attendee, CheckinStatus, Sector } from '../types.ts';
+import { Attendee, CheckinStatus, Sector, Supplier } from '../types.ts';
 import { useTranslation } from '../hooks/useTranslation.tsx';
 import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon } from './icons.tsx';
 
@@ -11,8 +11,7 @@ interface AttendeeDetailModalProps {
   onUpdateDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector' | 'wristbandNumber' | 'subCompany'>>) => Promise<void>;
   onDelete: (attendeeId: string) => Promise<void>;
   setError: (message: string) => void;
-  supplierName?: string;
-  subCompanyColor?: string;
+  supplier?: Supplier;
 }
 
 const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
@@ -23,8 +22,7 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   onUpdateDetails,
   onDelete,
   setError,
-  supplierName,
-  subCompanyColor,
+  supplier,
 }) => {
   const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
@@ -36,6 +34,8 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     sector: attendee.sector,
     subCompany: attendee.subCompany || '',
   });
+  
+  const hasSubCompanies = !!(supplier?.subCompanies && supplier.subCompanies.length > 0);
 
   useEffect(() => {
     setEditData({
@@ -87,6 +87,15 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     setTimeout(() => {
         setShowWristbandSuccess(false);
     }, 3000);
+  };
+
+  const handleSubCompanyChange = (subCompanyName: string) => {
+    const subCompany = supplier?.subCompanies?.find(sc => sc.name === subCompanyName);
+    setEditData({
+      ...editData,
+      subCompany: subCompanyName,
+      sector: subCompany ? subCompany.sector : editData.sector // Keep old sector if selection is cleared or invalid
+    });
   };
 
 
@@ -197,13 +206,20 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                 <label className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.cpfLabel')}</label>
                 <input type="text" value={editData.cpf} onChange={(e) => setEditData({...editData, cpf: formatCPF(e.target.value)})} className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"/>
               </div>
-               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">{t('attendeeCard.subCompanyLabel')}</label>
-                <input type="text" value={editData.subCompany} onChange={(e) => setEditData({...editData, subCompany: e.target.value})} className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"/>
+              <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">{t('attendeeCard.subCompanyLabel')}</label>
+                  {hasSubCompanies ? (
+                      <select value={editData.subCompany} onChange={(e) => handleSubCompanyChange(e.target.value)} className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white">
+                          <option value="">Nenhuma</option>
+                          {supplier.subCompanies?.map(sc => <option key={sc.name} value={sc.name}>{sc.name}</option>)}
+                      </select>
+                  ) : (
+                      <input type="text" value={editData.subCompany} onChange={(e) => setEditData({...editData, subCompany: e.target.value})} className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"/>
+                  )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.sectorLabel')}</label>
-                <select value={editData.sector} onChange={(e) => setEditData({...editData, sector: e.target.value})} className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white">
+                <select value={editData.sector} onChange={(e) => setEditData({...editData, sector: e.target.value})} className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white" disabled={hasSubCompanies}>
                   {sectors.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
                 </select>
               </div>
