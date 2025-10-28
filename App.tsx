@@ -30,7 +30,7 @@ const App: React.FC = () => {
   
   // Supplier view state
   const [supplierInfo, setSupplierInfo] = useState<{data: Supplier, name: string} | null>(null);
-  const [supplierAdminData, setSupplierAdminData] = useState<{name: string, attendees: Attendee[]} | null>(null);
+  const [supplierAdminData, setSupplierAdminData] = useState<{eventName: string, attendees: Attendee[], eventId: string, supplierId: string} | null>(null);
 
   // Modal state
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
@@ -206,6 +206,16 @@ const App: React.FC = () => {
     await api.deleteAttendee(currentEvent.id, attendeeId);
   };
 
+  const handleApproveSubstitution = async (attendeeId: string) => {
+    if (!currentEvent) return;
+    await api.approveSubstitution(currentEvent.id, attendeeId);
+  };
+  
+  const handleRejectSubstitution = async (attendeeId: string) => {
+    if (!currentEvent) return;
+    await api.rejectSubstitution(currentEvent.id, attendeeId);
+  };
+
   // Supplier Handlers
   const handleAddSupplier = async (name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[]) => {
     if (!currentEvent) return;
@@ -278,6 +288,8 @@ const App: React.FC = () => {
             onDeleteSector={handleDeleteSector}
             onAttendeeDetailsUpdate={handleUpdateAttendeeDetails}
             onDeleteAttendee={handleDeleteAttendee}
+            onApproveSubstitution={handleApproveSubstitution}
+            onRejectSubstitution={handleRejectSubstitution}
             onBack={handleBackToEvents}
             setError={setGlobalError}
           />;
@@ -297,7 +309,11 @@ const App: React.FC = () => {
         return null;
       case 'supplier-admin':
         if (supplierAdminData) {
-          return <SupplierAdminView supplierName={supplierAdminData.name} attendees={supplierAdminData.attendees} />;
+          return <SupplierAdminView 
+            eventName={supplierAdminData.eventName} 
+            attendees={supplierAdminData.attendees}
+            eventId={supplierAdminData.eventId}
+          />;
         }
         return null;
       case 'closed':

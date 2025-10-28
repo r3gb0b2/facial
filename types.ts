@@ -7,6 +7,7 @@ export enum CheckinStatus {
   CHECKED_IN = 'CHECKED_IN',
   CANCELLED = 'CANCELLED',
   SUBSTITUTION = 'SUBSTITUTION',
+  SUBSTITUTION_REQUEST = 'SUBSTITUTION_REQUEST',
   MISSED = 'MISSED',
 }
 
@@ -22,6 +23,11 @@ export interface Attendee {
   supplierId?: string; // To track which supplier registered the attendee
   subCompany?: string; // The attendee's specific company under a supplier
   wristbands?: { [sectorId: string]: string }; // Maps sectorId to wristband number
+  substitutionData?: {
+    name: string;
+    cpf: string;
+    photo: string; // Base64 data URL
+  };
 }
 
 export interface Event {

@@ -143,6 +143,42 @@ export const deleteAttendee = (eventId: string, attendeeId: string) => {
     return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).delete();
 };
 
+export const requestSubstitution = async (eventId: string, attendeeId: string, substitutionData: Required<Attendee>['substitutionData']) => {
+    return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).update({
+        status: CheckinStatus.SUBSTITUTION_REQUEST,
+        substitutionData: substitutionData,
+    });
+};
+
+export const approveSubstitution = async (eventId: string, attendeeId: string) => {
+    const attendeeRef = db.collection('events').doc(eventId).collection('attendees').doc(attendeeId);
+    const doc = await attendeeRef.get();
+    const attendee = doc.data() as Attendee;
+
+    if (!attendee || !attendee.substitutionData) {
+        throw new Error("Substitution data not found for this attendee.");
+    }
+    
+    const { name, cpf, photo: photoDataUrl } = attendee.substitutionData;
+    
+    const photoUrl = await uploadPhoto(photoDataUrl, cpf);
+
+    return attendeeRef.update({
+        name: name,
+        cpf: cpf,
+        photo: photoUrl,
+        status: CheckinStatus.PENDING,
+        substitutionData: FieldValue.delete(),
+    });
+};
+
+export const rejectSubstitution = (eventId: string, attendeeId: string) => {
+    return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).update({
+        status: CheckinStatus.PENDING,
+        substitutionData: FieldValue.delete(),
+    });
+};
+
 
 // Supplier Management
 export const addSupplier = (eventId: string, name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[]) => {
@@ -191,7 +227,7 @@ export const getRegistrationsCountForSupplier = async (eventId: string, supplier
     return snapshot.size;
 };
 
-export const getSupplierAdminData = async (token: string): Promise<{ name: string, attendees: Attendee[] } | null> => {
+export const getSupplierAdminData = async (token: string): Promise<{ eventName: string, attendees: Attendee[], eventId: string, supplierId: string } | null> => {
     const suppliersSnap = await db.collectionGroup('suppliers').where('adminToken', '==', token).limit(1).get();
     if (suppliersSnap.empty) return null;
     
@@ -207,7 +243,7 @@ export const getSupplierAdminData = async (token: string): Promise<{ name: strin
     const attendeesSnap = await eventRef.collection('attendees').where('supplierId', '==', supplier.id).get();
     const attendees = getCollectionData<Attendee>(attendeesSnap);
     
-    return { name: eventName, attendees };
+    return { eventName: eventName, attendees, eventId: eventRef.id, supplierId: supplier.id };
 };
 
 export const regenerateSupplierAdminToken = async (eventId: string, supplierId: string): Promise<string> => {

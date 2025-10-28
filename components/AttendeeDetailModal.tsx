@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Attendee, CheckinStatus, Sector, Supplier } from '../types.ts';
 import { useTranslation } from '../hooks/useTranslation.tsx';
+// FIX: Removed ArrowRightIcon from import as it is not exported from icons.tsx
 import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon } from './icons.tsx';
 
 interface AttendeeDetailModalProps {
@@ -11,6 +12,8 @@ interface AttendeeDetailModalProps {
   onUpdateStatus: (status: CheckinStatus, wristbands?: { [sectorId: string]: string }) => void;
   onUpdateDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'wristbands' | 'subCompany'>>) => Promise<void>;
   onDelete: (attendeeId: string) => Promise<void>;
+  onApproveSubstitution: (attendeeId: string) => Promise<void>;
+  onRejectSubstitution: (attendeeId: string) => Promise<void>;
   setError: (message: string) => void;
   supplier?: Supplier;
 }
@@ -23,6 +26,8 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   onUpdateStatus,
   onUpdateDetails,
   onDelete,
+  onApproveSubstitution,
+  onRejectSubstitution,
   setError,
   supplier,
 }) => {
@@ -63,6 +68,7 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     [CheckinStatus.CHECKED_IN]: { bg: 'bg-green-600', text: 'text-white', label: t('status.checked_in') },
     [CheckinStatus.CANCELLED]: { bg: 'bg-red-600', text: 'text-white', label: t('status.cancelled') },
     [CheckinStatus.SUBSTITUTION]: { bg: 'bg-yellow-500', text: 'text-black', label: t('status.substitution') },
+    [CheckinStatus.SUBSTITUTION_REQUEST]: { bg: 'bg-blue-500', text: 'text-white', label: t('status.substitution_request') },
     [CheckinStatus.MISSED]: { bg: 'bg-gray-800', text: 'text-gray-400', label: t('status.missed') },
   }[attendee.status] || { bg: 'bg-gray-600', text: 'text-gray-200', label: attendee.status };
   
@@ -251,17 +257,47 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     );
   };
 
+  const renderSubstitutionView = () => (
+    <div className="space-y-4">
+      <h3 className="text-lg font-bold text-center text-indigo-400">{t('attendeeDetail.substitutionRequestTitle')}</h3>
+      <div className="grid grid-cols-2 gap-4 text-center">
+          {/* Original Data */}
+          <div>
+              <h4 className="font-semibold text-gray-300 mb-2">{t('attendeeDetail.originalData')}</h4>
+              <img src={attendee.photo} alt={attendee.name} className="w-full aspect-square object-contain bg-black rounded-lg border-2 border-gray-600 mb-2" />
+              <p className="font-medium text-white truncate">{attendee.name}</p>
+              <p className="text-sm text-gray-400">{formatCPF(attendee.cpf)}</p>
+          </div>
+          {/* New Data */}
+          <div>
+              <h4 className="font-semibold text-gray-300 mb-2">{t('attendeeDetail.newData')}</h4>
+              <img src={attendee.substitutionData?.photo} alt={attendee.substitutionData?.name} className="w-full aspect-square object-contain bg-black rounded-lg border-2 border-gray-600 mb-2" />
+              <p className="font-medium text-white truncate">{attendee.substitutionData?.name}</p>
+              <p className="text-sm text-gray-400">{formatCPF(attendee.substitutionData?.cpf || '')}</p>
+          </div>
+      </div>
+      <div className="flex gap-4 pt-4 border-t border-gray-700">
+        <button onClick={() => onRejectSubstitution(attendee.id)} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+          {t('attendeeDetail.rejectButton')}
+        </button>
+        <button onClick={() => onApproveSubstitution(attendee.id)} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+          {t('attendeeDetail.approveButton')}
+        </button>
+      </div>
+    </div>
+  );
+
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md border border-gray-700 flex flex-col" onClick={(e) => e.stopPropagation()}>
+      <div className={`bg-gray-800 rounded-2xl shadow-2xl w-full ${attendee.status === CheckinStatus.SUBSTITUTION_REQUEST ? 'max-w-2xl' : 'max-w-md'} border border-gray-700 flex flex-col`} onClick={(e) => e.stopPropagation()}>
         <div className="p-6 border-b border-gray-700 flex justify-between items-center">
           <div>
             <h2 className="text-2xl font-bold text-white">{t('attendeeDetail.title')}</h2>
-            {!isEditing && <p className="text-indigo-400">{attendee.name}</p>}
+            {!isEditing && attendee.status !== CheckinStatus.SUBSTITUTION_REQUEST && <p className="text-indigo-400">{attendee.name}</p>}
           </div>
           <div className="flex items-center gap-2">
-            {!isEditing && (
+            {!isEditing && attendee.status !== CheckinStatus.SUBSTITUTION_REQUEST && (
                  <button onClick={() => setIsEditing(true)} className="p-2 text-gray-400 hover:text-yellow-400 transition-colors rounded-full hover:bg-gray-700">
                     <PencilIcon className="w-5 h-5" />
                  </button>
@@ -272,8 +308,8 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
           </div>
         </div>
         
-        <div className="p-8 space-y-4 max-h-[60vh] overflow-y-auto">
-          {isEditing ? (
+        <div className="p-8 space-y-4 max-h-[70vh] overflow-y-auto">
+          {attendee.status === CheckinStatus.SUBSTITUTION_REQUEST ? renderSubstitutionView() : isEditing ? (
             // EDITING VIEW
             <div className="space-y-4">
               <div>

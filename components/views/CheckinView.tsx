@@ -13,6 +13,8 @@ interface CheckinViewProps {
   currentEventId: string;
   onUpdateAttendeeDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'wristbands' | 'subCompany'>>) => Promise<void>;
   onDeleteAttendee: (attendeeId: string) => Promise<void>;
+  onApproveSubstitution: (attendeeId: string) => Promise<void>;
+  onRejectSubstitution: (attendeeId: string) => Promise<void>;
   setError: (message: string) => void;
 }
 
@@ -26,7 +28,7 @@ const normalizeString = (str: string) => {
     .trim();
 };
 
-const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors, currentEventId, onUpdateAttendeeDetails, onDeleteAttendee, setError }) => {
+const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors, currentEventId, onUpdateAttendeeDetails, onDeleteAttendee, onApproveSubstitution, onRejectSubstitution, setError }) => {
   const { t } = useTranslation();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<CheckinStatus | 'ALL'>(CheckinStatus.PENDING);
@@ -138,8 +140,8 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
           >
             <option value="ALL">{t('checkin.filter.allStatuses')}</option>
             {Object.values(CheckinStatus).map(status => (
-              // FIX: Removed unnecessary `String()` cast. The `t` function is guaranteed to return a string.
-              <option key={status} value={status}>{t(`status.${status.toLowerCase()}`)}</option>
+              // FIX: Explicitly cast status to string to resolve TypeScript error.
+              <option key={status} value={status}>{t(`status.${(status as string).toLowerCase()}`)}</option>
             ))}
           </select>
           <select
@@ -209,6 +211,8 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
               onUpdateStatus={handleUpdateStatus}
               onUpdateDetails={onUpdateAttendeeDetails}
               onDelete={handleDelete}
+              onApproveSubstitution={onApproveSubstitution}
+              onRejectSubstitution={onRejectSubstitution}
               setError={setError}
               supplier={supplier}
             />

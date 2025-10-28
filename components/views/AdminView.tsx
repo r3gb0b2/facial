@@ -27,6 +27,8 @@ interface AdminViewProps {
     onDeleteSector: (sector: Sector) => Promise<void>;
     onAttendeeDetailsUpdate: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'wristbands' | 'subCompany'>>) => Promise<void>;
     onDeleteAttendee: (attendeeId: string) => Promise<void>;
+    onApproveSubstitution: (attendeeId: string) => Promise<void>;
+    onRejectSubstitution: (attendeeId: string) => Promise<void>;
     onBack: () => void;
     setError: (message: string) => void;
 }
@@ -61,6 +63,8 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                     currentEventId={props.currentEvent.id}
                     onUpdateAttendeeDetails={props.onAttendeeDetailsUpdate}
                     onDeleteAttendee={props.onDeleteAttendee}
+                    onApproveSubstitution={props.onApproveSubstitution}
+                    onRejectSubstitution={props.onRejectSubstitution}
                     setError={props.setError}
                 />;
             case 'register':
