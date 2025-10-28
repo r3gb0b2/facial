@@ -129,9 +129,9 @@ const WristbandReportView: React.FC<WristbandReportViewProps> = ({ attendees, se
                                <span
                                 className="w-3 h-3 rounded-full flex-shrink-0"
                                 style={{ backgroundColor: sector.color || '#4B5563' }}
-                                title={sector.label}
+                                title={sector.label || sector.id}
                               ></span>
-                              <span className="font-semibold">{sector.label}:</span>
+                              <span className="font-semibold">{sector.label || sector.id}:</span>
                             </div>
                           ))}
                         </div>
