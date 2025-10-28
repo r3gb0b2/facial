@@ -65,7 +65,7 @@ const App: React.FC = () => {
 
     const handleLogin = (password: string) => {
         // Using trim() to make the check more robust against accidental whitespace.
-        if (password.trim() === 'admin') {
+        if (password.trim() === '12345') {
             sessionStorage.setItem('isAuthenticated', 'true');
             setIsAuthenticated(true);
             setError(null);
