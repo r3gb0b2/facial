@@ -187,7 +187,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
           <select
             id="sector" value={sector} onChange={(e) => setSector(e.target.value)}
             className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
-            disabled={isSubmitting || isCheckingCpf}
+            disabled={isSubmitting || isCheckingCpf || existingAttendeeFound}
           >
             {isSupplierWithMultipleSectors ? null : <option value="" disabled>{t('register.form.sectorPlaceholder')}</option>}
             {sectorOptions.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
@@ -205,7 +205,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
           <select
             id="subCompany" value={subCompany} onChange={(e) => setSubCompany(e.target.value)}
             className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
-            disabled={isSubmitting || isCheckingCpf}
+            disabled={isSubmitting || isCheckingCpf || existingAttendeeFound}
             required
           >
             <option value="" disabled>{t('register.form.subCompanyPlaceholder')}</option>
@@ -255,13 +255,13 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
                 type="text" id="name" value={name} onChange={(e) => setName(e.target.value)}
                 className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
                 placeholder={t('register.form.namePlaceholder')}
-                disabled={isSubmitting || isCheckingCpf}
+                disabled={isSubmitting || isCheckingCpf || existingAttendeeFound}
               />
             </div>
             {renderSubCompanyInput()}
             {renderSectorInput()}
             <div className="space-y-4">
-                <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-indigo-400 disabled:cursor-wait" disabled={!name || !cpf || !photo || !sector || isSubmitting || isCheckingCpf}>
+                <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={!name || !cpf || !photo || !sector || isSubmitting || isCheckingCpf || existingAttendeeFound}>
                   {isSubmitting ? (
                     <>
                       <SpinnerIcon className="w-5 h-5" />
@@ -280,6 +280,11 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
                         <p className="text-sm font-medium">{t('register.successMessage')}</p>
                     </div>
                 )}
+                 {existingAttendeeFound && (
+                    <p className="text-sm text-yellow-400 text-center">
+                        {t('register.cpfAlreadyRegistered')}
+                    </p>
+                 )}
             </div>
           </div>
           <div className="flex flex-col items-center">

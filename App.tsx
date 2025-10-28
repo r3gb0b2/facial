@@ -152,8 +152,10 @@ const App: React.FC = () => {
             } else {
                 setCurrentView('registration_closed');
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to process supplier admin link:", error);
+            // Display the specific index error message to the user via the toast
+            setAppError(error.message || t('supplierAdmin.invalidLink'));
             setCurrentView('registration_closed');
         } finally {
             setIsLoading(false);

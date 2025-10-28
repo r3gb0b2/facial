@@ -437,44 +437,51 @@ export const regenerateSupplierAdminToken = async (eventId: string, supplierId: 
 
 
 export const getSupplierDataForAdminView = async (adminToken: string): Promise<{ supplierName: string; attendees: Attendee[] } | null> => {
-    // This new, robust method avoids collectionGroup queries which can fail silently if an index is not created.
-    // It iterates through all events to find the supplier with the matching token. While less performant for
-    // a huge number of events, it's guaranteed to work without manual database configuration.
-    
-    // 1. Fetch all events first.
-    const eventsSnapshot = await db.collection('events').get();
-    if (eventsSnapshot.empty) {
-        return null;
-    }
-
-    // 2. Iterate and search for the supplier with the matching token.
-    for (const eventDoc of eventsSnapshot.docs) {
-        const eventId = eventDoc.id;
-        const supplierQuery = db.collection('events').doc(eventId).collection('suppliers').where('adminToken', '==', adminToken).limit(1);
+    try {
+        const supplierQuery = db.collectionGroup('suppliers').where('adminToken', '==', adminToken).limit(1);
         const supplierSnapshot = await supplierQuery.get();
 
-        // If we found the supplier in this event, process it and return.
-        if (!supplierSnapshot.empty) {
-            const supplierDoc = supplierSnapshot.docs[0];
-            const supplier = { id: supplierDoc.id, ...supplierDoc.data() } as Supplier;
-
-            // Now that we have the eventId and supplierId, fetch the attendees.
-            const attendeesQuery = db.collection('events').doc(eventId).collection('attendees').where('supplierId', '==', supplier.id).orderBy('name');
-            const attendeesSnapshot = await attendeesQuery.get();
-
-            const attendees = attendeesSnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            } as Attendee));
-            
-            return {
-                supplierName: supplier.name,
-                attendees: attendees,
-            };
+        if (supplierSnapshot.empty) {
+            console.error(`No supplier found with adminToken: ${adminToken}`);
+            return null;
         }
-    }
 
-    // 3. If we looped through all events and found nothing, return null.
-    console.error(`No supplier found for adminToken: ${adminToken} in any event.`);
-    return null;
+        const supplierDoc = supplierSnapshot.docs[0];
+        const supplier = { id: supplierDoc.id, ...supplierDoc.data() } as Supplier;
+        
+        // A document's reference path looks like: /events/{eventId}/suppliers/{supplierId}
+        // So, ref.parent is the 'suppliers' collection, and ref.parent.parent is the event document.
+        const eventDocRef = supplierDoc.ref.parent.parent;
+        if (!eventDocRef) {
+             console.error(`Could not determine parent event for supplier ${supplier.id}`);
+             return null;
+        }
+        const eventId = eventDocRef.id;
+
+        const attendeesQuery = db.collection('events').doc(eventId).collection('attendees').where('supplierId', '==', supplier.id).orderBy('name');
+        const attendeesSnapshot = await attendeesQuery.get();
+        
+        const attendees = attendeesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        } as Attendee));
+
+        return {
+            supplierName: supplier.name,
+            attendees: attendees,
+        };
+
+    } catch (error: any) {
+        if (error.code === 'failed-precondition') {
+            console.error("======================================================================================");
+            console.error("🔥🔥🔥 FIRESTORE INDEX ERROR 🔥🔥🔥");
+            console.error("The query for the supplier admin link failed. This usually means a Firestore index is missing.");
+            console.error("Please visit the link in your browser's error console to create the required index. The feature will not work correctly until the index is created and enabled (this may take a few minutes).");
+            console.error("======================================================================================");
+            throw new Error("Índice do Firestore ausente. Verifique o console do navegador para obter o link de criação.");
+        }
+        console.error("Error fetching supplier data for admin view:", error);
+        // For any other type of error, we just return null and let the caller handle it.
+        return null;
+    }
 };
