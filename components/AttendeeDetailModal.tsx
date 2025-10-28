@@ -91,8 +91,8 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   };
 
   const handleDelete = () => {
-    // FIX: Removed unnecessary `String()` cast. The `t` function is guaranteed to return a string.
-    if (window.confirm(t('attendeeDetail.deleteConfirm', attendee.name))) {
+    // FIX: Argument of type 'string | ((...args: any[]) => string)' is not assignable to parameter of type 'string | undefined'
+    if (window.confirm(t('attendeeDetail.deleteConfirm', attendee.name) as string)) {
       onDelete(attendee.id);
     }
   };

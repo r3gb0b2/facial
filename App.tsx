@@ -45,7 +45,7 @@ const App: React.FC = () => {
   useEffect(clearGlobalError, [globalError]);
 
   const handleLogin = (password: string) => {
-    if (password === 'admin') {
+    if (password === '12345') {
       setIsLoggedIn(true);
       setLoginError(null);
       setView('event-selection');

@@ -1,6 +1,5 @@
-// FIX: Add .ts extension to firebase/config import.
-// FIX: Changed import to get the Timestamp type from firebase/compat/app namespace.
-import type { firestore } from 'firebase/compat/app';
+// FIX: Changed import to get the Timestamp type from firebase/firestore namespace which is where it is defined, aligning with its usage in firebase/config.ts.
+import type { firestore } from 'firebase/firestore';
 
 export enum CheckinStatus {
   PENDING = 'PENDING',

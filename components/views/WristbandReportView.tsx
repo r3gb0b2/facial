@@ -106,7 +106,6 @@ const WristbandReportView: React.FC<WristbandReportViewProps> = ({ attendees, se
               </div>
               <p className="text-2xl font-bold text-indigo-400 mt-1">{stat.delivered}</p>
               <p className="text-xs text-gray-400 uppercase font-semibold">
-                {/* FIX: Removed unnecessary `String()` cast. The `t` function is guaranteed to return a string. */}
                 {t('wristbandReport.stats.deliveredOf', stat.delivered, stat.total)}
               </p>
             </div>
@@ -169,7 +168,6 @@ const WristbandReportView: React.FC<WristbandReportViewProps> = ({ attendees, se
           </table>
           {wristbandData.length === 0 && (
              <div className="text-center py-10 text-gray-500">
-                {/* FIX: Removed unnecessary `String()` casts. The `t` function is guaranteed to return a string. */}
                 <p>{attendees.filter(a => a.status === 'CHECKED_IN').length === 0 ? t('wristbandReport.noWristbands') : t('wristbandReport.noResults')}</p>
             </div>
           )}
