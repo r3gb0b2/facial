@@ -94,10 +94,11 @@ const App: React.FC = () => {
             setIsLoading(false);
         } else if (eventId && supplierId) {
             setIsLoading(true);
-            const supplierData = await api.getSupplierForRegistration(eventId, supplierId);
-            if (supplierData) {
-                if (supplierData.data.active) {
-                    setSupplierInfo(supplierData);
+            const registrationData = await api.getSupplierForRegistration(eventId, supplierId);
+            if (registrationData) {
+                if (registrationData.data.active) {
+                    setSupplierInfo({ data: registrationData.data, name: registrationData.name });
+                    setSectors(registrationData.sectors);
                     setView('supplier-registration');
                 } else {
                      setView('closed');

@@ -209,16 +209,20 @@ export const updateSupplierStatus = (eventId: string, supplierId: string, active
     return updateSupplier(eventId, supplierId, { active });
 };
 
-export const getSupplierForRegistration = async (eventId: string, supplierId: string): Promise<{ data: Supplier & {eventId: string}, name: string } | null> => {
+export const getSupplierForRegistration = async (eventId: string, supplierId: string): Promise<{ data: Supplier & {eventId: string}, name: string, sectors: Sector[] } | null> => {
     const eventSnap = await db.collection('events').doc(eventId).get();
     if (!eventSnap.exists) return null;
 
     const supplierSnap = await db.collection('events').doc(eventId).collection('suppliers').doc(supplierId).get();
     if (!supplierSnap.exists) return null;
+    
+    const sectorsSnap = await db.collection('events').doc(eventId).collection('sectors').get();
+    const sectors = getCollectionData<Sector>(sectorsSnap);
 
     return {
         data: { ...getData<Supplier>(supplierSnap), eventId },
-        name: eventSnap.data()?.name || 'Evento'
+        name: eventSnap.data()?.name || 'Evento',
+        sectors,
     };
 };
 
