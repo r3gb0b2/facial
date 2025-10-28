@@ -11,7 +11,7 @@ interface CheckinViewProps {
   suppliers: Supplier[];
   sectors: Sector[];
   currentEventId: string;
-  onUpdateAttendeeDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'wristbandNumber' | 'subCompany'>>) => Promise<void>;
+  onUpdateAttendeeDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'wristbands' | 'subCompany'>>) => Promise<void>;
   onDeleteAttendee: (attendeeId: string) => Promise<void>;
   setError: (message: string) => void;
 }
@@ -37,11 +37,11 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
     setSelectedAttendee(attendee);
   };
 
-  const handleUpdateStatus = async (status: CheckinStatus, wristbandNumber?: string) => {
+  const handleUpdateStatus = async (status: CheckinStatus, wristbands?: { [sectorId: string]: string }) => {
     if (selectedAttendee) {
-      await api.updateAttendeeStatus(currentEventId, selectedAttendee.id, status, wristbandNumber);
+      await api.updateAttendeeStatus(currentEventId, selectedAttendee.id, status, wristbands);
       // Optimistically update local state for a smoother UI
-      setSelectedAttendee(prev => prev ? { ...prev, status, wristbandNumber } : null);
+      setSelectedAttendee(prev => prev ? { ...prev, status, wristbands } : null);
     }
   };
   
@@ -82,7 +82,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
       if (normalizedTerm) {
         const nameMatch = normalizeString(attendee.name).includes(normalizedTerm);
         const cpfMatch = attendee.cpf.replace(/\D/g, '').includes(normalizedTerm);
-        const wristbandMatch = attendee.wristbandNumber ? normalizeString(attendee.wristbandNumber).includes(normalizedTerm) : false;
+        const wristbandMatch = attendee.wristbands ? Object.values(attendee.wristbands).some(num => normalizeString(num).includes(normalizedTerm)) : false;
         const subCompanyMatch = attendee.subCompany ? normalizeString(attendee.subCompany).includes(normalizedTerm) : false;
         if (!nameMatch && !cpfMatch && !wristbandMatch && !subCompanyMatch) {
           return false; // if neither name, CPF, wristband nor sub-company matches, filter it out

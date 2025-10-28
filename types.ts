@@ -19,7 +19,7 @@ export interface Attendee {
   createdAt: Timestamp;
   supplierId?: string; // To track which supplier registered the attendee
   subCompany?: string; // The attendee's specific company under a supplier
-  wristbandNumber?: string; // Optional wristband number assigned at check-in
+  wristbands?: { [sectorId: string]: string }; // Maps sectorId to wristband number
 }
 
 export interface Event {

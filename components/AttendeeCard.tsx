@@ -31,6 +31,8 @@ const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect, sectorL
       .replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
   };
 
+  const wristbandNumbers = attendee.wristbands ? Object.values(attendee.wristbands).filter(Boolean).join(', ') : '';
+
   return (
     <div
       onClick={() => onSelect(attendee)}
@@ -61,11 +63,11 @@ const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect, sectorL
                 </div>
             )}
         </div>
-        {attendee.status === CheckinStatus.CHECKED_IN && attendee.wristbandNumber && (
+        {attendee.status === CheckinStatus.CHECKED_IN && wristbandNumbers && (
             <div className="mt-2 flex items-center gap-1 text-xs text-gray-300 bg-gray-700/50 px-2 py-1 rounded-md">
                 <TagIcon className="w-4 h-4 text-gray-400" />
                 <span className="font-semibold">{t('attendeeCard.wristbandNumber')}:</span>
-                <span>{attendee.wristbandNumber}</span>
+                <span>{wristbandNumbers}</span>
             </div>
         )}
       </div>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Attendee, CheckinStatus, Sector, Supplier } from '../types.ts';
 import { useTranslation } from '../hooks/useTranslation.tsx';
 import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon } from './icons.tsx';
@@ -7,8 +7,8 @@ interface AttendeeDetailModalProps {
   attendee: Attendee;
   sectors: Sector[];
   onClose: () => void;
-  onUpdateStatus: (status: CheckinStatus, wristbandNumber?: string) => void;
-  onUpdateDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'wristbandNumber' | 'subCompany'>>) => Promise<void>;
+  onUpdateStatus: (status: CheckinStatus, wristbands?: { [sectorId: string]: string }) => void;
+  onUpdateDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'wristbands' | 'subCompany'>>) => Promise<void>;
   onDelete: (attendeeId: string) => Promise<void>;
   setError: (message: string) => void;
   supplier?: Supplier;
@@ -26,7 +26,7 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
-  const [wristbandNumber, setWristbandNumber] = useState(attendee.wristbandNumber || '');
+  const [wristbands, setWristbands] = useState(attendee.wristbands || {});
   const [showWristbandSuccess, setShowWristbandSuccess] = useState(false);
   const [editData, setEditData] = useState({
     name: attendee.name,
@@ -36,6 +36,11 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   });
   
   const hasSubCompanies = !!(supplier?.subCompanies && supplier.subCompanies.length > 0);
+  
+  const attendeeSectors = useMemo(() => {
+    return (attendee.sectors || []).map(id => sectors.find(s => s.id === id)).filter(Boolean) as Sector[];
+  }, [attendee.sectors, sectors]);
+
 
   useEffect(() => {
     setEditData({
@@ -44,7 +49,7 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
       sectors: attendee.sectors || [],
       subCompany: attendee.subCompany || '',
     });
-    setWristbandNumber(attendee.wristbandNumber || '');
+    setWristbands(attendee.wristbands || {});
     setIsEditing(false); // Reset editing state when attendee changes
     setShowWristbandSuccess(false);
   }, [attendee]);
@@ -82,7 +87,7 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   };
   
   const handleWristbandSave = async () => {
-    await onUpdateDetails(attendee.id, { wristbandNumber });
+    await onUpdateDetails(attendee.id, { wristbands });
     setShowWristbandSuccess(true);
     setTimeout(() => {
         setShowWristbandSuccess(false);
@@ -97,6 +102,10 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
       sectors: subCompany ? [subCompany.sector] : [] // Reset sectors based on sub-company
     });
   };
+  
+  const handleWristbandChange = (sectorId: string, value: string) => {
+    setWristbands(prev => ({...prev, [sectorId]: value }));
+  };
 
 
   const renderStatusButtons = () => {
@@ -107,43 +116,48 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     const canBeCancelled = [CheckinStatus.PENDING, CheckinStatus.MISSED, CheckinStatus.SUBSTITUTION].includes(attendee.status);
     const canBeReactivated = attendee.status === CheckinStatus.CANCELLED;
 
+    const renderWristbandInputs = () => (
+        <div className="space-y-3">
+            {attendeeSectors.map(sector => (
+                <div key={sector.id}>
+                    <label htmlFor={`wristband-${sector.id}`} className="block text-sm font-medium text-gray-300 mb-1 flex items-center gap-2">
+                         <span className="w-3 h-3 rounded-full" style={{ backgroundColor: sector.color }}></span>
+                         {t('attendeeDetail.wristbandLabel')} ({sector.label})
+                    </label>
+                    <input
+                        type="text" id={`wristband-${sector.id}`} value={wristbands[sector.id] || ''}
+                        onChange={(e) => handleWristbandChange(sector.id, e.target.value)}
+                        className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder={t('attendeeDetail.wristbandPlaceholder')}
+                    />
+                </div>
+            ))}
+        </div>
+    );
+
     return (
         <div className="grid grid-cols-1 gap-3 pt-4 border-t border-gray-700 mt-4">
             {canBeCheckedIn && (
                 <div className="space-y-3">
-                    <div>
-                        <label htmlFor="wristband" className="block text-sm font-medium text-gray-300 mb-1">{t('attendeeDetail.wristbandLabel')}</label>
-                        <input
-                            type="text" id="wristband" value={wristbandNumber}
-                            onChange={(e) => setWristbandNumber(e.target.value)}
-                            className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            placeholder={t('attendeeDetail.wristbandPlaceholder')}
-                        />
-                    </div>
-                    <button onClick={() => onUpdateStatus(CheckinStatus.CHECKED_IN, wristbandNumber)} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
+                    {renderWristbandInputs()}
+                    <button onClick={() => onUpdateStatus(CheckinStatus.CHECKED_IN, wristbands)} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
                         {t('statusUpdateModal.confirmCheckin')}
                     </button>
                 </div>
             )}
             {canBeCancelledOut && (
                  <div className="space-y-3">
-                    <div>
-                        <label htmlFor="wristbandEdit" className="block text-sm font-medium text-gray-300 mb-1">{t('attendeeDetail.wristbandLabel')}</label>
-                        <div className="flex gap-2">
-                            <input
-                                type="text" id="wristbandEdit" value={wristbandNumber}
-                                onChange={(e) => setWristbandNumber(e.target.value)}
-                                className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                placeholder={t('attendeeDetail.wristbandPlaceholder')}
-                            />
-                            <button onClick={handleWristbandSave} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex-shrink-0">
-                                {t('attendeeDetail.updateWristbandButton')}
-                            </button>
+                     <div className="flex items-end gap-2">
+                        <div className="flex-grow">
+                            {renderWristbandInputs()}
                         </div>
-                        {showWristbandSuccess && (
-                            <p className="text-sm text-green-400 text-center mt-2 animate-pulse">{t('attendeeDetail.wristbandUpdateSuccess')}</p>
-                        )}
+                        <button onClick={handleWristbandSave} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex-shrink-0 self-stretch flex items-center">
+                            {t('attendeeDetail.updateWristbandButton')}
+                        </button>
                     </div>
+                     {showWristbandSuccess && (
+                        <p className="text-sm text-green-400 text-center mt-2 animate-pulse">{t('attendeeDetail.wristbandUpdateSuccess')}</p>
+                    )}
                     <button onClick={() => onUpdateStatus(CheckinStatus.PENDING)} className="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-3 px-4 rounded-lg transition-colors">
                         {t('statusUpdateModal.cancelCheckin')}
                     </button>
@@ -194,7 +208,7 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
           </div>
         </div>
         
-        <div className="p-8 space-y-4">
+        <div className="p-8 space-y-4 max-h-[60vh] overflow-y-auto">
           {isEditing ? (
             // EDITING VIEW
             <div className="space-y-4">

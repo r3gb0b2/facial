@@ -25,7 +25,7 @@ interface AdminViewProps {
     onAddSector: (label: string, color: string) => Promise<void>;
     onUpdateSector: (sectorId: string, data: { label: string; color: string; }) => Promise<void>;
     onDeleteSector: (sector: Sector) => Promise<void>;
-    onAttendeeDetailsUpdate: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'wristbandNumber' | 'subCompany'>>) => Promise<void>;
+    onAttendeeDetailsUpdate: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'wristbands' | 'subCompany'>>) => Promise<void>;
     onDeleteAttendee: (attendeeId: string) => Promise<void>;
     onBack: () => void;
     setError: (message: string) => void;

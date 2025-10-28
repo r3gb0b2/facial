@@ -295,7 +295,7 @@ const App: React.FC = () => {
         return api.deleteSector(currentEvent.id, sector.id);
     };
     
-    const handleAttendeeDetailsUpdate = (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'wristbandNumber' | 'subCompany'>>) => {
+    const handleAttendeeDetailsUpdate = (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'wristbands' | 'subCompany'>>) => {
         if (!currentEvent) return Promise.reject();
         return api.updateAttendeeDetails(currentEvent.id, attendeeId, data);
     };

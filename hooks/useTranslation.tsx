@@ -43,7 +43,8 @@ const translations = {
     'checkin.filter.supplier': 'Filtrar por Fornecedor',
     'checkin.filter.allStatuses': 'Todos os Status',
     'checkin.filter.allSuppliers': 'Todos os Fornecedores',
-    'checkin.search.noResultsForTerm': (term: string) => `Nenhum cadastro encontrado para "${term}".`,
+    // FIX: Changed parameter type to any to resolve type inference error at call site.
+    'checkin.search.noResultsForTerm': (term: any) => `Nenhum cadastro encontrado para "${term}".`,
     'checkin.search.noResultsForFilter': 'Nenhum participante encontrado para os filtros selecionados.',
 
 
@@ -72,11 +73,13 @@ const translations = {
     'register.import.button': 'Selecionar Arquivo CSV',
     'register.import.processing': 'Processando...',
     'register.import.reportTitle': 'Relatório de Importação',
-    'register.import.success': (count: number) => `${count} participante(s) importado(s) com sucesso.`,
+    // FIX: Changed parameter type to any to resolve type inference error at call site.
+    'register.import.success': (count: any) => `${count} participante(s) importado(s) com sucesso.`,
     'register.import.errors.fileType': 'Tipo de arquivo inválido. Por favor, envie um arquivo .csv.',
     'register.import.errors.missingColumns': 'A planilha está faltando colunas obrigatórias (nome, cpf, setor).',
     'register.import.errors.parsing': 'Erro ao processar o arquivo.',
-    'register.import.errors.rowError': (row: number, message: string) => `Linha ${row}: ${message}`,
+    // FIX: Changed parameter types to any to resolve type inference error at call site.
+    'register.import.errors.rowError': (row: any, message: any) => `Linha ${row}: ${message}`,
     'register.successMessage': 'Cadastro realizado com sucesso!',
     'register.photoLocked': 'Foto carregada do cadastro existente e não pode ser alterada.',
     'register.cpfAlreadyRegistered': 'Este CPF já está cadastrado. Limpe o formulário para adicionar um novo participante.',
@@ -110,8 +113,10 @@ const translations = {
     'suppliers.noNameError': 'O nome do fornecedor é obrigatório.',
     'suppliers.noSectorsError': 'Selecione ao menos um setor.',
     'suppliers.noLimitError': 'O limite de cadastro deve ser um número maior que zero.',
-    'suppliers.deleteConfirm': (name: string) => `Tem certeza que deseja deletar o fornecedor "${name}"? Esta ação não pode ser desfeita.`,
-    'suppliers.deleteErrorInUse': (name: string) => `O fornecedor "${name}" não pode ser excluído pois já possui participantes cadastrados.`,
+    // FIX: Changed parameter type to any to resolve type inference error at call site.
+    'suppliers.deleteConfirm': (name: any) => `Tem certeza que deseja deletar o fornecedor "${name}"? Esta ação não pode ser desfeita.`,
+    // FIX: Changed parameter type to any to resolve type inference error at call site.
+    'suppliers.deleteErrorInUse': (name: any) => `O fornecedor "${name}" não pode ser excluído pois já possui participantes cadastrados.`,
     'suppliers.adminLink.button': 'Link Admin',
     'suppliers.adminLink.regenerateTooltip': 'Regerar link de acesso',
     'suppliers.adminLink.copyTooltip': 'Copiar link de acesso',
@@ -121,8 +126,10 @@ const translations = {
     'sectors.noSectors': 'Nenhum setor cadastrado.',
     'sectors.noSectorsSubtitle': 'Adicione setores para organizar os participantes.',
     'sectors.createButton': 'Criar Novo Setor',
-    'sectors.deleteConfirm': (label: string) => `Tem certeza que deseja deletar o setor "${label}"? Esta ação não pode ser desfeita.`,
-    'sectors.deleteErrorInUse': (label: string) => `O setor "${label}" não pode ser excluído pois está em uso por participantes ou fornecedores.`,
+    // FIX: Changed parameter type to any to resolve type inference error at call site.
+    'sectors.deleteConfirm': (label: any) => `Tem certeza que deseja deletar o setor "${label}"? Esta ação não pode ser desfeita.`,
+    // FIX: Changed parameter type to any to resolve type inference error at call site.
+    'sectors.deleteErrorInUse': (label: any) => `O setor "${label}" não pode ser excluído pois está em uso por participantes ou fornecedores.`,
     'sectors.modal.createTitle': 'Criar Novo Setor',
     'sectors.modal.editTitle': 'Editar Setor',
     'sectors.modal.labelLabel': 'Nome do Setor',
@@ -147,7 +154,8 @@ const translations = {
     
     // Wristband Report
     'wristbandReport.title': 'Relatório de Pulseiras Entregues',
-    'wristbandReport.stats.deliveredOf': (delivered: number, total: number) => `${delivered} de ${total} entregues`,
+    // FIX: Changed parameter types to any to resolve type inference error at call site.
+    'wristbandReport.stats.deliveredOf': (delivered: any, total: any) => `${delivered} de ${total} entregues`,
     'wristbandReport.searchPlaceholder': 'Buscar por nome, CPF ou pulseira...',
     'wristbandReport.filter.sector': 'Filtrar por Setor',
     'wristbandReport.filter.allSectors': 'Todos os Setores',
@@ -178,7 +186,8 @@ const translations = {
     'attendeeDetail.updateWristbandButton': 'Atualizar',
     'attendeeDetail.cancelButton': 'Cancelar',
     'attendeeDetail.deleteButton': 'Excluir Cadastro',
-    'attendeeDetail.deleteConfirm': (name: string) => `Tem certeza que deseja excluir o cadastro de "${name}"? Esta ação removerá a foto e todos os dados.`,
+    // FIX: Changed parameter type to any to resolve type inference error at call site.
+    'attendeeDetail.deleteConfirm': (name: any) => `Tem certeza que deseja excluir o cadastro de "${name}"? Esta ação removerá a foto e todos os dados.`,
     'attendeeDetail.formError': 'Nome e CPF são obrigatórios.',
     'attendeeDetail.wristbandLabel': 'Nº da Pulseira (Opcional)',
     'attendeeDetail.wristbandPlaceholder': 'Digite o número',

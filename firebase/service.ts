@@ -185,18 +185,16 @@ export const registerAttendeeForSupplier = async (
 };
 
 
-export const updateAttendeeStatus = async (eventId: string, attendeeId: string, status: CheckinStatus, wristbandNumber?: string): Promise<void> => {
+export const updateAttendeeStatus = async (eventId: string, attendeeId: string, status: CheckinStatus, wristbands?: { [sectorId: string]: string }): Promise<void> => {
     const dataToUpdate: any = { status };
-    // Only add the wristband number if the status is CHECKED_IN and a number is provided.
-    // An empty string will clear the field.
-    if (status === CheckinStatus.CHECKED_IN && typeof wristbandNumber !== 'undefined') {
-        dataToUpdate.wristbandNumber = wristbandNumber;
+    if (status === CheckinStatus.CHECKED_IN) {
+        dataToUpdate.wristbands = wristbands || {};
     }
     const eventRef = db.collection('events').doc(eventId);
     await eventRef.collection('attendees').doc(attendeeId).update(dataToUpdate);
 };
 
-export const updateAttendeeDetails = async (eventId: string, attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'wristbandNumber' | 'subCompany'>>): Promise<void> => {
+export const updateAttendeeDetails = async (eventId: string, attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'wristbands' | 'subCompany'>>): Promise<void> => {
     const eventRef = db.collection('events').doc(ensureEventId(eventId));
     await eventRef.collection('attendees').doc(attendeeId).update(data);
 };

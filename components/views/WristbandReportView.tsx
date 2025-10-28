@@ -27,14 +27,14 @@ const WristbandReportView: React.FC<WristbandReportViewProps> = ({ attendees, se
 
   const deliveredAttendees = useMemo(() => {
     return attendees
-      .filter(a => a.status === CheckinStatus.CHECKED_IN && a.wristbandNumber)
+      .filter(a => a.status === CheckinStatus.CHECKED_IN && a.wristbands && Object.values(a.wristbands).some(Boolean))
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [attendees]);
 
   const sectorStats = useMemo(() => {
     return sectors.map(sector => {
       const total = attendees.filter(a => (a.sectors || []).includes(sector.id)).length;
-      const delivered = deliveredAttendees.filter(a => (a.sectors || []).includes(sector.id)).length;
+      const delivered = deliveredAttendees.filter(a => (a.sectors || []).includes(sector.id) && a.wristbands?.[sector.id]).length;
       return { ...sector, total, delivered };
     });
   }, [sectors, attendees, deliveredAttendees]);
@@ -47,7 +47,7 @@ const WristbandReportView: React.FC<WristbandReportViewProps> = ({ attendees, se
       }
       if (normalizedTerm) {
         const nameMatch = normalizeString(attendee.name).includes(normalizedTerm);
-        const wristbandMatch = normalizeString(attendee.wristbandNumber).includes(normalizedTerm);
+        const wristbandMatch = attendee.wristbands ? Object.values(attendee.wristbands).some(num => normalizeString(num).includes(normalizedTerm)) : false;
         const cpfMatch = normalizeString(attendee.cpf).includes(normalizedTerm);
         return nameMatch || wristbandMatch || cpfMatch;
       }
@@ -113,31 +113,37 @@ const WristbandReportView: React.FC<WristbandReportViewProps> = ({ attendees, se
               <thead className="border-b border-gray-600 text-xs text-gray-400 uppercase">
                 <tr>
                   <th className="p-3">{t('wristbandReport.list.header.name')}</th>
-                  <th className="p-3">{t('wristbandReport.list.header.wristband')}</th>
-                  <th className="p-3">{t('wristbandReport.list.header.sector')}</th>
-                  <th className="p-3 text-center">{t('wristbandReport.list.header.color')}</th>
+                  <th className="p-3" colSpan={2}>{t('wristbandReport.list.header.wristband')} / {t('wristbandReport.list.header.sector')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-700">
                 {filteredList.map(attendee => {
                   const attendeeSectors = (attendee.sectors || []).map(id => sectorMap.get(id)).filter(Boolean) as Sector[];
-                  const sectorLabels = attendeeSectors.map(s => s.label).join(', ');
                   return (
                     <tr key={attendee.id} className="hover:bg-gray-700/50">
-                      <td className="p-3 font-medium text-white">{attendee.name}</td>
-                      <td className="p-3 text-gray-300">{attendee.wristbandNumber}</td>
-                      <td className="p-3 text-gray-300">{sectorLabels}</td>
-                      <td className="p-3">
-                        <div className="flex justify-center items-center gap-1">
+                      <td className="p-3 font-medium text-white align-top">{attendee.name}</td>
+                      <td className="p-3 text-gray-300 align-top">
+                        <div className="flex flex-col gap-1">
                           {attendeeSectors.map(sector => (
-                            <span
-                              key={sector.id}
-                              className="w-4 h-4 rounded-full"
-                              style={{ backgroundColor: sector.color || '#4B5563' }}
-                              title={sector.label}
-                            ></span>
+                            <div key={sector.id} className="flex items-center gap-2">
+                               <span
+                                className="w-3 h-3 rounded-full flex-shrink-0"
+                                style={{ backgroundColor: sector.color || '#4B5563' }}
+                                title={sector.label}
+                              ></span>
+                              <span className="font-semibold">{sector.label}:</span>
+                            </div>
                           ))}
                         </div>
+                      </td>
+                      <td className="p-3 text-gray-300 align-top">
+                         <div className="flex flex-col gap-1">
+                            {attendeeSectors.map(sector => (
+                              <div key={sector.id}>
+                                {attendee.wristbands?.[sector.id] || 'N/A'}
+                              </div>
+                            ))}
+                         </div>
                       </td>
                     </tr>
                   );
