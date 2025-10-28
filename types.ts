@@ -40,6 +40,7 @@ export interface Supplier {
   active: boolean;
   registrationLimit: number;
   subCompanies?: SubCompany[]; // Optional list of sub-companies for this supplier
+  adminToken?: string; // Unique token for the read-only admin link
 }
 
 export interface Sector {

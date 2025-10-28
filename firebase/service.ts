@@ -397,12 +397,17 @@ export const getAttendeeCountForSupplier = async (eventId: string, supplierId: s
 
 export const addSupplier = async (eventId: string, name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[]): Promise<string> => {
     const eventRef = db.collection('events').doc(ensureEventId(eventId));
+    
+    // Generate a unique token using a new document ID from a temporary collection.
+    const adminToken = db.collection('events').doc().id;
+
     const newSupplier = {
         name,
         sectors,
         registrationLimit,
         subCompanies,
         active: true,
+        adminToken: adminToken,
     };
     const res = await eventRef.collection('suppliers').add(newSupplier);
     return res.id;
@@ -421,4 +426,38 @@ export const deleteSupplier = async (eventId: string, supplierId: string): Promi
         throw new Error('Supplier has registered attendees and cannot be deleted.');
     }
     await eventRef.collection('suppliers').doc(supplierId).delete();
+};
+
+export const regenerateSupplierAdminToken = async (eventId: string, supplierId: string): Promise<string> => {
+    const eventRef = db.collection('events').doc(ensureEventId(eventId));
+    const newAdminToken = db.collection('events').doc().id;
+    await eventRef.collection('suppliers').doc(supplierId).update({ adminToken: newAdminToken });
+    return newAdminToken;
+};
+
+
+export const getSupplierDataForAdminView = async (eventId: string, adminToken: string): Promise<{ supplierName: string; attendees: Attendee[] } | null> => {
+    const eventRef = db.collection('events').doc(ensureEventId(eventId));
+    const suppliersQuery = eventRef.collection('suppliers').where('adminToken', '==', adminToken).limit(1);
+    const supplierSnapshot = await suppliersQuery.get();
+
+    if (supplierSnapshot.empty) {
+        return null; // No supplier found with this token
+    }
+
+    const supplierDoc = supplierSnapshot.docs[0];
+    const supplier = { id: supplierDoc.id, ...supplierDoc.data() } as Supplier;
+
+    const attendeesQuery = eventRef.collection('attendees').where('supplierId', '==', supplier.id).orderBy('name');
+    const attendeesSnapshot = await attendeesQuery.get();
+
+    const attendees = attendeesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+    } as Attendee));
+    
+    return {
+        supplierName: supplier.name,
+        attendees: attendees,
+    };
 };

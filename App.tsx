@@ -6,6 +6,7 @@ import EventSelectionView from './components/views/EventSelectionView.tsx';
 import AdminView from './components/views/AdminView.tsx';
 import RegisterView from './components/views/RegisterView.tsx';
 import RegistrationClosedView from './components/views/RegistrationClosedView.tsx';
+import SupplierAdminView from './components/views/SupplierAdminView.tsx';
 import EventModal from './components/EventModal.tsx';
 import { SpinnerIcon } from './components/icons.tsx';
 
@@ -20,7 +21,7 @@ const App: React.FC = () => {
     const [appError, setAppError] = useState('');
     
     // View State
-    const [currentView, setCurrentView] = useState<'login' | 'event_selection' | 'admin' | 'supplier_registration' | 'registration_closed'>('login');
+    const [currentView, setCurrentView] = useState<'login' | 'event_selection' | 'admin' | 'supplier_registration' | 'registration_closed' | 'supplier_admin'>('login');
     
     // Data State
     const [events, setEvents] = useState<Event[]>([]);
@@ -31,6 +32,8 @@ const App: React.FC = () => {
     
     // Supplier specific state
     const [supplierInfo, setSupplierInfo] = useState<{ id: string; eventId: string; data: Supplier; } | null>(null);
+    const [supplierAdminData, setSupplierAdminData] = useState<{ supplierName: string; attendees: Attendee[] } | null>(null);
+
     
     // Modal State
     const [isEventModalOpen, setIsEventModalOpen] = useState(false);
@@ -41,18 +44,21 @@ const App: React.FC = () => {
         const params = new URLSearchParams(window.location.search);
         const eventId = params.get('eventId');
         const supplierId = params.get('supplierId');
+        const adminToken = params.get('adminToken');
 
         // Supplier links take priority over admin login
         if (eventId && supplierId) {
             handleSupplierLink(eventId, supplierId);
+        } else if (eventId && adminToken) {
+            handleSupplierAdminLink(eventId, adminToken);
         } else {
-            // If no supplier link, check for a persisted admin session
+            // If no special link, check for a persisted admin session
             const isAdminLoggedIn = sessionStorage.getItem('isFacialAdminLoggedIn');
             if (isAdminLoggedIn === 'true') {
                 setIsLoggedIn(true);
                 setCurrentView('event_selection');
             }
-            // In either case (logged in or not), we're done with initial checks.
+            // In either case, we're done with initial checks.
             setIsLoading(false);
         }
     }, []);
@@ -128,6 +134,23 @@ const App: React.FC = () => {
             }
         } catch (error) {
             console.error("Failed to process supplier link:", error);
+            setCurrentView('registration_closed');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleSupplierAdminLink = async (eventId: string, token: string) => {
+        try {
+            const data = await api.getSupplierDataForAdminView(eventId, token);
+            if (data) {
+                setSupplierAdminData(data);
+                setCurrentView('supplier_admin');
+            } else {
+                setCurrentView('registration_closed');
+            }
+        } catch (error) {
+            console.error("Failed to process supplier admin link:", error);
             setCurrentView('registration_closed');
         } finally {
             setIsLoading(false);
@@ -216,6 +239,11 @@ const App: React.FC = () => {
         return api.updateSupplier(currentEvent.id, supplierId, { active });
     };
 
+    const handleRegenerateSupplierAdminToken = (supplierId: string) => {
+        if (!currentEvent) return Promise.reject();
+        return api.regenerateSupplierAdminToken(currentEvent.id, supplierId);
+    };
+
     const handleAddSector = async (label: string, color: string) => {
         if (!currentEvent) return Promise.reject();
         await api.addSector(currentEvent.id, label, color);
@@ -278,6 +306,7 @@ const App: React.FC = () => {
                     onUpdateSupplier={handleUpdateSupplier}
                     onDeleteSupplier={handleDeleteSupplier}
                     onSupplierStatusUpdate={handleSupplierStatusUpdate}
+                    onRegenerateAdminToken={handleRegenerateSupplierAdminToken}
                     onAddSector={handleAddSector}
                     onUpdateSector={handleUpdateSector}
                     onDeleteSector={handleDeleteSector}
@@ -301,6 +330,12 @@ const App: React.FC = () => {
                     // If there's only one sector, predefine it to hide the dropdown.
                     // Otherwise, pass the array of allowed sector IDs.
                     predefinedSector={allowedSectors.length === 1 ? allowedSectors[0].id : supplierInfo.data.sectors}
+                 />;
+            case 'supplier_admin':
+                 if (!supplierAdminData) return <RegistrationClosedView message="Link inválido ou não encontrado." />;
+                 return <SupplierAdminView 
+                    supplierName={supplierAdminData.supplierName} 
+                    attendees={supplierAdminData.attendees} 
                  />;
             case 'registration_closed':
                  return <RegistrationClosedView />;

@@ -110,6 +110,9 @@ const translations = {
     'suppliers.noLimitError': 'O limite de cadastro deve ser um número maior que zero.',
     'suppliers.deleteConfirm': (name: string) => `Tem certeza que deseja deletar o fornecedor "${name}"? Esta ação não pode ser desfeita.`,
     'suppliers.deleteErrorInUse': (name: string) => `O fornecedor "${name}" não pode ser excluído pois já possui participantes cadastrados.`,
+    'suppliers.adminLink.button': 'Link Admin',
+    'suppliers.adminLink.regenerateTooltip': 'Regerar link de acesso',
+    'suppliers.adminLink.copyTooltip': 'Copiar link de acesso',
 
     // Sectors
     'sectors.title': 'Gerenciar Setores',
@@ -185,6 +188,11 @@ const translations = {
     // Supplier Registration View
     'supplierRegistration.closedTitle': 'Cadastro Encerrado',
     'supplierRegistration.closedMessage': 'O link de cadastro não está mais ativo ou atingiu o limite.',
+
+    // Supplier Admin View
+    'supplierAdmin.title': 'Verificação de Colaboradores',
+    'supplierAdmin.supplier': 'Fornecedor:',
+    'supplierAdmin.noAttendees': 'Nenhum colaborador cadastrado para este fornecedor ainda.',
   },
 };
 

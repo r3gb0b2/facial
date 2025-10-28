@@ -21,6 +21,7 @@ interface AdminViewProps {
     onUpdateSupplier: (supplierId: string, data: Partial<Supplier>) => Promise<void>;
     onDeleteSupplier: (supplier: Supplier) => Promise<void>;
     onSupplierStatusUpdate: (supplierId: string, active: boolean) => Promise<void>;
+    onRegenerateAdminToken: (supplierId: string) => Promise<string>;
     onAddSector: (label: string, color: string) => Promise<void>;
     onUpdateSector: (sectorId: string, data: { label: string; color: string; }) => Promise<void>;
     onDeleteSector: (sector: Sector) => Promise<void>;
@@ -57,7 +58,18 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
             case 'register':
                 return <RegisterView onRegister={props.onRegister} onImportAttendees={props.onImportAttendees} setError={props.setError} sectors={props.sectors} />;
             case 'suppliers':
-                return <SupplierManagementView currentEventId={props.currentEvent.id} suppliers={props.suppliers} attendees={props.attendees} sectors={props.sectors} onAddSupplier={props.onAddSupplier} onUpdateSupplier={props.onUpdateSupplier} onDeleteSupplier={props.onDeleteSupplier} onSupplierStatusUpdate={props.onSupplierStatusUpdate} setError={props.setError} />;
+                return <SupplierManagementView 
+                    currentEventId={props.currentEvent.id} 
+                    suppliers={props.suppliers} 
+                    attendees={props.attendees} 
+                    sectors={props.sectors} 
+                    onAddSupplier={props.onAddSupplier} 
+                    onUpdateSupplier={props.onUpdateSupplier} 
+                    onDeleteSupplier={props.onDeleteSupplier} 
+                    onSupplierStatusUpdate={props.onSupplierStatusUpdate}
+                    onRegenerateAdminToken={props.onRegenerateAdminToken}
+                    setError={props.setError} 
+                />;
             case 'sectors':
                 return <SectorManagementView sectors={props.sectors} onAddSector={props.onAddSector} onUpdateSector={props.onUpdateSector} onDeleteSector={props.onDeleteSector} setError={props.setError} />;
             case 'wristbands':
