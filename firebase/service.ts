@@ -491,50 +491,68 @@ export const regenerateSupplierAdminToken = async (eventId: string, supplierId: 
 
 export const getSupplierDataForAdminView = async (adminToken: string): Promise<{ supplierName: string; attendees: Attendee[] }> => {
     if (!adminToken || typeof adminToken !== 'string' || adminToken.length < 5) {
-        console.error("getSupplierDataForAdminView was called with an invalid or empty token.");
         throw new Error("Token de verificação inválido.");
     }
 
+    let eventId: string | null = null;
+    let supplierId: string | null = null;
+
+    // --- STRATEGY 1: Direct Lookup (Preferred) ---
     try {
         const tokenRef = db.collection('supplier_tokens').doc(adminToken);
         const tokenDoc = await tokenRef.get();
-
-        if (!tokenDoc.exists) {
-            console.error(`Admin token document not found in 'supplier_tokens' collection for token: ${adminToken}`);
-            throw new Error("O link de verificação é inválido ou expirou. Por favor, solicite um novo link ao administrador.");
+        if (tokenDoc.exists) {
+            const tokenData = tokenDoc.data();
+            if (tokenData?.eventId && tokenData?.supplierId) {
+                eventId = tokenData.eventId;
+                supplierId = tokenData.supplierId;
+            }
         }
-
-        const tokenData = tokenDoc.data();
-        if (!tokenData || !tokenData.eventId || !tokenData.supplierId) {
-            console.error(`Token document ${adminToken} is malformed:`, tokenData);
-            throw new Error("O link de verificação está corrompido.");
-        }
-        
-        const { eventId, supplierId } = tokenData as { eventId: string; supplierId: string };
-
-        const supplier = await getSupplier(eventId, supplierId);
-        if (!supplier) {
-            console.error(`Supplier ${supplierId} in event ${eventId} not found, but its token exists. This indicates a data inconsistency.`);
-            throw new Error("O fornecedor associado a este link não foi encontrado. Pode ter sido excluído.");
-        }
-        
-        const attendeesQuery = db.collection('events').doc(eventId).collection('attendees').where('supplierId', '==', supplierId).orderBy('name');
-        const attendeesSnapshot = await attendeesQuery.get();
-        
-        const attendees = attendeesSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        } as Attendee));
-
-        return {
-            supplierName: supplier.name,
-            attendees: attendees,
-        };
-    } catch (error: any) {
-        console.error("An unexpected error occurred in getSupplierDataForAdminView:", error);
-        if (error.message.includes("verificação") || error.message.includes("fornecedor")) {
-            throw error;
-        }
-        throw new Error("Ocorreu um erro ao processar o link. Verifique sua conexão e tente novamente.");
+    } catch (error) {
+        console.warn("Direct token lookup failed, trying fallback. Error:", error);
     }
+
+    // --- STRATEGY 2: CollectionGroup Query (Fallback) ---
+    if (!eventId || !supplierId) {
+        try {
+            const snapshot = await db.collectionGroup('suppliers').where('adminToken', '==', adminToken).limit(1).get();
+            if (!snapshot.empty) {
+                const supplierDoc = snapshot.docs[0];
+                // The parent of a subcollection document is the document containing it.
+                // supplierDoc.ref.parent is the 'suppliers' collection.
+                // supplierDoc.ref.parent.parent is the 'event' document.
+                if (supplierDoc.ref.parent.parent) {
+                   eventId = supplierDoc.ref.parent.parent.id;
+                   supplierId = supplierDoc.id;
+                }
+            }
+        } catch (error: any) {
+            console.error("CollectionGroup query for admin token failed:", error);
+            // This is where the index error might be thrown. If it is, Firestore provides a helpful link in the console.
+            throw new Error("Ocorreu uma falha na verificação do link. Se o problema persistir, pode ser necessário um índice no banco de dados. Verifique o console do navegador por um link para criá-lo.");
+        }
+    }
+    
+    // --- Final Validation and Data Fetching ---
+    if (!eventId || !supplierId) {
+        throw new Error("O link de verificação é inválido ou expirou. Por favor, solicite um novo link ao administrador.");
+    }
+
+    const supplier = await getSupplier(eventId, supplierId);
+    if (!supplier) {
+        throw new Error("O fornecedor associado a este link não foi encontrado. Pode ter sido excluído.");
+    }
+    
+    const attendeesQuery = db.collection('events').doc(eventId).collection('attendees').where('supplierId', '==', supplierId).orderBy('name');
+    const attendeesSnapshot = await attendeesQuery.get();
+    
+    const attendees = attendeesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+    } as Attendee));
+
+    return {
+        supplierName: supplier.name,
+        attendees: attendees,
+    };
 };
