@@ -9,12 +9,9 @@ import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { UsersIcon, CheckCircleIcon, SpinnerIcon } from '../icons.tsx';
 // FIX: Added .ts extension to module import.
 import * as api from '../../firebase/service.ts';
-// FIX: Add .tsx extension
-import SpreadsheetUploadView from './SpreadsheetUploadView.tsx';
 
 interface RegisterViewProps {
   onRegister: (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => Promise<void>;
-  onImportAttendees?: (data: any[]) => Promise<any>;
   setError: (message: string) => void;
   sectors: Sector[];
   predefinedSector?: string | string[];
@@ -22,7 +19,7 @@ interface RegisterViewProps {
   supplierInfo?: { data: Supplier };
 }
 
-const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttendees, setError, sectors, predefinedSector, supplierName, supplierInfo }) => {
+const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, sectors, predefinedSector, supplierName, supplierInfo }) => {
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [cpf, setCpf] = useState('');
@@ -307,10 +304,6 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
           </div>
         </form>
       </div>
-      
-      {isAdminView && onImportAttendees && (
-        <SpreadsheetUploadView onImport={onImportAttendees} setError={setError} />
-      )}
     </div>
   );
 };

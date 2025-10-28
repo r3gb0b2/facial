@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, ReactNode } from 'react';
 
 type Translations = {
-  [key: string]: string | ((...args: any[]) => string);
+  // FIX: Replaced `any[]` with a more specific type for translation function arguments.
+  [key: string]: string | ((...args: (string | number)[]) => string);
 };
 
 const translations: { [lang: string]: Translations } = {
@@ -164,7 +165,8 @@ const translations: { [lang: string]: Translations } = {
 interface LanguageContextType {
   language: string;
   setLanguage: (language: string) => void;
-  t: (key: string, ...args: any[]) => string;
+  // FIX: Replaced `any[]` with a more specific type for translation function arguments.
+  t: (key: string, ...args: (string | number)[]) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -172,7 +174,8 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [language, setLanguage] = useState<string>('pt');
 
-  const t = (key: string, ...args: any[]): string => {
+  // FIX: Replaced `any[]` with a more specific type for translation function arguments.
+  const t = (key: string, ...args: (string | number)[]): string => {
     const translation = translations[language]?.[key];
     if (typeof translation === 'function') {
       return translation(...args);

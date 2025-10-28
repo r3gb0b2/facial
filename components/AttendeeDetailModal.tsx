@@ -85,8 +85,8 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   };
 
   const handleDelete = () => {
-    // FIX: Explicitly cast the result of the translation function `t` to a string. This resolves a TypeScript error where the return type was inferred as `unknown`, which is not assignable to the `string` parameter of `window.confirm`.
-    if (window.confirm(String(t('attendeeDetail.deleteConfirm', attendee.name)))) {
+    // FIX: Removed unnecessary `String()` cast. The `t` function is guaranteed to return a string.
+    if (window.confirm(t('attendeeDetail.deleteConfirm', attendee.name))) {
       onDelete(attendee.id);
     }
   };

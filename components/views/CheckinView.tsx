@@ -138,8 +138,8 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
           >
             <option value="ALL">{t('checkin.filter.allStatuses')}</option>
             {Object.values(CheckinStatus).map(status => (
-              // FIX: Explicitly cast translation result to string to avoid 'unknown' type error.
-              <option key={status} value={status}>{String(t(`status.${status.toLowerCase()}`))}</option>
+              // FIX: Removed unnecessary `String()` cast. The `t` function is guaranteed to return a string.
+              <option key={status} value={status}>{t(`status.${status.toLowerCase()}`)}</option>
             ))}
           </select>
           <select

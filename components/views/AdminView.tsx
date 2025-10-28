@@ -17,7 +17,6 @@ interface AdminViewProps {
     suppliers: Supplier[];
     sectors: Sector[];
     onRegister: (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => Promise<void>;
-    onImportAttendees: (data: any[]) => Promise<any>;
     onAddSupplier: (name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[]) => Promise<void>;
     onUpdateSupplier: (supplierId: string, data: Partial<Supplier>) => Promise<void>;
     onDeleteSupplier: (supplier: Supplier) => Promise<void>;
@@ -65,7 +64,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                     setError={props.setError}
                 />;
             case 'register':
-                return <RegisterView onRegister={props.onRegister} onImportAttendees={props.onImportAttendees} setError={props.setError} sectors={props.sectors} />;
+                return <RegisterView onRegister={props.onRegister} setError={props.setError} sectors={props.sectors} />;
             case 'suppliers':
                 return <SupplierManagementView 
                     currentEventId={props.currentEvent.id} 

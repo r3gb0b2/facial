@@ -1,5 +1,6 @@
 // FIX: Add .ts extension to firebase/config import.
-import type { Timestamp } from './firebase/config.ts';
+// FIX: Changed import to get the Timestamp type from firebase/compat/app namespace.
+import type { firestore } from 'firebase/compat/app';
 
 export enum CheckinStatus {
   PENDING = 'PENDING',
@@ -17,7 +18,7 @@ export interface Attendee {
   sectors: string[];
   status: CheckinStatus;
   eventId: string;
-  createdAt: Timestamp;
+  createdAt: firestore.Timestamp;
   supplierId?: string; // To track which supplier registered the attendee
   subCompany?: string; // The attendee's specific company under a supplier
   wristbands?: { [sectorId: string]: string }; // Maps sectorId to wristband number
@@ -26,7 +27,7 @@ export interface Attendee {
 export interface Event {
   id: string;
   name: string;
-  createdAt: Timestamp;
+  createdAt: firestore.Timestamp;
 }
 
 export interface SubCompany {

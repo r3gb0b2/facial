@@ -143,54 +143,6 @@ export const deleteAttendee = (eventId: string, attendeeId: string) => {
     return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).delete();
 };
 
-export const importAttendees = async (eventId: string, data: any[], sectors: Sector[], suppliers: Supplier[]) => {
-    const batch = db.batch();
-    const sectorMap = new Map(sectors.map(s => [s.label.toLowerCase().trim(), s.id]));
-    const supplierMap = new Map(suppliers.map(s => [s.name.toLowerCase().trim(), s.id]));
-
-    for (const [index, row] of data.entries()) {
-        // Skip empty rows that papaparse might generate
-        if (!row.name && !row.cpf && !row.sector && !row.photoUrl) {
-            continue;
-        }
-
-        if (!row.name || !row.cpf || !row.sector || !row.photoUrl) {
-            throw new Error(`Dados obrigatórios ausentes na linha ${index + 2}. Verifique 'name', 'cpf', 'sector', 'photoUrl'.`);
-        }
-
-        const sectorId = sectorMap.get(String(row.sector).toLowerCase().trim());
-        if (!sectorId) {
-             throw new Error(`Setor "${row.sector}" na linha ${index + 2} não foi encontrado.`);
-        }
-        
-        let supplierId: string | undefined = undefined;
-        if (row.fornecedor) {
-            const supplierName = String(row.fornecedor).toLowerCase().trim();
-            supplierId = supplierMap.get(supplierName);
-            if (!supplierId) {
-                throw new Error(`Fornecedor "${row.fornecedor}" na linha ${index + 2} não foi encontrado.`);
-            }
-        }
-
-        const subCompany = row.empresa ? String(row.empresa).trim() : undefined;
-
-        const docRef = db.collection('events').doc(eventId).collection('attendees').doc();
-        const newAttendee: Omit<Attendee, 'id'> = {
-            name: row.name,
-            cpf: String(row.cpf).replace(/\D/g, ''),
-            photo: row.photoUrl,
-            sectors: [sectorId],
-            status: CheckinStatus.PENDING,
-            eventId,
-            createdAt: Timestamp.now(),
-            ...(supplierId && { supplierId }),
-            ...(subCompany && { subCompany }),
-        };
-        batch.set(docRef, newAttendee);
-    }
-    return batch.commit();
-};
-
 
 // Supplier Management
 export const addSupplier = (eventId: string, name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[]) => {

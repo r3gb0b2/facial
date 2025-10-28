@@ -206,11 +206,6 @@ const App: React.FC = () => {
     await api.deleteAttendee(currentEvent.id, attendeeId);
   };
 
-  const handleImportAttendees = async (data: any[]) => {
-      if (!currentEvent) return;
-      return api.importAttendees(currentEvent.id, data, sectors, suppliers);
-  };
-
   // Supplier Handlers
   const handleAddSupplier = async (name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[]) => {
     if (!currentEvent) return;
@@ -273,7 +268,6 @@ const App: React.FC = () => {
             suppliers={suppliers}
             sectors={sectors}
             onRegister={handleRegister}
-            onImportAttendees={handleImportAttendees}
             onAddSupplier={handleAddSupplier}
             onUpdateSupplier={handleUpdateSupplier}
             onDeleteSupplier={handleDeleteSupplier}
