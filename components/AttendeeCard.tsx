@@ -43,11 +43,11 @@ const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect, sectorL
         </div>
       </div>
       <div className="p-4 flex-grow flex flex-col">
-        <h3 className="font-bold text-lg text-white truncate">{attendee.name}</h3>
+        <h3 className="font-bold text-lg text-white">{attendee.name}</h3>
         <p className="text-sm text-gray-400">{formatCPF(attendee.cpf)}</p>
         <div className="mt-1 space-y-1 flex-grow">
             <p
-              className="text-sm font-semibold capitalize truncate"
+              className="text-sm font-semibold capitalize"
               style={sectorColor ? { color: sectorColor } : { color: '#818cf8' }} // Fallback to indigo-400
             >
               {sectorLabel}
