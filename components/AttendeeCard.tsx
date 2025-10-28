@@ -55,6 +55,9 @@ const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect, sectorL
             {supplierName && (
                 <p className="text-xs text-gray-500 font-medium truncate">{t('attendeeCard.supplierLabel')}: {supplierName}</p>
             )}
+            {attendee.subCompany && (
+                <p className="text-xs text-gray-500 font-medium truncate">{t('attendeeCard.subCompanyLabel')}: {attendee.subCompany}</p>
+            )}
         </div>
         {attendee.status === CheckinStatus.CHECKED_IN && attendee.wristbandNumber && (
             <div className="mt-2 flex items-center gap-1 text-xs text-gray-300 bg-gray-700/50 px-2 py-1 rounded-md">

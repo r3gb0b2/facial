@@ -8,7 +8,7 @@ interface AttendeeDetailModalProps {
   sectors: Sector[];
   onClose: () => void;
   onUpdateStatus: (status: CheckinStatus, wristbandNumber?: string) => void;
-  onUpdateDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector' | 'wristbandNumber'>>) => Promise<void>;
+  onUpdateDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector' | 'wristbandNumber' | 'subCompany'>>) => Promise<void>;
   onDelete: (attendeeId: string) => Promise<void>;
   setError: (message: string) => void;
 }
@@ -30,6 +30,7 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     name: attendee.name,
     cpf: attendee.cpf,
     sector: attendee.sector,
+    subCompany: attendee.subCompany || '',
   });
 
   useEffect(() => {
@@ -37,6 +38,7 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
       name: attendee.name,
       cpf: formatCPF(attendee.cpf),
       sector: attendee.sector,
+      subCompany: attendee.subCompany || '',
     });
     setWristbandNumber(attendee.wristbandNumber || '');
     setIsEditing(false); // Reset editing state when attendee changes
@@ -190,6 +192,10 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.cpfLabel')}</label>
                 <input type="text" value={editData.cpf} onChange={(e) => setEditData({...editData, cpf: formatCPF(e.target.value)})} className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"/>
+              </div>
+               <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">{t('attendeeCard.subCompanyLabel')}</label>
+                <input type="text" value={editData.subCompany} onChange={(e) => setEditData({...editData, subCompany: e.target.value})} className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"/>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.sectorLabel')}</label>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Attendee, Sector } from '../../types';
+import { Attendee, Sector, Supplier } from '../../types';
 import WebcamCapture from '../WebcamCapture';
 // FIX: Added .tsx extension to module import.
 import { useTranslation } from '../../hooks/useTranslation.tsx';
@@ -15,13 +15,15 @@ interface RegisterViewProps {
   sectors: Sector[];
   predefinedSector?: string | string[];
   supplierName?: string;
+  supplierInfo?: { data: Supplier };
 }
 
-const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttendees, setError, sectors, predefinedSector, supplierName }) => {
+const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttendees, setError, sectors, predefinedSector, supplierName, supplierInfo }) => {
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [cpf, setCpf] = useState('');
   const [sector, setSector] = useState('');
+  const [subCompany, setSubCompany] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCheckingCpf, setIsCheckingCpf] = useState(false);
@@ -32,6 +34,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
   const isSupplierWithMultipleSectors = Array.isArray(predefinedSector);
   const isSupplierWithSingleSector = typeof predefinedSector === 'string';
   const isAdminView = !predefinedSector; // True if it's the main admin view, not a supplier link
+  const hasSubCompanies = !!(supplierInfo?.data.subCompanies && supplierInfo.data.subCompanies.length > 0);
 
   useEffect(() => {
     let initialSector = '';
@@ -43,7 +46,12 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
       initialSector = availableSectors.length > 0 ? availableSectors[0].id : '';
     }
     setSector(initialSector);
-  }, [predefinedSector, isSupplierWithSingleSector, isSupplierWithMultipleSectors, sectors]);
+
+    if (hasSubCompanies) {
+      setSubCompany(''); // Reset to default/placeholder
+    }
+
+  }, [predefinedSector, isSupplierWithSingleSector, isSupplierWithMultipleSectors, sectors, hasSubCompanies]);
   
 
   const clearForm = () => {
@@ -52,6 +60,9 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
     setPhoto(null);
     setCpfCheckMessage('');
     setExistingAttendeeFound(false);
+    if (hasSubCompanies) {
+      setSubCompany('');
+    }
     if (!predefinedSector) {
       setSector('');
     } else if (isSupplierWithMultipleSectors) {
@@ -112,19 +123,28 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
 
     if (!name || !rawCpf || !photo || !sector) {
       setError(t('register.errors.allFields'));
-      setTimeout(() => setError(''), 3000);
       return;
     }
     if (rawCpf.length !== 11) {
       setError(t('register.errors.invalidCpf'));
-      setTimeout(() => setError(''), 3000);
+      return;
+    }
+    if (hasSubCompanies && !subCompany) {
+      setError(t('register.errors.subCompanyRequired'));
       return;
     }
 
     setIsSubmitting(true);
     setShowSuccess(false);
     try {
-      await onRegister({ name, cpf: rawCpf, photo, sector });
+      const attendeeData: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'> = { 
+          name, 
+          cpf: rawCpf, 
+          photo, 
+          sector,
+          ...(hasSubCompanies && { subCompany })
+      };
+      await onRegister(attendeeData);
       clearForm();
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 4000);
@@ -159,6 +179,26 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
         </div>
     );
   };
+  
+  const renderSubCompanyInput = () => {
+    if (!hasSubCompanies) return null;
+    
+    return (
+        <div>
+          <label htmlFor="subCompany" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.subCompanyLabel')}</label>
+          <select
+            id="subCompany" value={subCompany} onChange={(e) => setSubCompany(e.target.value)}
+            className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+            disabled={isSubmitting || isCheckingCpf}
+            required
+          >
+            <option value="" disabled>{t('register.form.subCompanyPlaceholder')}</option>
+            {supplierInfo?.data.subCompanies?.map(name => <option key={name} value={name}>{name}</option>)}
+          </select>
+        </div>
+    );
+  };
+
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-10">
@@ -198,6 +238,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
                 disabled={isSubmitting || isCheckingCpf}
               />
             </div>
+            {renderSubCompanyInput()}
             {renderSectorInput()}
             <div className="space-y-4">
                 <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-indigo-400 disabled:cursor-wait" disabled={!name || !cpf || !photo || !sector || isSubmitting || isCheckingCpf}>

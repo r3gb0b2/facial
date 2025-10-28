@@ -196,9 +196,9 @@ const App: React.FC = () => {
         return api.addAttendeesFromSpreadsheet(currentEvent.id, data, sectors, attendees);
     };
 
-    const handleAddSupplier = async (name: string, sectors: string[], registrationLimit: number) => {
+    const handleAddSupplier = async (name: string, sectors: string[], registrationLimit: number, subCompanies: string[]) => {
         if (!currentEvent) return Promise.reject();
-        await api.addSupplier(currentEvent.id, name, sectors, registrationLimit);
+        await api.addSupplier(currentEvent.id, name, sectors, registrationLimit, subCompanies);
     };
     
     const handleUpdateSupplier = (supplierId: string, data: Partial<Supplier>) => {
@@ -231,7 +231,7 @@ const App: React.FC = () => {
         return api.deleteSector(currentEvent.id, sector.id);
     };
     
-    const handleAttendeeDetailsUpdate = (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector' | 'wristbandNumber'>>) => {
+    const handleAttendeeDetailsUpdate = (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector' | 'wristbandNumber' | 'subCompany'>>) => {
         if (!currentEvent) return Promise.reject();
         return api.updateAttendeeDetails(currentEvent.id, attendeeId, data);
     };
@@ -297,6 +297,7 @@ const App: React.FC = () => {
                     setError={setAppError}
                     sectors={allowedSectors} // Pass only the allowed sectors
                     supplierName={supplierInfo.data.name}
+                    supplierInfo={supplierInfo}
                     // If there's only one sector, predefine it to hide the dropdown.
                     // Otherwise, pass the array of allowed sector IDs.
                     predefinedSector={allowedSectors.length === 1 ? allowedSectors[0].id : supplierInfo.data.sectors}

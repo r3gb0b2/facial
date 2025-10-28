@@ -2,14 +2,14 @@ import React, { useState, useMemo } from 'react';
 import { Supplier, Sector, Attendee } from '../../types';
 // FIX: Added .tsx extension to module import.
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { LinkIcon, ClipboardDocumentIcon, NoSymbolIcon, CheckCircleIcon, PencilIcon, TrashIcon } from '../icons';
+import { LinkIcon, ClipboardDocumentIcon, NoSymbolIcon, CheckCircleIcon, PencilIcon, TrashIcon, XMarkIcon } from '../icons';
 
 interface SupplierManagementViewProps {
     currentEventId: string;
     suppliers: Supplier[];
     attendees: Attendee[];
     sectors: Sector[];
-    onAddSupplier: (name: string, sectors: string[], registrationLimit: number) => Promise<void>;
+    onAddSupplier: (name: string, sectors: string[], registrationLimit: number, subCompanies: string[]) => Promise<void>;
     onUpdateSupplier: (supplierId: string, data: Partial<Supplier>) => Promise<void>;
     onDeleteSupplier: (supplier: Supplier) => Promise<void>;
     onSupplierStatusUpdate: (supplierId: string, active: boolean) => Promise<void>;
@@ -23,10 +23,14 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
     const [supplierName, setSupplierName] = useState('');
     const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
     const [limit, setLimit] = useState('');
+    const [subCompanies, setSubCompanies] = useState<string[]>([]);
+    const [currentSubCompany, setCurrentSubCompany] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     
     // State for inline editing
     const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+    const [editSubCompany, setEditSubCompany] = useState('');
+
 
     // State for UI feedback
     const [copiedLink, setCopiedLink] = useState<string | null>(null);
@@ -42,20 +46,50 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
     }, [attendees]);
 
     const handleSectorChange = (sectorId: string, isEditing: boolean) => {
-        const stateSetter = isEditing ? 
-            (updater: (prev: Supplier) => Supplier) => setEditingSupplier(prev => prev ? updater(prev) : null) : 
-            setSelectedSectors;
-            
-        const currentSectors = isEditing ? editingSupplier?.sectors || [] : selectedSectors;
-
-        if (currentSectors.includes(sectorId)) {
-            // Unchecking
-            stateSetter((prev: any) => isEditing ? { ...prev, sectors: prev.sectors.filter((s: string) => s !== sectorId) } : prev.filter((s: string) => s !== sectorId));
+        if (isEditing) {
+            if (!editingSupplier) return;
+            const current = editingSupplier.sectors || [];
+            const newSectors = current.includes(sectorId)
+                ? current.filter(s => s !== sectorId)
+                : [...current, sectorId];
+            setEditingSupplier({ ...editingSupplier, sectors: newSectors });
         } else {
-            // Checking
-            stateSetter((prev: any) => isEditing ? { ...prev, sectors: [...prev.sectors, sectorId] } : [...prev, sectorId]);
+            const current = selectedSectors;
+            const newSectors = current.includes(sectorId)
+                ? current.filter(s => s !== sectorId)
+                : [...current, sectorId];
+            setSelectedSectors(newSectors);
         }
     };
+    
+    // --- Sub-company handlers ---
+    const handleAddSubCompany = (isEditing: boolean) => {
+        const companyName = (isEditing ? editSubCompany : currentSubCompany).trim();
+        if (!companyName) return;
+
+        if (isEditing) {
+            if (editingSupplier && !(editingSupplier.subCompanies || []).includes(companyName)) {
+                setEditingSupplier({ ...editingSupplier, subCompanies: [...(editingSupplier.subCompanies || []), companyName] });
+            }
+            setEditSubCompany('');
+        } else {
+            if (!subCompanies.includes(companyName)) {
+                setSubCompanies([...subCompanies, companyName]);
+            }
+            setCurrentSubCompany('');
+        }
+    };
+    
+    const handleRemoveSubCompany = (companyToRemove: string, isEditing: boolean) => {
+        if (isEditing) {
+            if (editingSupplier) {
+                setEditingSupplier({ ...editingSupplier, subCompanies: (editingSupplier.subCompanies || []).filter(sc => sc !== companyToRemove) });
+            }
+        } else {
+            setSubCompanies(subCompanies.filter(sc => sc !== companyToRemove));
+        }
+    };
+
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -75,10 +109,12 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
 
         setIsSubmitting(true);
         try {
-            await onAddSupplier(supplierName, selectedSectors, registrationLimit);
+            await onAddSupplier(supplierName, selectedSectors, registrationLimit, subCompanies);
             setSupplierName('');
             setSelectedSectors([]);
             setLimit('');
+            setSubCompanies([]);
+            setCurrentSubCompany('');
         } finally {
             setIsSubmitting(false);
         }
@@ -156,6 +192,40 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
             </div>
         ));
     };
+    
+    const renderSubCompanyManager = (isEditing: boolean) => {
+        const currentList = isEditing ? editingSupplier?.subCompanies || [] : subCompanies;
+        const inputValue = isEditing ? editSubCompany : currentSubCompany;
+        const setInputValue = isEditing ? setEditSubCompany : setCurrentSubCompany;
+        
+        return (
+            <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">{t('suppliers.subCompaniesLabel')}</label>
+                <div className="flex gap-2">
+                    <input
+                        type="text"
+                        value={inputValue}
+                        onChange={(e) => setInputValue(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddSubCompany(isEditing))}
+                        className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        placeholder={t('suppliers.subCompaniesPlaceholder')}
+                    />
+                    <button type="button" onClick={() => handleAddSubCompany(isEditing)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex-shrink-0">{t('suppliers.addSubCompanyButton')}</button>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-2">
+                    {currentList.map(company => (
+                        <div key={company} className="bg-gray-600 text-white text-sm font-medium px-3 py-1 rounded-full flex items-center gap-2">
+                            <span>{company}</span>
+                            <button type="button" onClick={() => handleRemoveSubCompany(company, isEditing)} className="text-gray-300 hover:text-white">
+                                <XMarkIcon className="w-4 h-4" />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
+    };
+
 
     return (
         <div className="w-full max-w-4xl mx-auto space-y-10">
@@ -192,6 +262,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                            {renderSectorCheckboxes(false)}
                         </div>
                     </div>
+                    {renderSubCompanyManager(false)}
                     <button type="submit" disabled={isSubmitting} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:bg-indigo-400 disabled:cursor-wait">
                         {isSubmitting ? 'Gerando...' : t('suppliers.generateButton')}
                     </button>
@@ -219,6 +290,9 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                     />
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-gray-600 pt-3">
                                         {renderSectorCheckboxes(true)}
+                                    </div>
+                                    <div className="border-t border-gray-600 pt-3">
+                                        {renderSubCompanyManager(true)}
                                     </div>
                                     <div className="flex justify-end gap-2">
                                         <button onClick={handleCancelEdit} className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">{t('suppliers.cancelButton')}</button>
@@ -251,6 +325,11 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                             )})}
                                             </div>
                                         </div>
+                                         {(supplier.subCompanies && supplier.subCompanies.length > 0) && (
+                                            <div className="text-sm text-gray-400 mt-1">
+                                                <span className="font-medium">Sub-empresas:</span> {supplier.subCompanies.join(', ')}
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="flex items-center gap-2 flex-shrink-0">
                                         <button onClick={() => handleCopyLink(supplier)} className="bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-3 rounded-lg flex items-center gap-2 justify-center w-32">

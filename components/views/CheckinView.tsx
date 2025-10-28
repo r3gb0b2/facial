@@ -11,7 +11,7 @@ interface CheckinViewProps {
   suppliers: Supplier[];
   sectors: Sector[];
   currentEventId: string;
-  onUpdateAttendeeDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector' | 'wristbandNumber'>>) => Promise<void>;
+  onUpdateAttendeeDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector' | 'wristbandNumber' | 'subCompany'>>) => Promise<void>;
   onDeleteAttendee: (attendeeId: string) => Promise<void>;
   setError: (message: string) => void;
 }
@@ -83,8 +83,9 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
         const nameMatch = normalizeString(attendee.name).includes(normalizedTerm);
         const cpfMatch = attendee.cpf.replace(/\D/g, '').includes(normalizedTerm);
         const wristbandMatch = attendee.wristbandNumber ? normalizeString(attendee.wristbandNumber).includes(normalizedTerm) : false;
-        if (!nameMatch && !cpfMatch && !wristbandMatch) {
-          return false; // if neither name, CPF nor wristband matches, filter it out
+        const subCompanyMatch = attendee.subCompany ? normalizeString(attendee.subCompany).includes(normalizedTerm) : false;
+        if (!nameMatch && !cpfMatch && !wristbandMatch && !subCompanyMatch) {
+          return false; // if neither name, CPF, wristband nor sub-company matches, filter it out
         }
       }
       return true; // if it passes all filters, include it

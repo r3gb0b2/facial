@@ -185,7 +185,7 @@ export const updateAttendeeStatus = async (eventId: string, attendeeId: string, 
     await eventRef.collection('attendees').doc(attendeeId).update(dataToUpdate);
 };
 
-export const updateAttendeeDetails = async (eventId: string, attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector' | 'wristbandNumber'>>): Promise<void> => {
+export const updateAttendeeDetails = async (eventId: string, attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector' | 'wristbandNumber' | 'subCompany'>>): Promise<void> => {
     const eventRef = db.collection('events').doc(ensureEventId(eventId));
     await eventRef.collection('attendees').doc(attendeeId).update(data);
 };
@@ -382,12 +382,13 @@ export const getAttendeeCountForSupplier = async (eventId: string, supplierId: s
 };
 
 
-export const addSupplier = async (eventId: string, name: string, sectors: string[], registrationLimit: number): Promise<string> => {
+export const addSupplier = async (eventId: string, name: string, sectors: string[], registrationLimit: number, subCompanies: string[]): Promise<string> => {
     const eventRef = db.collection('events').doc(ensureEventId(eventId));
     const newSupplier = {
         name,
         sectors,
         registrationLimit,
+        subCompanies,
         active: true,
     };
     const res = await eventRef.collection('suppliers').add(newSupplier);
