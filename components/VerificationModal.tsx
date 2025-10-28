@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Attendee } from '../types';
-import WebcamCapture from './WebcamCapture';
-import { CheckCircleIcon, XMarkIcon, SparklesIcon, SpinnerIcon } from './icons';
+// FIX: Add file extensions to local imports.
+import { Attendee } from '../types.ts';
+import WebcamCapture from './WebcamCapture.tsx';
+import { CheckCircleIcon, XMarkIcon, SparklesIcon, SpinnerIcon } from './icons.tsx';
 // FIX: Added .tsx extension to module import.
 import { useTranslation } from '../hooks/useTranslation.tsx';
 import { GoogleGenAI } from '@google/genai';

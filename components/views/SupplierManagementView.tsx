@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { Supplier, Sector, Attendee, SubCompany } from '../../types';
+// FIX: Add file extensions to local imports.
+import { Supplier, Sector, Attendee, SubCompany } from '../../types.ts';
 // FIX: Added .tsx extension to module import.
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { LinkIcon, ClipboardDocumentIcon, NoSymbolIcon, CheckCircleIcon, PencilIcon, TrashIcon, XMarkIcon, EyeIcon, KeyIcon } from '../icons';
+import { LinkIcon, ClipboardDocumentIcon, NoSymbolIcon, CheckCircleIcon, PencilIcon, TrashIcon, XMarkIcon, EyeIcon, KeyIcon } from '../icons.tsx';
 
 interface SupplierManagementViewProps {
     currentEventId: string;
@@ -249,11 +250,10 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                     {currentList.map(company => {
                         const sectorInfo = sectorMap.get(company.sector);
                         return (
-                            <div key={company.name} className="text-sm font-medium px-3 py-1 rounded-full flex items-center gap-2 bg-gray-600 text-white">
-                                {sectorInfo && <span className="w-3 h-3 rounded-full" style={{ backgroundColor: sectorInfo.color }}></span>}
-                                <span>{company.name} ({sectorInfo?.label || 'N/A'})</span>
-                                <button type="button" onClick={() => handleRemoveSubCompany(company.name, isEditing)} className="text-current opacity-70 hover:opacity-100">
-                                    <XMarkIcon className="w-4 h-4" />
+                            <div key={company.name} className="text-sm font-medium px-3 py-1 rounded-full flex items-center gap-2" style={{ backgroundColor: sectorInfo?.color ? `${sectorInfo.color}33` : '#4B556333' }}>
+                                <span style={{ color: sectorInfo?.color || '#E5E7EB' }}>{company.name}</span>
+                                <button type="button" onClick={() => handleRemoveSubCompany(company.name, isEditing)} className="text-gray-400 hover:text-white">
+                                    <XMarkIcon className="w-3 h-3"/>
                                 </button>
                             </div>
                         )
@@ -263,158 +263,123 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
         );
     };
 
-
     return (
-        <div className="w-full max-w-7xl mx-auto space-y-10">
-            {/* Form for new supplier */}
+        <div className="w-full max-w-7xl mx-auto space-y-6">
             <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
-                <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-                    <LinkIcon className="w-7 h-7"/>
-                    {t('suppliers.generateTitle')}
-                </h2>
+                <h2 className="text-3xl font-bold text-white text-center mb-6">{t('suppliers.generateTitle')}</h2>
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                             <label htmlFor="supplierName" className="block text-sm font-medium text-gray-300 mb-1">{t('suppliers.nameLabel')}</label>
                             <input
-                                type="text" id="supplierName" value={supplierName}
-                                onChange={(e) => setSupplierName(e.target.value)}
+                                type="text" id="supplierName" value={supplierName} onChange={(e) => setSupplierName(e.target.value)}
                                 className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                placeholder={t('suppliers.namePlaceholder')} disabled={isSubmitting}
+                                placeholder={t('suppliers.namePlaceholder')}
                             />
                         </div>
                         <div>
                             <label htmlFor="limit" className="block text-sm font-medium text-gray-300 mb-1">{t('suppliers.limitLabel')}</label>
                             <input
-                                type="number" id="limit" value={limit}
-                                onChange={(e) => setLimit(e.target.value)}
+                                type="number" id="limit" value={limit} onChange={(e) => setLimit(e.target.value)}
                                 className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                placeholder={t('suppliers.limitPlaceholder')} disabled={isSubmitting} min="1"
+                                placeholder={t('suppliers.limitPlaceholder')}
+                                min="1"
                             />
                         </div>
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-300 mb-2">{t('suppliers.sectorsLabel')}</label>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                           {renderSectorCheckboxes(false)}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 p-4 bg-gray-900/50 rounded-lg">
+                            {renderSectorCheckboxes(false)}
                         </div>
                     </div>
+
                     {renderSubCompanyManager(false)}
-                    <button type="submit" disabled={isSubmitting} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:bg-indigo-400 disabled:cursor-wait">
-                        {isSubmitting ? 'Gerando...' : t('suppliers.generateButton')}
+
+                    <button type="submit" disabled={isSubmitting} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 disabled:bg-gray-500">
+                        {t('suppliers.generateButton')}
                     </button>
                 </form>
             </div>
 
-            {/* List of existing suppliers */}
-            <div>
-                <h3 className="text-xl font-bold text-white mb-4">{t('suppliers.existingLinks')}</h3>
+            <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
+                <h3 className="text-2xl font-bold text-white text-center mb-6">{t('suppliers.existingLinks')}</h3>
                 {suppliers.length > 0 ? (
                     <div className="space-y-4">
-                        {suppliers.map(supplier => (
-                            editingSupplier?.id === supplier.id ? (
-                                // EDITING VIEW
-                                <div key={supplier.id} className="bg-gray-700 p-4 rounded-lg border-2 border-indigo-500 space-y-4">
-                                    <input
-                                        type="text" value={editingSupplier.name}
-                                        onChange={(e) => setEditingSupplier({...editingSupplier, name: e.target.value })}
-                                        className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-white"
-                                    />
-                                    <input
-                                        type="number" value={editingSupplier.registrationLimit}
-                                        onChange={(e) => setEditingSupplier({...editingSupplier, registrationLimit: parseInt(e.target.value, 10) || 0 })}
-                                        className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-white"
-                                    />
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-gray-600 pt-3">
-                                        {renderSectorCheckboxes(true)}
-                                    </div>
-                                    <div className="border-t border-gray-600 pt-3">
-                                        {renderSubCompanyManager(true)}
-                                    </div>
-                                    <div className="flex justify-end gap-2">
-                                        <button onClick={handleCancelEdit} className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">{t('suppliers.cancelButton')}</button>
-                                        <button onClick={handleSaveEdit} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">{t('suppliers.saveButton')}</button>
-                                    </div>
-                                </div>
-                            ) : (
-                                // NORMAL VIEW
-                                <div key={supplier.id} className="bg-gray-800 p-4 rounded-lg border border-gray-700 flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                                    <div className="flex-grow">
-                                        <div className="flex items-center gap-3 mb-1">
-                                            <p className="font-bold text-white text-lg">{supplier.name}</p>
-                                            <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${supplier.active ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-200'}`}>
-                                            {supplier.active ? t('suppliers.active') : t('suppliers.inactive')}
-                                            </span>
-                                        </div>
-                                        <p className="text-sm text-gray-400">
-                                            {t('suppliers.registrations')}: {registrationCounts.get(supplier.id) || 0} / {supplier.registrationLimit}
-                                        </p>
-                                        <div className="text-sm text-gray-400 mt-2 flex items-center flex-wrap gap-x-4 gap-y-1">
-                                            <span>Setores:</span>
-                                            <div className="flex flex-wrap items-center gap-2">
-                                            {(supplier.sectors || []).map(sectorId => {
-                                                const sector = sectorMap.get(sectorId);
-                                                return (
-                                                <div key={sectorId} className="flex items-center gap-1.5">
-                                                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: sector?.color }}></span>
-                                                    <span>{sector?.label}</span>
-                                                </div>
-                                            )})}
+                        {suppliers.map(supplier => {
+                            const isEditing = editingSupplier?.id === supplier.id;
+                            const currentCount = registrationCounts.get(supplier.id) || 0;
+                            
+                            return (
+                                <div key={supplier.id} className="bg-gray-900/70 p-4 rounded-lg space-y-4 transition-all">
+                                    {isEditing && editingSupplier ? (
+                                        // EDITING VIEW
+                                        <div className="space-y-4">
+                                            <input type="text" value={editingSupplier.name} onChange={(e) => setEditingSupplier({ ...editingSupplier, name: e.target.value })} className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-white"/>
+                                            <input type="number" value={editingSupplier.registrationLimit} onChange={(e) => setEditingSupplier({ ...editingSupplier, registrationLimit: parseInt(e.target.value, 10) || 0 })} className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-white"/>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2 bg-gray-800/50 rounded-lg">{renderSectorCheckboxes(true)}</div>
+                                            {renderSubCompanyManager(true)}
+                                            <div className="flex justify-end gap-2">
+                                                <button onClick={handleCancelEdit} className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg">{t('suppliers.cancelButton')}</button>
+                                                <button onClick={handleSaveEdit} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">{t('suppliers.saveButton')}</button>
                                             </div>
                                         </div>
-                                         {(supplier.subCompanies && supplier.subCompanies.length > 0) && (
-                                            <div className="text-sm text-gray-400 mt-2">
-                                                <span className="font-medium">Sub-empresas:</span>
-                                                <div className="flex flex-wrap gap-2 mt-1">
-                                                    {supplier.subCompanies.map(sc => {
-                                                        const sector = sectorMap.get(sc.sector);
-                                                        return (
-                                                            <span key={sc.name} className="px-2 py-1 text-xs rounded-full bg-gray-600 text-white">
-                                                                {sc.name} ({sector?.label || 'N/A'})
-                                                            </span>
-                                                        );
+                                    ) : (
+                                        // DISPLAY VIEW
+                                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                            <div className="flex-grow">
+                                                <h4 className="font-bold text-lg text-white">{supplier.name}</h4>
+                                                <div className="flex items-center gap-2 text-sm text-gray-400 mt-1">
+                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${supplier.active ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>
+                                                        {supplier.active ? t('suppliers.active') : t('suppliers.inactive')}
+                                                    </span>
+                                                    <span>&bull;</span>
+                                                    <span>{t('suppliers.registrations')}: {currentCount} / {supplier.registrationLimit}</span>
+                                                </div>
+                                                 <div className="flex flex-wrap gap-1 mt-2">
+                                                    {(supplier.sectors || []).map(id => {
+                                                        const sector = sectorMap.get(id);
+                                                        return sector ? <span key={id} className="text-xs font-medium px-2 py-1 rounded-full" style={{ backgroundColor: `${sector.color}33`, color: sector.color }}>{sector.label}</span> : null
                                                     })}
                                                 </div>
                                             </div>
-                                        )}
-                                    </div>
-                                    <div className="flex flex-col items-stretch gap-2 flex-shrink-0">
-                                        <div className="flex items-center gap-2">
-                                            <button onClick={() => handleCopyLink(supplier.id)} className="flex-1 bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-3 rounded-lg flex items-center gap-2 justify-center">
-                                                {copiedLink === supplier.id ? <><CheckCircleIcon className="w-5 h-5" /><span>{t('suppliers.copiedButton')}</span></> : <><ClipboardDocumentIcon className="w-5 h-5" /><span>{t('suppliers.copyButton')}</span></>}
-                                            </button>
-                                            <button onClick={() => handleCopyAdminLink(supplier.adminToken!, supplier.id)} title={t('suppliers.adminLink.copyTooltip')} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-3 rounded-lg flex items-center gap-2 justify-center" disabled={!supplier.adminToken}>
-                                                 {copiedAdminLink === supplier.id ? <CheckCircleIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
-                                            </button>
-                                             <button onClick={() => handleRegenerateToken(supplier)} title={t('suppliers.adminLink.regenerateTooltip')} className="bg-gray-600 hover:bg-gray-500 text-white font-bold p-2 rounded-lg">
-                                                <KeyIcon className="w-5 h-5" />
-                                            </button>
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <button onClick={() => onSupplierStatusUpdate(supplier.id, !supplier.active)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700" title={supplier.active ? t('suppliers.disableButton') : t('suppliers.enableButton')}>
+                                                    {supplier.active ? <NoSymbolIcon className="w-5 h-5"/> : <CheckCircleIcon className="w-5 h-5"/>}
+                                                </button>
+                                                <button onClick={() => handleCopyLink(supplier.id)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700" title={t('suppliers.copyButton')}>
+                                                    {copiedLink === supplier.id ? <CheckCircleIcon className="w-5 h-5 text-green-400"/> : <LinkIcon className="w-5 h-5"/>}
+                                                </button>
+                                                {supplier.adminToken && (
+                                                    <>
+                                                        <button onClick={() => handleCopyAdminLink(supplier.adminToken!, supplier.id)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700" title={t('suppliers.adminLink.copyTooltip')}>
+                                                          {copiedAdminLink === supplier.id ? <CheckCircleIcon className="w-5 h-5 text-green-400"/> : <EyeIcon className="w-5 h-5"/>}
+                                                        </button>
+                                                        <button onClick={() => handleRegenerateToken(supplier)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700" title={t('suppliers.adminLink.regenerateTooltip')}>
+                                                          <KeyIcon className="w-5 h-5"/>
+                                                        </button>
+                                                    </>
+                                                )}
+                                                <button onClick={() => handleEditClick(supplier)} className="p-2 text-gray-400 hover:text-yellow-400 transition-colors rounded-full hover:bg-gray-700" title={t('suppliers.editButton')}>
+                                                    <PencilIcon className="w-5 h-5"/>
+                                                </button>
+                                                <button onClick={() => handleDelete(supplier)} className="p-2 text-gray-400 hover:text-red-400 transition-colors rounded-full hover:bg-gray-700" title={t('suppliers.deleteButton')}>
+                                                    <TrashIcon className="w-5 h-5"/>
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <button onClick={() => onSupplierStatusUpdate(supplier.id, !supplier.active)} className={`flex-1 font-bold py-2 px-3 rounded-lg flex items-center gap-2 justify-center ${supplier.active ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white`}>
-                                                {supplier.active ? <NoSymbolIcon className="w-4 h-4"/> : <CheckCircleIcon className="w-4 h-4"/>}
-                                                {supplier.active ? t('suppliers.disableButton') : t('suppliers.enableButton')}
-                                            </button>
-                                            <button onClick={() => handleEditClick(supplier)} className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-3 rounded-lg flex items-center gap-2 justify-center">
-                                                <PencilIcon className="w-4 h-4" />
-                                                {t('suppliers.editButton')}
-                                            </button>
-                                        </div>
-                                         <button onClick={() => handleDelete(supplier)} className="w-full bg-red-800 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-lg flex items-center gap-2 justify-center">
-                                            <TrashIcon className="w-4 h-4" />
-                                            <span>{t('suppliers.deleteButton')}</span>
-                                        </button>
-                                    </div>
+                                    )}
                                 </div>
-                            )
-                        ))}
+                            );
+                        })}
                     </div>
                 ) : (
-                    <p className="text-gray-500 text-center py-4">{t('suppliers.noLinks')}</p>
+                     <p className="text-center text-gray-500">{t('suppliers.noLinks')}</p>
                 )}
             </div>
         </div>
     );
 };
 
+// FIX: Added missing default export.
 export default SupplierManagementView;

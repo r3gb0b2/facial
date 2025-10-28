@@ -87,7 +87,9 @@ const storage = firebase.storage();
 // Explicitly export the necessary members from the single, initialized firebase instance.
 // This is the most robust way to prevent instance mismatch errors.
 const FieldValue = firebase.firestore.FieldValue;
-type Timestamp = firebase.firestore.Timestamp;
+// FIX: Changed from a `type` alias to a `const` to make the Timestamp class value available for static methods like `.now()`.
+// The class can also be used as a type.
+const Timestamp = firebase.firestore.Timestamp;
 
-export { db, storage, FieldValue };
+export { db, storage, FieldValue, Timestamp };
 export type { Timestamp };

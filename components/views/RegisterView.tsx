@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Attendee, Sector, Supplier } from '../../types';
-import WebcamCapture from '../WebcamCapture';
+// FIX: Add .ts extension
+import { Attendee, Sector, Supplier } from '../../types.ts';
+// FIX: Add .tsx extension
+import WebcamCapture from '../WebcamCapture.tsx';
 // FIX: Added .tsx extension to module import.
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { UsersIcon, CheckCircleIcon, SpinnerIcon } from '../icons';
+// FIX: Add .tsx extension
+import { UsersIcon, CheckCircleIcon, SpinnerIcon } from '../icons.tsx';
 // FIX: Added .ts extension to module import.
 import * as api from '../../firebase/service.ts';
-import SpreadsheetUploadView from './SpreadsheetUploadView';
+// FIX: Add .tsx extension
+import SpreadsheetUploadView from './SpreadsheetUploadView.tsx';
 
 interface RegisterViewProps {
   onRegister: (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => Promise<void>;
@@ -107,12 +111,17 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
     setExistingAttendeeFound(false);
 
     try {
-        const existingAttendee = await api.findAttendeeByCpf(rawCpf);
+        const eventId = isAdminView ? undefined : supplierInfo?.data.eventId;
+        const existingAttendee = await api.findAttendeeByCpf(rawCpf, eventId);
         if (existingAttendee) {
             setName(existingAttendee.name);
             setPhoto(existingAttendee.photo);
-            setCpfCheckMessage(t('register.cpfFound'));
-            setExistingAttendeeFound(true);
+            if (existingAttendee.eventId && (!isAdminView)) {
+              setCpfCheckMessage(t('register.cpfAlreadyRegistered'));
+              setExistingAttendeeFound(true);
+            } else {
+              setCpfCheckMessage(t('register.cpfFound'));
+            }
         } else {
             setCpfCheckMessage(t('register.cpfNotFound'));
         }
@@ -161,8 +170,9 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
       clearForm();
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 4000);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Registration failed:", error);
+      setError(error.message || "Falha ao registrar.");
     } finally {
       setIsSubmitting(false);
     }
@@ -289,7 +299,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
           </div>
           <div className="flex flex-col items-center">
               <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting || isCheckingCpf || existingAttendeeFound} allowUpload={isAdminView} />
-              {existingAttendeeFound && (
+              {existingAttendeeFound && !isAdminView && (
                 <p className="text-sm mt-2 text-yellow-400 text-center px-4">
                   {t('register.photoLocked')}
                 </p>

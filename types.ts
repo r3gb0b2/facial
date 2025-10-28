@@ -1,3 +1,4 @@
+// FIX: Add .ts extension to firebase/config import.
 import type { Timestamp } from './firebase/config.ts';
 
 export enum CheckinStatus {
