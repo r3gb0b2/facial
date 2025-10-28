@@ -1,9 +1,7 @@
 import React from 'react';
-// FIX: Add .ts extension to types import.
-import { Attendee } from '../../types.ts';
-// FIX: Add .tsx extension to module import.
-import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { EyeIcon } from '../icons.tsx';
+import { Attendee } from '../../types';
+import { useTranslation } from '../../hooks/useTranslation';
+import { EyeIcon } from '../icons';
 
 interface SupplierAdminViewProps {
   supplierName: string;

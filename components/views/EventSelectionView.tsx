@@ -1,10 +1,8 @@
 import React from 'react';
-// FIX: Add .ts extension to types import.
-import { Event } from '../../types.ts';
+import { Event } from '../../types';
 // FIX: Added .tsx extension to module import.
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-// FIX: Add .tsx extension to icons import.
-import { CalendarIcon, PencilIcon, TrashIcon } from '../icons.tsx';
+import { CalendarIcon, PencilIcon, TrashIcon } from '../icons';
 
 interface EventSelectionViewProps {
   events: Event[];

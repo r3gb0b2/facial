@@ -1,4 +1,4 @@
-import type { Timestamp } from './firebase/config';
+import type { Timestamp } from './firebase/config.ts';
 
 export enum CheckinStatus {
   PENDING = 'PENDING',
@@ -12,41 +12,39 @@ export interface Attendee {
   id: string;
   name: string;
   cpf: string;
-  photo: string;
+  photo: string; // This is a URL to the image in Firebase Storage
+  sector: string;
   status: CheckinStatus;
-  sector: string; // Corresponds to Sector['id']
   eventId: string;
   createdAt: Timestamp;
-  wristbandNumber?: string;
-  supplierId?: string; // Corresponds to Supplier['id']
-  subCompany?: string;
+  supplierId?: string; // To track which supplier registered the attendee
+  subCompany?: string; // The attendee's specific company under a supplier
+  wristbandNumber?: string; // Optional wristband number assigned at check-in
 }
 
-export interface Sector {
+export interface Event {
   id: string;
-  label: string;
-  color: string;
-  eventId: string;
+  name: string;
+  createdAt: Timestamp;
 }
 
 export interface SubCompany {
   name: string;
-  sector: string; // Corresponds to Sector['id']
+  sector: string; // The ID of the sector this sub-company belongs to
 }
 
 export interface Supplier {
   id: string;
   name: string;
-  sectors: string[]; // Array of Sector['id']
-  eventId: string;
-  registrationOpen: boolean;
-  subCompanies?: SubCompany[];
-  registrationToken?: string;
-  adminToken?: string;
+  sectors: string[];
+  active: boolean;
+  registrationLimit: number;
+  subCompanies?: SubCompany[]; // Optional list of sub-companies for this supplier
+  adminToken?: string; // Unique token for the read-only admin link
 }
 
-export interface Event {
-  id: string;
-  name:string;
-  createdAt: Timestamp;
+export interface Sector {
+  id: string; // e.g., 'staff'
+  label: string; // e.g., 'Staff'
+  color?: string; // e.g., '#ff0000'
 }

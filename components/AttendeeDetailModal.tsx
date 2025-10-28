@@ -1,7 +1,5 @@
 import React, { useState, useEffect } from 'react';
-// FIX: Add .ts extension to types import.
 import { Attendee, CheckinStatus, Sector, Supplier } from '../types.ts';
-// FIX: Add .tsx extension to module import.
 import { useTranslation } from '../hooks/useTranslation.tsx';
 import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon } from './icons.tsx';
 

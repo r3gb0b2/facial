@@ -1,6 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-// FIX: Add .tsx extension to icons import.
-import { CameraIcon, RefreshIcon, ArrowUpTrayIcon } from './icons.tsx';
+import { CameraIcon, RefreshIcon, ArrowUpTrayIcon } from './icons';
 // FIX: Added .tsx extension to module import.
 import { useTranslation } from '../hooks/useTranslation.tsx';
 
