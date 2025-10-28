@@ -132,7 +132,19 @@ export const addAttendee = async (eventId: string, attendeeData: Omit<Attendee, 
 };
 
 export const updateAttendeeStatus = (eventId: string, attendeeId: string, status: CheckinStatus, wristbands?: { [sectorId: string]: string }) => {
-    return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).update({ status, wristbands });
+    // This object will hold the fields to update.
+    const dataToUpdate: { status: CheckinStatus, wristbands?: { [sectorId: string]: string } } = {
+        status: status
+    };
+
+    // ONLY add the wristbands field to the update object if it's actually provided.
+    // If 'wristbands' is undefined, it won't be in the object, and Firestore will not touch that field,
+    // preventing accidental deletion of wristband data when only changing the status.
+    if (wristbands !== undefined) {
+        dataToUpdate.wristbands = wristbands;
+    }
+
+    return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).update(dataToUpdate);
 };
 
 export const updateAttendeeDetails = (eventId: string, attendeeId: string, data: Partial<Attendee>) => {

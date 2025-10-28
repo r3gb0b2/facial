@@ -43,7 +43,19 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
     if (selectedAttendee) {
       await api.updateAttendeeStatus(currentEventId, selectedAttendee.id, status, wristbands);
       // Optimistically update local state for a smoother UI
-      setSelectedAttendee(prev => prev ? { ...prev, status, wristbands } : null);
+      setSelectedAttendee(prev => {
+        if (!prev) return null;
+        
+        // Start with the guaranteed update
+        const updatedAttendee: Attendee = { ...prev, status };
+
+        // Only update wristbands in the local state if a new value was provided
+        if (wristbands !== undefined) {
+          updatedAttendee.wristbands = wristbands;
+        }
+
+        return updatedAttendee;
+      });
     }
   };
   
