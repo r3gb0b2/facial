@@ -437,24 +437,19 @@ export const regenerateSupplierAdminToken = async (eventId: string, supplierId: 
 
 
 export const getSupplierDataForAdminView = async (eventId: string, adminToken: string): Promise<{ supplierName: string; attendees: Attendee[] } | null> => {
-    // This query is more robust as it finds the supplier by its unique token across all events.
-    // NOTE: This requires a Firestore index on the 'suppliers' collection group for the 'adminToken' field.
-    const suppliersQuery = db.collectionGroup('suppliers').where('adminToken', '==', adminToken).limit(1);
+    const eventRef = db.collection('events').doc(ensureEventId(eventId));
+
+    // Query within the specific event's suppliers subcollection for reliability.
+    // This avoids complex collectionGroup indexes that can cause silent failures.
+    const suppliersQuery = eventRef.collection('suppliers').where('adminToken', '==', adminToken).limit(1);
     const supplierSnapshot = await suppliersQuery.get();
 
     if (supplierSnapshot.empty) {
-        return null; // No supplier found with this token
+        return null; // No supplier found with this token in this event
     }
 
     const supplierDoc = supplierSnapshot.docs[0];
     const supplier = { id: supplierDoc.id, ...supplierDoc.data() } as Supplier;
-
-    // Get the parent event reference from the supplier document
-    const eventRef = supplierDoc.ref.parent.parent;
-    if (!eventRef) {
-        console.error("Could not determine the event for the supplier.");
-        return null;
-    }
 
     const attendeesQuery = eventRef.collection('attendees').where('supplierId', '==', supplier.id).orderBy('name');
     const attendeesSnapshot = await attendeesQuery.get();
