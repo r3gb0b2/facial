@@ -149,8 +149,11 @@ const translations = {
         noSuppliersSubtitle: "Adicione fornecedores para liberar links de cadastro.",
         createButton: "Adicionar Fornecedor",
         registrationLink: "Link de Cadastro",
-        copyLink: "Copiar Link",
+        adminLink: "Link de Visualização",
+        copy: "Copiar",
         copied: "Copiado!",
+        regenerateLink: "Regerar",
+        confirmRegenerate: (type: string) => `Tem certeza que deseja regerar o link de ${type}? O link antigo deixará de funcionar.`,
         registrationStatus: "Cadastros",
         open: "Abertos",
         closed: "Fechados",
@@ -189,7 +192,10 @@ const translations = {
     supplierAdmin: {
         title: "Visualização de Fornecedor",
         supplier: "Fornecedor",
-        noAttendees: "Nenhum participante cadastrado por este fornecedor ainda."
+        noAttendees: "Nenhum participante cadastrado por este fornecedor ainda.",
+        errors: {
+            invalidLink: "O link de verificação é inválido ou expirou. Por favor, solicite um novo link ao administrador."
+        }
     },
     wristbandReport: {
         title: "Relatório de Pulseiras Entregues",

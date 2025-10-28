@@ -1,12 +1,21 @@
 import firebase from "firebase/compat/app";
 import { db, storage, FieldValue } from './config.ts';
-// FIX: `CheckinStatus` is an enum used as a value, so it must be imported as a value. Other members are interfaces and can be imported as types.
 import { type Attendee, type Event, type Sector, type Supplier, CheckinStatus } from '../types.ts';
 
 // Helper to convert Firestore doc to a typed object with ID
 const fromDoc = <T extends { id: string }>(doc: firebase.firestore.DocumentSnapshot): T => {
     return { ...doc.data(), id: doc.id } as T;
 };
+
+// Helper to generate a secure random token
+const generateToken = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let token = '';
+    for (let i = 0; i < 20; i++) {
+        token += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return token;
+}
 
 // =================================================================================================
 // Event Management
@@ -44,6 +53,19 @@ export const deleteEvent = async (eventId: string) => {
         snapshot.docs.forEach(doc => batch.delete(doc.ref));
     }
     batch.delete(db.collection('events').doc(eventId));
+    
+    // Also delete tokens associated with suppliers of this event
+    const supplierTokensSnapshot = await db.collectionGroup('suppliers').where('eventId', '==', eventId).get();
+    supplierTokensSnapshot.forEach(doc => {
+        const supplier = fromDoc<Supplier>(doc);
+        if (supplier.adminToken) {
+             batch.delete(db.collection('supplier_tokens').doc(supplier.adminToken));
+        }
+        if (supplier.registrationToken) {
+            batch.delete(db.collection('supplier_tokens').doc(supplier.registrationToken));
+        }
+    });
+
     return batch.commit();
 };
 
@@ -81,7 +103,7 @@ export const updateAttendeeStatus = (eventId: string, attendeeId: string, status
         data.wristbandNumber = wristbandNumber || null;
     }
     if (status === CheckinStatus.PENDING) {
-        data.wristbandNumber = null;
+        data.wristbandNumber = FieldValue.delete();
     }
     return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).update(data);
 };
@@ -125,12 +147,13 @@ export const deleteSector = async (eventId: string, sectorId: string, attendees:
     if (isInUse) {
         throw new Error('Sector is in use and cannot be deleted.');
     }
+    // You might also want to check if it's used by suppliers
     return db.collection('events').doc(eventId).collection('sectors').doc(sectorId).delete();
 };
 
 
 // =================================================================================================
-// Supplier Management
+// Supplier Management & Tokens
 // =================================================================================================
 
 export const subscribeToSuppliers = (eventId: string, callback: (suppliers: Supplier[]) => void) => {
@@ -142,34 +165,124 @@ export const subscribeToSuppliers = (eventId: string, callback: (suppliers: Supp
 };
 
 export const addSupplier = (eventId: string, name: string, sectors: string[]) => {
-    return db.collection('events').doc(eventId).collection('suppliers').add({
+    const batch = db.batch();
+    const supplierRef = db.collection('events').doc(eventId).collection('suppliers').doc();
+    const registrationToken = generateToken();
+    const adminToken = generateToken();
+
+    // Create supplier document
+    batch.set(supplierRef, {
         eventId,
         name,
         sectors,
         registrationOpen: true,
+        registrationToken,
+        adminToken,
     });
+    
+    // Create token lookups
+    const regTokenRef = db.collection('supplier_tokens').doc(registrationToken);
+    batch.set(regTokenRef, { eventId, supplierId: supplierRef.id, type: 'registration' });
+    
+    const adminTokenRef = db.collection('supplier_tokens').doc(adminToken);
+    batch.set(adminTokenRef, { eventId, supplierId: supplierRef.id, type: 'admin' });
+
+    return batch.commit();
 };
 
 export const updateSupplier = (eventId: string, supplierId: string, data: Partial<Supplier>) => {
     return db.collection('events').doc(eventId).collection('suppliers').doc(supplierId).update(data);
 };
 
-export const deleteSupplier = (eventId: string, supplierId: string) => {
-    return db.collection('events').doc(eventId).collection('suppliers').doc(supplierId).delete();
+export const deleteSupplier = async (eventId: string, supplierId: string) => {
+    const batch = db.batch();
+    const supplierRef = db.collection('events').doc(eventId).collection('suppliers').doc(supplierId);
+    const supplierDoc = await supplierRef.get();
+    const supplier = fromDoc<Supplier>(supplierDoc);
+
+    // Delete tokens from lookup collection
+    if (supplier.registrationToken) batch.delete(db.collection('supplier_tokens').doc(supplier.registrationToken));
+    if (supplier.adminToken) batch.delete(db.collection('supplier_tokens').doc(supplier.adminToken));
+
+    // Delete supplier document
+    batch.delete(supplierRef);
+
+    return batch.commit();
 };
 
 export const toggleSupplierRegistration = (eventId: string, supplierId: string, isOpen: boolean) => {
     return db.collection('events').doc(eventId).collection('suppliers').doc(supplierId).update({ registrationOpen: isOpen });
 };
 
-export const getSupplierInfoForRegistration = async (supplierId: string): Promise<Supplier> => {
-    const querySnapshot = await db.collectionGroup('suppliers').get();
-    const doc = querySnapshot.docs.find(d => d.id === supplierId);
+const regenerateToken = async (eventId: string, supplierId: string, tokenType: 'adminToken' | 'registrationToken') => {
+    const batch = db.batch();
+    const supplierRef = db.collection('events').doc(eventId).collection('suppliers').doc(supplierId);
+    const supplierDoc = await supplierRef.get();
+    const supplier = fromDoc<Supplier>(supplierDoc);
 
-    if (!doc) {
-        throw new Error('Supplier not found.');
+    // Delete old token if it exists
+    const oldToken = supplier[tokenType];
+    if (oldToken) {
+        batch.delete(db.collection('supplier_tokens').doc(oldToken));
     }
-    return fromDoc<Supplier>(doc);
+    
+    // Create new token
+    const newToken = generateToken();
+    const tokenDocRef = db.collection('supplier_tokens').doc(newToken);
+    batch.set(tokenDocRef, { eventId, supplierId, type: tokenType === 'adminToken' ? 'admin' : 'registration' });
+
+    // Update supplier with new token
+    batch.update(supplierRef, { [tokenType]: newToken });
+
+    return batch.commit();
+};
+
+export const regenerateSupplierAdminToken = (eventId: string, supplierId: string) => {
+    return regenerateToken(eventId, supplierId, 'adminToken');
+};
+
+export const regenerateSupplierRegistrationToken = (eventId: string, supplierId: string) => {
+    return regenerateToken(eventId, supplierId, 'registrationToken');
+};
+
+// Robust function to get supplier by any token
+const getSupplierByToken = async (token: string, expectedType: 'admin' | 'registration'): Promise<Supplier> => {
+    if (!token) throw new Error("Token inválido.");
+
+    const tokenRef = db.collection('supplier_tokens').doc(token);
+    const tokenDoc = await tokenRef.get();
+    if (!tokenDoc.exists) {
+        throw new Error("O link é inválido ou expirou. Por favor, solicite um novo link ao administrador.");
+    }
+    const tokenData = tokenDoc.data();
+    if (tokenData?.type !== expectedType) {
+        throw new Error("Tipo de link incorreto.");
+    }
+    const { eventId, supplierId } = tokenData;
+    if (!eventId || !supplierId) {
+        throw new Error("Link corrompido. Contate o suporte.");
+    }
+
+    const supplierRef = db.collection('events').doc(eventId).collection('suppliers').doc(supplierId);
+    const supplierDoc = await supplierRef.get();
+    if (!supplierDoc.exists) {
+        throw new Error("O fornecedor associado a este link não foi encontrado.");
+    }
+
+    return fromDoc<Supplier>(supplierDoc);
+};
+
+export const getSupplierByRegistrationToken = (token: string) => {
+    return getSupplierByToken(token, 'registration');
+};
+
+
+export const getSupplierDataForAdminView = async (token: string): Promise<{ data: Supplier, attendees: Attendee[] }> => {
+    const supplier = await getSupplierByToken(token, 'admin');
+    const attendeesSnapshot = await db.collection('events').doc(supplier.eventId).collection('attendees')
+        .where('supplierId', '==', supplier.id).get();
+    const attendees = attendeesSnapshot.docs.map(doc => fromDoc<Attendee>(doc));
+    return { data: supplier, attendees };
 };
 
 export const getAttendeesForSupplier = async (supplierId: string): Promise<Attendee[]> => {

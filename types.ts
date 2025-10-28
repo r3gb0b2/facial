@@ -41,6 +41,8 @@ export interface Supplier {
   eventId: string;
   registrationOpen: boolean;
   subCompanies?: SubCompany[];
+  registrationToken?: string;
+  adminToken?: string;
 }
 
 export interface Event {

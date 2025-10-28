@@ -9,18 +9,29 @@ import SupplierAdminView from './components/views/SupplierAdminView.tsx';
 import RegistrationClosedView from './components/views/RegistrationClosedView.tsx';
 import { useTranslation } from './hooks/useTranslation.tsx';
 
-// This is a simplified routing based on URL hash
+// Routing based on URL search parameters for security
 const getAppRoute = () => {
-  const hash = window.location.hash.slice(1);
-  if (hash.startsWith('supplier/')) {
-    const supplierId = hash.split('/')[1];
-    if (hash.endsWith('/admin')) {
-        return { view: 'supplier_admin', supplierId: supplierId.replace('/admin', '') };
+    const params = new URLSearchParams(window.location.search);
+    const verifyToken = params.get('verify');
+    if (verifyToken) {
+        return { view: 'supplier_admin', token: verifyToken };
     }
-    return { view: 'supplier_registration', supplierId };
-  }
-  return { view: 'admin' };
+    const registerToken = params.get('register_token');
+    if (registerToken) {
+        return { view: 'supplier_registration', token: registerToken };
+    }
+    // Fallback to old hash-based routing for backward compatibility if needed, but prefer token routes.
+    const hash = window.location.hash.slice(1);
+    if (hash.startsWith('supplier/')) {
+        const supplierId = hash.split('/')[1];
+         if (hash.endsWith('/admin')) { // This route is deprecated by token
+            return { view: 'admin' }; // Redirect to admin to avoid confusion
+        }
+        return { view: 'admin' }; // Redirect to admin
+    }
+    return { view: 'admin' };
 };
+
 
 const App: React.FC = () => {
     const { t } = useTranslation();
@@ -44,14 +55,6 @@ const App: React.FC = () => {
     const [currentSupplierInfo, setCurrentSupplierInfo] = useState<{data: Supplier, attendees: Attendee[]} | null>(null);
 
 
-    useEffect(() => {
-        const handleHashChange = () => {
-            setAppRoute(getAppRoute());
-        };
-        window.addEventListener('hashchange', handleHashChange);
-        return () => window.removeEventListener('hashchange', handleHashChange);
-    }, []);
-
     // Clear error message after a few seconds
     useEffect(() => {
         if (error) {
@@ -61,7 +64,8 @@ const App: React.FC = () => {
     }, [error]);
 
     const handleLogin = (password: string) => {
-        if (password === 'admin') {
+        // Using trim() to make the check more robust against accidental whitespace.
+        if (password.trim() === 'admin') {
             sessionStorage.setItem('isAuthenticated', 'true');
             setIsAuthenticated(true);
             setError(null);
@@ -90,14 +94,13 @@ const App: React.FC = () => {
                 return;
             }
 
-            // If an event is already loaded, don't re-run this logic
             if (currentEvent) {
+                setIsLoading(false); // Already loaded, no need to do anything
                 return; 
             }
 
             const savedEventId = sessionStorage.getItem('currentEventId');
             if (savedEventId) {
-                // Restore session to a specific event
                 api.getEvent(savedEventId).then(event => {
                     if (event) {
                         setCurrentEvent(event);
@@ -108,13 +111,12 @@ const App: React.FC = () => {
                 }).catch(err => {
                     console.error("Failed to restore event:", err);
                     sessionStorage.removeItem('currentEventId');
-                    setError("Falha ao carregar o evento anterior.");
+                    setError(t('events.errors.load'));
                     api.getEvents().then(setEvents);
                 }).finally(() => {
                     setIsLoading(false);
                 });
             } else {
-                // No saved event, load the list of events
                 api.getEvents().then(setEvents).catch(err => {
                     console.error(err);
                     setError(t('events.errors.load'));
@@ -125,24 +127,39 @@ const App: React.FC = () => {
         }
     }, [isAuthenticated, appRoute.view, t, currentEvent]);
 
-    // Fetch data when a supplier route is accessed
+    // Fetch data when a token-based supplier route is accessed
     useEffect(() => {
-        if (appRoute.view === 'supplier_registration' || appRoute.view === 'supplier_admin') {
-            const { supplierId } = appRoute;
-            if (supplierId) {
+        // Supplier Registration by Token
+        if (appRoute.view === 'supplier_registration' && 'token' in appRoute) {
+            const { token } = appRoute;
+            if (token) {
                 setIsLoading(true);
-                Promise.all([
-                    api.getSupplierInfoForRegistration(supplierId),
-                    api.getAttendeesForSupplier(supplierId)
-                ]).then(([supplierData, supplierAttendees]) => {
-                    setCurrentSupplierInfo({ data: supplierData, attendees: supplierAttendees });
-                    // We need sectors for the registration form
+                api.getSupplierByRegistrationToken(token).then(supplierData => {
+                    setCurrentSupplierInfo({ data: supplierData, attendees: [] });
                     if (supplierData.eventId) {
                         api.getSectors(supplierData.eventId).then(setSectors);
                     }
                 }).catch(err => {
                     console.error(err);
-                    setError("Link de fornecedor inválido ou o evento não foi encontrado.");
+                    // Set a specific supplier info state to render RegistrationClosedView with custom message
+                    setCurrentSupplierInfo(null);
+                    setError(err.message || "Link de cadastro inválido ou expirado.");
+                }).finally(() => setIsLoading(false));
+            }
+        }
+
+        // Supplier Admin View by Token
+        if (appRoute.view === 'supplier_admin' && 'token' in appRoute) {
+            const { token } = appRoute;
+            if (token) {
+                setIsLoading(true);
+                api.getSupplierDataForAdminView(token)
+                .then(result => {
+                    setCurrentSupplierInfo(result);
+                }).catch(err => {
+                    console.error(err);
+                    setCurrentSupplierInfo(null);
+                    setError(err.message || "Link de verificação inválido ou expirado.");
                 }).finally(() => setIsLoading(false));
             }
         }
@@ -162,7 +179,6 @@ const App: React.FC = () => {
                 unsubscribeSuppliers();
             };
         } else {
-            // Clear data if no event is selected
             setAttendees([]);
             setSectors([]);
             setSuppliers([]);
@@ -172,7 +188,6 @@ const App: React.FC = () => {
     // Event handlers
     const handleAddEvent = async (name: string) => {
         await api.addEvent(name);
-        // Refetch events
         api.getEvents().then(setEvents);
     };
 
@@ -201,8 +216,7 @@ const App: React.FC = () => {
             throw new Error("Missing eventId");
         }
 
-        // Add supplierId if it exists on the supplier link
-        const supplierId = appRoute.view === 'supplier_registration' ? appRoute.supplierId : undefined;
+        const supplierId = appRoute.view === 'supplier_registration' ? currentSupplierInfo?.data.id : undefined;
 
         const completeAttendee = {
             ...newAttendee,
@@ -216,7 +230,7 @@ const App: React.FC = () => {
         } catch (error) {
             console.error(error);
             setError(t('register.errors.submit'));
-            throw error; // Re-throw to be caught by the form
+            throw error;
         }
     }, [currentEvent, currentSupplierInfo, appRoute, t]);
 
@@ -234,15 +248,20 @@ const App: React.FC = () => {
         await api.deleteAttendee(currentEvent.id, attendeeId);
     }
     
+    const handleAddSupplier = async (name: string, sectorIds: string[]) => {
+        if (!currentEvent) return;
+        return api.addSupplier(currentEvent.id, name, sectorIds);
+    }
+
     // Main render logic
     const renderContent = () => {
         if (isLoading) {
             return <div className="min-h-screen flex items-center justify-center text-white">Carregando...</div>;
         }
 
-        if (appRoute.view === 'supplier_registration' && currentSupplierInfo) {
-            if (!currentSupplierInfo.data.registrationOpen) {
-                return <RegistrationClosedView />;
+        if (appRoute.view === 'supplier_registration') {
+            if (!currentSupplierInfo || !currentSupplierInfo.data.registrationOpen) {
+                return <RegistrationClosedView message={!currentSupplierInfo ? error : undefined} />;
             }
             return (
                 <div className="min-h-screen flex flex-col justify-center items-center p-4">
@@ -258,7 +277,10 @@ const App: React.FC = () => {
             );
         }
         
-        if (appRoute.view === 'supplier_admin' && currentSupplierInfo) {
+        if (appRoute.view === 'supplier_admin') {
+             if (!currentSupplierInfo) {
+                return <RegistrationClosedView message={error || t('supplierAdmin.errors.invalidLink')} />;
+            }
             return <SupplierAdminView supplierName={currentSupplierInfo.data.name} attendees={currentSupplierInfo.attendees} />;
         }
 
@@ -301,10 +323,12 @@ const App: React.FC = () => {
                 onAddSector={(label, color) => api.addSector(currentEvent.id, label, color)}
                 onUpdateSector={(id, data) => api.updateSector(currentEvent.id, id, data)}
                 onDeleteSector={(sector) => api.deleteSector(currentEvent.id, sector.id, attendees)}
-                onAddSupplier={(name, sectorIds) => api.addSupplier(currentEvent.id, name, sectorIds)}
+                onAddSupplier={handleAddSupplier}
                 onUpdateSupplier={(id, data) => api.updateSupplier(currentEvent.id, id, data)}
                 onDeleteSupplier={(supplier) => api.deleteSupplier(currentEvent.id, supplier.id)}
                 onToggleSupplierRegistration={(id, isOpen) => api.toggleSupplierRegistration(currentEvent.id, id, isOpen)}
+                onRegenerateAdminToken={(supplierId) => api.regenerateSupplierAdminToken(currentEvent.id, supplierId)}
+                onRegenerateSupplierRegistrationToken={(supplierId) => api.regenerateSupplierRegistrationToken(currentEvent.id, supplierId)}
                 onLogout={handleLogout}
                 setError={setError}
             />

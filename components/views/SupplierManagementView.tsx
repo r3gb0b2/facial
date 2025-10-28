@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Supplier, Sector } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { PencilIcon, TrashIcon, UsersIcon, LinkIcon, ClipboardDocumentIcon, XMarkIcon } from '../icons.tsx';
+import { PencilIcon, TrashIcon, UsersIcon, LinkIcon, ClipboardDocumentIcon, XMarkIcon, EyeIcon, KeyIcon } from '../icons.tsx';
 
 interface SupplierManagementViewProps {
     suppliers: Supplier[];
     sectors: Sector[];
-    onAddSupplier: (name: string, sectorIds: string[]) => Promise<void>;
+    onAddSupplier: (name: string, sectorIds: string[]) => Promise<any>;
     onUpdateSupplier: (supplierId: string, data: Partial<Supplier>) => Promise<void>;
     onDeleteSupplier: (supplier: Supplier) => Promise<void>;
     onToggleRegistration: (supplierId: string, isOpen: boolean) => Promise<void>;
+    onRegenerateAdminToken: (supplierId: string) => Promise<void>;
+    onRegenerateRegistrationToken: (supplierId: string) => Promise<void>;
     setError: (message: string) => void;
 }
 
@@ -89,7 +91,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = (props) =>
     const { t } = useTranslation();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [supplierToEdit, setSupplierToEdit] = useState<Supplier | null>(null);
-    const [copiedLink, setCopiedLink] = useState<string | null>(null);
+    const [copiedToken, setCopiedToken] = useState<string | null>(null);
 
     const handleOpenModal = (supplier: Supplier | null) => {
         setSupplierToEdit(supplier);
@@ -120,15 +122,26 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = (props) =>
         }
     };
     
-    const handleCopyLink = (path: string) => {
-        const url = `${window.location.origin}${window.location.pathname}#supplier/${path}`;
+    const handleCopyLink = (token: string, type: 'register' | 'admin') => {
+        const url = `${window.location.origin}${window.location.pathname}?${type === 'register' ? 'register_token' : 'verify'}=${token}`;
         navigator.clipboard.writeText(url);
-        setCopiedLink(path);
-        setTimeout(() => setCopiedLink(null), 2000);
+        setCopiedToken(token);
+        setTimeout(() => setCopiedToken(null), 2000);
     };
+    
+    const handleRegenerate = (supplierId: string, type: 'registration' | 'admin') => {
+        const confirmMessage = t('suppliers.confirmRegenerate', type === 'registration' ? 'cadastro' : 'visualização');
+        if (window.confirm(confirmMessage)) {
+            if (type === 'registration') {
+                props.onRegenerateRegistrationToken(supplierId);
+            } else {
+                props.onRegenerateAdminToken(supplierId);
+            }
+        }
+    }
 
     return (
-        <div className="w-full max-w-4xl mx-auto">
+        <div className="w-full max-w-5xl mx-auto">
             <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
                 <h2 className="text-3xl font-bold text-white mb-6 flex items-center justify-center gap-3">
                     <UsersIcon className="w-8 h-8"/>
@@ -140,23 +153,27 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = (props) =>
                         <p className="text-sm">{t('suppliers.noSuppliersSubtitle')}</p>
                     </div>
                 ) : (
-                    <ul className="space-y-3">
+                    <ul className="space-y-4">
                         {props.suppliers.map((supplier) => (
                             <li key={supplier.id} className="bg-gray-900/70 p-4 rounded-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-all hover:bg-gray-800">
                                 <div className="flex-grow">
-                                    <p className="font-semibold text-white">{supplier.name}</p>
-                                    <div className="flex items-center gap-2 mt-2">
-                                        <button onClick={() => handleCopyLink(supplier.id)} className="flex items-center gap-1.5 text-xs text-indigo-400 hover:underline">
-                                            <LinkIcon className="w-4 h-4"/>
-                                            {copiedLink === supplier.id ? t('suppliers.copied') : t('suppliers.registrationLink')}
-                                        </button>
-                                         <button onClick={() => handleCopyLink(`${supplier.id}/admin`)} className="flex items-center gap-1.5 text-xs text-gray-400 hover:underline">
-                                            <ClipboardDocumentIcon className="w-4 h-4"/>
-                                            Link de Visualização
-                                        </button>
+                                    <p className="font-semibold text-white text-lg">{supplier.name}</p>
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-x-6 gap-y-2 mt-2">
+                                        {/* Registration Link */}
+                                        <div className="flex items-center gap-2">
+                                             <span className="text-sm font-medium text-gray-300 flex items-center gap-1.5"><LinkIcon className="w-4 h-4" />{t('suppliers.registrationLink')}:</span>
+                                             <button onClick={() => handleCopyLink(supplier.registrationToken || '', 'register')} disabled={!supplier.registrationToken} className="text-xs font-semibold bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded-md text-indigo-300 disabled:opacity-50">{copiedToken === supplier.registrationToken ? t('suppliers.copied') : t('suppliers.copy')}</button>
+                                             <button onClick={() => handleRegenerate(supplier.id, 'registration')} className="text-xs font-semibold bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded-md text-yellow-300">{t('suppliers.regenerateLink')}</button>
+                                        </div>
+                                         {/* Admin Link */}
+                                        <div className="flex items-center gap-2">
+                                             <span className="text-sm font-medium text-gray-300 flex items-center gap-1.5"><EyeIcon className="w-4 h-4" />{t('suppliers.adminLink')}:</span>
+                                             <button onClick={() => handleCopyLink(supplier.adminToken || '', 'admin')} disabled={!supplier.adminToken} className="text-xs font-semibold bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded-md text-indigo-300 disabled:opacity-50">{copiedToken === supplier.adminToken ? t('suppliers.copied') : t('suppliers.copy')}</button>
+                                             <button onClick={() => handleRegenerate(supplier.id, 'admin')} className="text-xs font-semibold bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded-md text-yellow-300">{t('suppliers.regenerateLink')}</button>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2 w-full md:w-auto">
+                                <div className="flex items-center gap-2 w-full md:w-auto self-start md:self-center">
                                     <div className="flex items-center gap-2 mr-4 flex-grow">
                                         <span className="text-xs font-medium text-gray-400">{t('suppliers.registrationStatus')}:</span>
                                         <button onClick={() => props.onToggleRegistration(supplier.id, !supplier.registrationOpen)} className={`px-2 py-0.5 text-xs font-bold rounded-full ${supplier.registrationOpen ? 'bg-green-500/80 text-white' : 'bg-red-500/80 text-white'}`}>

@@ -19,10 +19,12 @@ interface AdminViewProps {
     onAddSector: (label: string, color: string) => Promise<void>;
     onUpdateSector: (sectorId: string, data: { label: string; color: string; }) => Promise<void>;
     onDeleteSector: (sector: Sector) => Promise<void>;
-    onAddSupplier: (name: string, sectorIds: string[]) => Promise<void>;
+    onAddSupplier: (name: string, sectorIds: string[]) => Promise<any>;
     onUpdateSupplier: (supplierId: string, data: Partial<Supplier>) => Promise<void>;
     onDeleteSupplier: (supplier: Supplier) => Promise<void>;
     onToggleSupplierRegistration: (supplierId: string, isOpen: boolean) => Promise<void>;
+    onRegenerateAdminToken: (supplierId: string) => Promise<void>;
+    onRegenerateSupplierRegistrationToken: (supplierId: string) => Promise<void>;
     onLogout: () => void;
     setError: (message: string) => void;
 }
@@ -62,6 +64,8 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                         onUpdateSupplier={props.onUpdateSupplier}
                         onDeleteSupplier={props.onDeleteSupplier}
                         onToggleRegistration={props.onToggleSupplierRegistration}
+                        onRegenerateAdminToken={props.onRegenerateAdminToken}
+                        onRegenerateRegistrationToken={props.onRegenerateSupplierRegistrationToken}
                         setError={props.setError}
                     />
                 );
