@@ -397,8 +397,7 @@ export const getAttendeeCountForSupplier = async (eventId: string, supplierId: s
 
 export const addSupplier = async (eventId: string, name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[]): Promise<string> => {
     const eventRef = db.collection('events').doc(ensureEventId(eventId));
-    
-    // Generate a unique token using a new document ID from a temporary collection.
+    const newSupplierRef = eventRef.collection('suppliers').doc();
     const adminToken = db.collection('events').doc().id;
 
     const newSupplier = {
@@ -409,8 +408,22 @@ export const addSupplier = async (eventId: string, name: string, sectors: string
         active: true,
         adminToken: adminToken,
     };
-    const res = await eventRef.collection('suppliers').add(newSupplier);
-    return res.id;
+    
+    // Create the token mapping document in a separate top-level collection for fast lookups.
+    const tokenRef = db.collection('supplier_tokens').doc(adminToken);
+    const tokenData = {
+        eventId: eventId,
+        supplierId: newSupplierRef.id,
+    };
+
+    // Use a batched write to ensure atomicity.
+    const batch = db.batch();
+    batch.set(newSupplierRef, newSupplier);
+    batch.set(tokenRef, tokenData);
+    
+    await batch.commit();
+    
+    return newSupplierRef.id;
 };
 
 export const updateSupplier = async (eventId: string, supplierId: string, data: Partial<Supplier>): Promise<void> => {
@@ -420,71 +433,95 @@ export const updateSupplier = async (eventId: string, supplierId: string, data: 
 
 export const deleteSupplier = async (eventId: string, supplierId: string): Promise<void> => {
     const eventRef = db.collection('events').doc(ensureEventId(eventId));
+    const supplierRef = eventRef.collection('suppliers').doc(supplierId);
+
+    // Get supplier to find the adminToken, which also needs to be deleted.
+    const supplierDoc = await supplierRef.get();
+    if (!supplierDoc.exists) {
+        return; // Already deleted.
+    }
+    const supplierData = supplierDoc.data() as Supplier;
+    
     // Safety check: prevent deletion if the supplier has registered attendees.
     const attendeesSnapshot = await eventRef.collection('attendees').where('supplierId', '==', supplierId).limit(1).get();
     if (!attendeesSnapshot.empty) {
         throw new Error('Supplier has registered attendees and cannot be deleted.');
     }
-    await eventRef.collection('suppliers').doc(supplierId).delete();
+
+    const batch = db.batch();
+    batch.delete(supplierRef);
+    
+    // Also delete the token mapping document.
+    if (supplierData.adminToken) {
+        const tokenRef = db.collection('supplier_tokens').doc(supplierData.adminToken);
+        batch.delete(tokenRef);
+    }
+    
+    await batch.commit();
 };
 
 export const regenerateSupplierAdminToken = async (eventId: string, supplierId: string): Promise<string> => {
     const eventRef = db.collection('events').doc(ensureEventId(eventId));
-    const newAdminToken = db.collection('events').doc().id;
-    await eventRef.collection('suppliers').doc(supplierId).update({ adminToken: newAdminToken });
-    return newAdminToken;
+    const supplierRef = eventRef.collection('suppliers').doc(supplierId);
+
+    const supplierDoc = await supplierRef.get();
+    if (!supplierDoc.exists) {
+        throw new Error("Supplier not found");
+    }
+    const oldToken = (supplierDoc.data() as Supplier).adminToken;
+    const newToken = db.collection('events').doc().id;
+
+    const batch = db.batch();
+    
+    // Update supplier document with the new token.
+    batch.update(supplierRef, { adminToken: newToken });
+
+    // Delete the old token mapping document, if it existed.
+    if (oldToken) {
+        const oldTokenRef = db.collection('supplier_tokens').doc(oldToken);
+        batch.delete(oldTokenRef);
+    }
+
+    // Create the new token mapping document.
+    const newTokenRef = db.collection('supplier_tokens').doc(newToken);
+    batch.set(newTokenRef, { eventId, supplierId });
+
+    await batch.commit();
+    
+    return newToken;
 };
 
-
 export const getSupplierDataForAdminView = async (adminToken: string): Promise<{ supplierName: string; attendees: Attendee[] } | null> => {
-    try {
-        // Step 1: Get all events. This is less efficient than a collectionGroup query
-        // but it is far more robust as it does NOT require a manual Firestore index.
-        const eventsSnapshot = await db.collection('events').get();
-        
-        let foundSupplierData: { supplier: Supplier; eventId: string } | null = null;
+    // This new robust implementation uses a direct lookup on the `supplier_tokens` collection.
+    // It is fast, efficient, and does not require any manual index creation.
+    const tokenRef = db.collection('supplier_tokens').doc(adminToken);
+    const tokenDoc = await tokenRef.get();
 
-        // Step 2: Loop through each event to find the supplier with the matching token.
-        // This uses a standard subcollection query which does not require special indexes.
-        for (const eventDoc of eventsSnapshot.docs) {
-            const eventId = eventDoc.id;
-            const supplierQuery = db.collection('events').doc(eventId).collection('suppliers').where('adminToken', '==', adminToken).limit(1);
-            const supplierSnapshot = await supplierQuery.get();
+    if (!tokenDoc.exists) {
+        console.error(`Admin token document not found: ${adminToken}`);
+        return null; // The link is invalid. App.tsx will show the "closed" page.
+    }
 
-            // If we find the supplier, store its data and break the loop.
-            if (!supplierSnapshot.empty) {
-                const supplierDoc = supplierSnapshot.docs[0];
-                const supplier = { id: supplierDoc.id, ...supplierDoc.data() } as Supplier;
-                foundSupplierData = { supplier, eventId };
-                break;
-            }
-        }
-        
-        // Step 3: If no supplier was found after checking all events, return null.
-        if (!foundSupplierData) {
-            console.error(`No supplier found with adminToken: ${adminToken}`);
-            return null;
-        }
+    const { eventId, supplierId } = tokenDoc.data() as { eventId: string; supplierId: string };
 
-        const { supplier, eventId } = foundSupplierData;
-
-        // Step 4: Fetch all attendees for the found supplier.
-        const attendeesQuery = db.collection('events').doc(eventId).collection('attendees').where('supplierId', '==', supplier.id).orderBy('name');
-        const attendeesSnapshot = await attendeesQuery.get();
-        
-        const attendees = attendeesSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        } as Attendee));
-
-        return {
-            supplierName: supplier.name,
-            attendees: attendees,
-        };
-
-    } catch (error: any) {
-        // This will now only catch general network or permission errors.
-        console.error("Error fetching supplier data for admin view:", error);
+    const supplier = await getSupplier(eventId, supplierId);
+    if (!supplier) {
+        // This indicates a data inconsistency (token exists, but supplier was deleted).
+        console.error(`Supplier ${supplierId} in event ${eventId} not found, but its token exists.`);
         return null;
     }
+    
+    // Fetch all attendees for the found supplier.
+    const attendeesQuery = db.collection('events').doc(eventId).collection('attendees').where('supplierId', '==', supplierId).orderBy('name');
+    const attendeesSnapshot = await attendeesQuery.get();
+    
+    const attendees = attendeesSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+    } as Attendee));
+
+    return {
+        supplierName: supplier.name,
+        attendees: attendees,
+    };
 };
