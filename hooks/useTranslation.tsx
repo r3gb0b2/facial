@@ -193,6 +193,7 @@ const translations = {
     'supplierAdmin.title': 'Verificação de Colaboradores',
     'supplierAdmin.supplier': 'Fornecedor:',
     'supplierAdmin.noAttendees': 'Nenhum colaborador cadastrado para este fornecedor ainda.',
+    'supplierAdmin.invalidLink': 'Falha ao carregar a página. O link pode ser inválido ou expirado.',
   },
 };
 

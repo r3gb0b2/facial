@@ -436,20 +436,25 @@ export const regenerateSupplierAdminToken = async (eventId: string, supplierId: 
 };
 
 
-export const getSupplierDataForAdminView = async (eventId: string, adminToken: string): Promise<{ supplierName: string; attendees: Attendee[] } | null> => {
-    const eventRef = db.collection('events').doc(ensureEventId(eventId));
-
-    // Query within the specific event's suppliers subcollection for reliability.
-    // This avoids complex collectionGroup indexes that can cause silent failures.
-    const suppliersQuery = eventRef.collection('suppliers').where('adminToken', '==', adminToken).limit(1);
+export const getSupplierDataForAdminView = async (adminToken: string): Promise<{ supplierName: string; attendees: Attendee[] } | null> => {
+    // This query is robust. It finds any supplier with the matching token across all events.
+    // NOTE: This requires a Firestore index on the 'suppliers' collection group for the 'adminToken' field.
+    // If this fails, Firestore's error message in the browser console will contain a direct link to create it.
+    const suppliersQuery = db.collectionGroup('suppliers').where('adminToken', '==', adminToken).limit(1);
     const supplierSnapshot = await suppliersQuery.get();
 
     if (supplierSnapshot.empty) {
-        return null; // No supplier found with this token in this event
+        console.error(`No supplier found for adminToken: ${adminToken}`);
+        return null;
     }
 
     const supplierDoc = supplierSnapshot.docs[0];
     const supplier = { id: supplierDoc.id, ...supplierDoc.data() } as Supplier;
+    
+    // A supplier document's path is 'events/{eventId}/suppliers/{supplierId}'.
+    // We can get the parent document (the event) from its reference path.
+    const eventId = supplierDoc.ref.parent.parent!.id;
+    const eventRef = db.collection('events').doc(eventId);
 
     const attendeesQuery = eventRef.collection('attendees').where('supplierId', '==', supplier.id).orderBy('name');
     const attendeesSnapshot = await attendeesQuery.get();

@@ -171,7 +171,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
     };
 
     const handleCopyAdminLink = (token: string, supplierId: string) => {
-        const url = `${window.location.origin}?eventId=${currentEventId}&adminToken=${token}`;
+        const url = `${window.location.origin}?verify=${token}`;
         navigator.clipboard.writeText(url);
         setCopiedAdminLink(supplierId);
         setTimeout(() => setCopiedAdminLink(null), 2000);

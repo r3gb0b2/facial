@@ -9,11 +9,13 @@ import RegistrationClosedView from './components/views/RegistrationClosedView.ts
 import SupplierAdminView from './components/views/SupplierAdminView.tsx';
 import EventModal from './components/EventModal.tsx';
 import { SpinnerIcon } from './components/icons.tsx';
+import { useTranslation } from './hooks/useTranslation.tsx';
 
 // Simple password check (replace with real auth in a real app)
 const ADMIN_PASSWORD = "12345";
 
 const App: React.FC = () => {
+    const { t } = useTranslation();
     // App State
     const [isLoading, setIsLoading] = useState(true);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -44,13 +46,13 @@ const App: React.FC = () => {
         const params = new URLSearchParams(window.location.search);
         const eventId = params.get('eventId');
         const supplierId = params.get('supplierId');
-        const adminToken = params.get('adminToken');
+        const verifyToken = params.get('verify'); // New, unique parameter for the admin view
 
-        // Supplier links take priority over admin login
-        if (eventId && supplierId) {
+        // The new verify link has the highest priority to avoid conflicts.
+        if (verifyToken) {
+            handleSupplierAdminLink(verifyToken);
+        } else if (eventId && supplierId) {
             handleSupplierLink(eventId, supplierId);
-        } else if (eventId && adminToken) {
-            handleSupplierAdminLink(eventId, adminToken);
         } else {
             // If no special link, check for a persisted admin session
             const isAdminLoggedIn = sessionStorage.getItem('isFacialAdminLoggedIn');
@@ -140,9 +142,10 @@ const App: React.FC = () => {
         }
     };
 
-    const handleSupplierAdminLink = async (eventId: string, token: string) => {
+    const handleSupplierAdminLink = async (token: string) => {
+        setIsLoading(true);
         try {
-            const data = await api.getSupplierDataForAdminView(eventId, token);
+            const data = await api.getSupplierDataForAdminView(token);
             if (data) {
                 setSupplierAdminData(data);
                 setCurrentView('supplier_admin');
@@ -332,7 +335,7 @@ const App: React.FC = () => {
                     predefinedSector={allowedSectors.length === 1 ? allowedSectors[0].id : supplierInfo.data.sectors}
                  />;
             case 'supplier_admin':
-                 if (!supplierAdminData) return <RegistrationClosedView message="Link inválido ou não encontrado." />;
+                 if (!supplierAdminData) return <RegistrationClosedView message={t('supplierAdmin.invalidLink')} />;
                  return <SupplierAdminView 
                     supplierName={supplierAdminData.supplierName} 
                     attendees={supplierAdminData.attendees} 
