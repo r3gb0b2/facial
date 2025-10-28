@@ -78,6 +78,7 @@ const translations = {
     'register.import.errors.parsing': 'Erro ao processar o arquivo.',
     'register.import.errors.rowError': (row: number, message: string) => `Linha ${row}: ${message}`,
     'register.successMessage': 'Cadastro realizado com sucesso!',
+    'register.photoLocked': 'Foto carregada do cadastro existente e não pode ser alterada.',
 
     // Suppliers
     'suppliers.generateTitle': 'Gerar Link de Cadastro',

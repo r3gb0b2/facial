@@ -284,6 +284,11 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
           </div>
           <div className="flex flex-col items-center">
               <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting || isCheckingCpf || existingAttendeeFound} allowUpload={isAdminView} />
+              {existingAttendeeFound && (
+                <p className="text-sm mt-2 text-yellow-400 text-center px-4">
+                  {t('register.photoLocked')}
+                </p>
+              )}
           </div>
         </form>
       </div>
