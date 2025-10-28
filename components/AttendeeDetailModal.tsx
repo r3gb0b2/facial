@@ -91,7 +91,7 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   };
 
   const handleDelete = () => {
-    // FIX: Argument of type 'string | ((...args: any[]) => string)' is not assignable to parameter of type 'string | undefined'
+    // FIX: Cast result of t() to string to resolve 'unknown' type error for window.confirm.
     if (window.confirm(t('attendeeDetail.deleteConfirm', attendee.name) as string)) {
       onDelete(attendee.id);
     }

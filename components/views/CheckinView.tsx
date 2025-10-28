@@ -97,11 +97,11 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
 
   const stats = useMemo(() => {
     return {
-      checkedIn: attendees.filter(a => a.status === 'CHECKED_IN').length,
-      pending: attendees.filter(a => a.status === 'PENDING').length,
-      total: attendees.length,
+      checkedIn: filteredAttendees.filter(a => a.status === 'CHECKED_IN').length,
+      pending: filteredAttendees.filter(a => a.status === 'PENDING').length,
+      total: filteredAttendees.length,
     };
-  }, [attendees]);
+  }, [filteredAttendees]);
 
   return (
     <div className="w-full max-w-7xl mx-auto">
@@ -140,8 +140,8 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
           >
             <option value="ALL">{t('checkin.filter.allStatuses')}</option>
             {Object.values(CheckinStatus).map(status => (
-              // FIX: The `t` function can return a function, so we must cast its result to a string to ensure type safety.
-              <option key={status} value={status}>{t(`status.${status.toLowerCase()}`)}</option>
+              // FIX: Cast result of t() to string to resolve 'unknown' type error.
+              <option key={status} value={status}>{t(`status.${status.toLowerCase()}`) as string}</option>
             ))}
           </select>
           <select

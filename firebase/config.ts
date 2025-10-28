@@ -92,6 +92,6 @@ const FieldValue = firebase.firestore.FieldValue;
 const Timestamp = firebase.firestore.Timestamp;
 
 // FIX: Removed duplicate `export type { Timestamp }` which caused a "Duplicate identifier" error.
-// The Timestamp class is exported below and can be used as both a value and a type.
+// The `Timestamp` const is a class that can be used as both a value and a type, so it only needs to be exported once.
 export { db, storage, FieldValue, Timestamp };
 export type { Timestamp } from 'firebase/compat/app';

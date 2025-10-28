@@ -15,7 +15,7 @@ type View = 'login' | 'event-selection' | 'admin' | 'supplier-registration' | 's
 
 const App: React.FC = () => {
   const { t } = useTranslation();
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(sessionStorage.getItem('isLoggedIn') === 'true');
   const [loginError, setLoginError] = useState<string | null>(null);
   const [view, setView] = useState<View>('login');
   const [isLoading, setIsLoading] = useState(true);
@@ -46,6 +46,7 @@ const App: React.FC = () => {
 
   const handleLogin = (password: string) => {
     if (password === '12345') {
+      sessionStorage.setItem('isLoggedIn', 'true');
       setIsLoggedIn(true);
       setLoginError(null);
       setView('event-selection');
@@ -107,12 +108,16 @@ const App: React.FC = () => {
             }
             setIsLoading(false);
         } else {
-            setView('login');
+            if (isLoggedIn) {
+                setView('event-selection');
+            } else {
+                setView('login');
+            }
             setIsLoading(false);
         }
     };
     checkUrlParams();
-  }, [t]);
+  }, [t, isLoggedIn]);
   
   useEffect(() => {
     let unsubscribe: () => void = () => {};
@@ -302,7 +307,8 @@ const App: React.FC = () => {
             setError={setGlobalError} 
             sectors={sectors} 
             predefinedSector={supplierInfo.data.sectors}
-            supplierName={supplierInfo.name}
+            eventName={supplierInfo.name}
+            supplierName={supplierInfo.data.name}
             supplierInfo={supplierInfo}
           />
         }

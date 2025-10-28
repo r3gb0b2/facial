@@ -15,11 +15,12 @@ interface RegisterViewProps {
   setError: (message: string) => void;
   sectors: Sector[];
   predefinedSector?: string | string[];
+  eventName?: string;
   supplierName?: string;
   supplierInfo?: { data: Supplier };
 }
 
-const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, sectors, predefinedSector, supplierName, supplierInfo }) => {
+const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, sectors, predefinedSector, eventName, supplierName, supplierInfo }) => {
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [cpf, setCpf] = useState('');
@@ -235,7 +236,8 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
               <UsersIcon className="w-8 h-8"/>
               {t('register.title')}
             </h2>
-            {supplierName && <p className="text-lg font-medium text-gray-400 mt-1">{supplierName}</p>}
+            {eventName && <p className="text-lg font-medium text-gray-400 mt-1">{eventName}</p>}
+            {supplierName && <p className="text-md font-medium text-gray-400">{t('supplierAdmin.supplier')} {supplierName}</p>}
         </div>
 
         <form onSubmit={handleRegisterSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">

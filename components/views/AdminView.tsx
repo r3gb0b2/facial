@@ -68,7 +68,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                     setError={props.setError}
                 />;
             case 'register':
-                return <RegisterView onRegister={props.onRegister} setError={props.setError} sectors={props.sectors} />;
+                return <RegisterView onRegister={props.onRegister} setError={props.setError} sectors={props.sectors} eventName={props.currentEvent.name} />;
             case 'suppliers':
                 return <SupplierManagementView 
                     currentEventId={props.currentEvent.id} 
