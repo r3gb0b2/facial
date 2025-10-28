@@ -138,8 +138,8 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
           >
             <option value="ALL">{t('checkin.filter.allStatuses')}</option>
             {Object.values(CheckinStatus).map(status => (
-              // FIX: Explicitly cast status to string before using .toLowerCase() to avoid potential type errors with enums.
-              <option key={status} value={status}>{t(`status.${(status as string).toLowerCase()}` as any)}</option>
+              // FIX: Explicitly cast the result of the translation function `t` to a string. This resolves a TypeScript error where the return type was inferred as `unknown`, which is not assignable to the `string` child expected by the `<option>` element.
+              <option key={status} value={status}>{t(`status.${status.toLowerCase()}` as any)}</option>
             ))}
           </select>
           <select
@@ -158,9 +158,20 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
         {filteredAttendees.map((attendee) => {
-            const attendeeSectors = (attendee.sectors || []).map(id => sectorMap.get(id)).filter(Boolean) as Sector[];
-            const sectorLabels = attendeeSectors.map(s => s.label || s.id || 'Setor sem nome').join(', ') || 'Sem setor';
-            const primarySectorColor = attendeeSectors.length > 0 ? attendeeSectors[0].color : undefined;
+            const areSectorsLoading = sectors.length === 0;
+            const attendeeSectors = Array.isArray(attendee.sectors) ? attendee.sectors : [];
+
+            const labelsAndColors = attendeeSectors.map(id => {
+                const sector = sectorMap.get(id);
+                return {
+                    label: sector?.label || id,
+                    color: sector?.color
+                };
+            });
+
+            const joinedLabels = labelsAndColors.map(item => item.label).filter(Boolean).join(', ');
+            const sectorLabel = joinedLabels || (attendeeSectors.length > 0 && areSectorsLoading ? 'Carregando...' : 'Sem setor');
+            const primarySectorColor = labelsAndColors.length > 0 ? labelsAndColors[0].color : undefined;
             const supplier = attendee.supplierId ? supplierMap.get(attendee.supplierId) : undefined;
             
             return (
@@ -168,7 +179,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
                 key={attendee.id} 
                 attendee={attendee} 
                 onSelect={handleSelectAttendee}
-                sectorLabel={sectorLabels}
+                sectorLabel={sectorLabel}
                 sectorColor={primarySectorColor}
                 supplierName={supplier?.name}
               />
