@@ -29,7 +29,7 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
   const [wristbands, setWristbands] = useState(attendee.wristbands || {});
-  const [wristbandErrors, setWristbandErrors] = useState<Set<string>>(new Set());
+  const [wristbandErrorSectors, setWristbandErrorSectors] = useState<Set<string>>(new Set());
   const [showWristbandSuccess, setShowWristbandSuccess] = useState(false);
   const [editData, setEditData] = useState({
     name: attendee.name,
@@ -55,7 +55,7 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     setWristbands(attendee.wristbands || {});
     setIsEditing(false); // Reset editing state when attendee changes
     setShowWristbandSuccess(false);
-    setWristbandErrors(new Set());
+    setWristbandErrorSectors(new Set());
   }, [attendee]);
 
   const statusInfo = {
@@ -93,32 +93,37 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   // --- Wristband Validation and Saving ---
 
   const validateWristbands = (currentWristbands: { [sectorId: string]: string }): string[] => {
-    const newErrors = new Set<string>();
-    const numbersInForm = new Set<string>();
-    
-    // 1. Check for duplicates within the current form's inputs
-    for (const number of Object.values(currentWristbands)) {
-        if (!number) continue;
-        if (numbersInForm.has(number)) {
-            newErrors.add(number);
-        }
-        numbersInForm.add(number);
-    }
+    const newErrorSectors = new Set<string>();
+    const duplicatedNumbers: string[] = [];
+    const numbersUsedBySector: { [sectorId: string]: Set<string> } = {};
 
-    // 2. Check for duplicates against all other attendees in the event
-    for (const number of Object.values(currentWristbands)) {
-        if (!number) continue;
-        for (const otherAttendee of allAttendees) {
-            if (otherAttendee.id === attendee.id) continue; // Skip self
-            if (otherAttendee.wristbands && Object.values(otherAttendee.wristbands).includes(number)) {
-                newErrors.add(number);
-                break; // Found a duplicate for this number, no need to check further
+    // 1. Collect all used wristband numbers from OTHER attendees, organized by sector.
+    for (const otherAttendee of allAttendees) {
+        if (otherAttendee.id === attendee.id) continue; // Skip self
+        if (otherAttendee.wristbands) {
+            for (const [sectorId, number] of Object.entries(otherAttendee.wristbands)) {
+                if (number) {
+                    if (!numbersUsedBySector[sectorId]) {
+                        numbersUsedBySector[sectorId] = new Set();
+                    }
+                    numbersUsedBySector[sectorId].add(number);
+                }
             }
         }
     }
-    
-    setWristbandErrors(newErrors);
-    return Array.from(newErrors);
+
+    // 2. Check current attendee's inputs against the collected used numbers.
+    for (const [sectorId, number] of Object.entries(currentWristbands)) {
+        if (number && numbersUsedBySector[sectorId]?.has(number)) {
+            newErrorSectors.add(sectorId);
+            if (!duplicatedNumbers.includes(number)) {
+                duplicatedNumbers.push(number);
+            }
+        }
+    }
+
+    setWristbandErrorSectors(newErrorSectors);
+    return duplicatedNumbers;
   };
 
   const handleWristbandSave = async () => {
@@ -156,8 +161,8 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   const handleWristbandChange = (sectorId: string, value: string) => {
     setWristbands(prev => ({...prev, [sectorId]: value }));
     // Clear errors on change to allow user to correct mistakes
-    if (wristbandErrors.size > 0) {
-      setWristbandErrors(new Set());
+    if (wristbandErrorSectors.size > 0) {
+      setWristbandErrorSectors(new Set());
     }
   };
 
@@ -174,7 +179,7 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
         <div className="space-y-3">
             {attendeeSectors.map(sector => {
                 const numberValue = wristbands[sector.id] || '';
-                const hasError = wristbandErrors.has(numberValue);
+                const hasError = wristbandErrorSectors.has(sector.id);
                 return (
                     <div key={sector.id}>
                         <label htmlFor={`wristband-${sector.id}`} className="block text-sm font-medium text-gray-300 mb-1 flex items-center gap-2">
