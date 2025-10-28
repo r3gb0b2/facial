@@ -295,6 +295,14 @@ export const getEvents = (onUpdate: (events: Event[]) => void): (() => void) => 
     });
 };
 
+export const getEvent = async (eventId: string): Promise<Event | null> => {
+    const doc = await db.collection('events').doc(eventId).get();
+    if (!doc.exists) {
+        return null;
+    }
+    return { id: doc.id, ...doc.data() } as Event;
+};
+
 export const addEvent = async (name: string): Promise<string> => {
     const res = await db.collection('events').add({
         name,
@@ -515,20 +523,18 @@ export const getSupplierDataForAdminView = async (adminToken: string): Promise<{
     // --- STRATEGY 2: CollectionGroup Query (Fallback) ---
     if (!eventId || !supplierId) {
         try {
-            const snapshot = await db.collectionGroup('suppliers').where('adminToken', '==', adminToken).limit(1).get();
-            if (!snapshot.empty) {
-                const supplierDoc = snapshot.docs[0];
-                // The parent of a subcollection document is the document containing it.
-                // supplierDoc.ref.parent is the 'suppliers' collection.
-                // supplierDoc.ref.parent.parent is the 'event' document.
-                if (supplierDoc.ref.parent.parent) {
-                   eventId = supplierDoc.ref.parent.parent.id;
-                   supplierId = supplierDoc.id;
+            const allEvents = await db.collection('events').get();
+            for (const eventDoc of allEvents.docs) {
+                const suppliersSnapshot = await eventDoc.ref.collection('suppliers').where('adminToken', '==', adminToken).limit(1).get();
+                if (!suppliersSnapshot.empty) {
+                    const supplierDoc = suppliersSnapshot.docs[0];
+                    eventId = eventDoc.id;
+                    supplierId = supplierDoc.id;
+                    break; // Found it, no need to check other events
                 }
             }
         } catch (error: any) {
-            console.error("CollectionGroup query for admin token failed:", error);
-            // This is where the index error might be thrown. If it is, Firestore provides a helpful link in the console.
+            console.error("Manual fallback query for admin token failed:", error);
             throw new Error("Ocorreu uma falha na verificação do link. Se o problema persistir, pode ser necessário um índice no banco de dados. Verifique o console do navegador por um link para criá-lo.");
         }
     }

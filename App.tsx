@@ -48,6 +48,28 @@ const App: React.FC = () => {
         const supplierId = params.get('supplierId');
         const verifyToken = params.get('verify'); // New, unique parameter for the admin view
 
+        const loadPersistedAdminSession = async (persistedEventId: string) => {
+            try {
+                const eventData = await api.getEvent(persistedEventId);
+                if (eventData) {
+                    setCurrentEvent(eventData);
+                    setCurrentView('admin');
+                } else {
+                    // Event was not found, likely deleted. Clear storage and go to selection.
+                    sessionStorage.removeItem('currentEventId');
+                    setCurrentView('event_selection');
+                }
+            } catch (error) {
+                console.error("Failed to load persisted admin session:", error);
+                setAppError("Falha ao carregar sessão anterior.");
+                sessionStorage.removeItem('currentEventId');
+                setCurrentView('event_selection');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+
         // The new verify link has the highest priority to avoid conflicts.
         if (verifyToken) {
             handleSupplierAdminLink(verifyToken);
@@ -56,12 +78,21 @@ const App: React.FC = () => {
         } else {
             // If no special link, check for a persisted admin session
             const isAdminLoggedIn = sessionStorage.getItem('isFacialAdminLoggedIn');
+            const persistedEventId = sessionStorage.getItem('currentEventId');
             if (isAdminLoggedIn === 'true') {
                 setIsLoggedIn(true);
-                setCurrentView('event_selection');
+                if (persistedEventId) {
+                    // If an event was selected, restore that view directly
+                    loadPersistedAdminSession(persistedEventId);
+                } else {
+                    // If just logged in, go to event selection
+                    setCurrentView('event_selection');
+                    setIsLoading(false);
+                }
+            } else {
+                // Not logged in and no special links, show login page
+                setIsLoading(false);
             }
-            // In either case, we're done with initial checks.
-            setIsLoading(false);
         }
     }, []);
     
@@ -161,11 +192,13 @@ const App: React.FC = () => {
     };
 
     const handleSelectEvent = (event: Event) => {
+        sessionStorage.setItem('currentEventId', event.id);
         setCurrentEvent(event);
         setCurrentView('admin');
     };
     
     const handleBackToEvents = () => {
+        sessionStorage.removeItem('currentEventId');
         setCurrentEvent(null);
         setCurrentView('event_selection');
     };
