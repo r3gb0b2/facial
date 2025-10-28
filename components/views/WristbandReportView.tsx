@@ -106,8 +106,8 @@ const WristbandReportView: React.FC<WristbandReportViewProps> = ({ attendees, se
               </div>
               <p className="text-2xl font-bold text-indigo-400 mt-1">{stat.delivered}</p>
               <p className="text-xs text-gray-400 uppercase font-semibold">
-                {/* FIX: Cast result of t() to string to resolve 'unknown' type error. */}
-                {t('wristbandReport.stats.deliveredOf', stat.delivered, stat.total) as string}
+                {/* FIX: Removed unnecessary cast. The t() function is already typed to return a string. */}
+                {t('wristbandReport.stats.deliveredOf', stat.delivered, stat.total)}
               </p>
             </div>
           ))}
@@ -140,11 +140,11 @@ const WristbandReportView: React.FC<WristbandReportViewProps> = ({ attendees, se
           <table className="w-full text-sm text-left text-gray-300">
             <thead className="text-xs text-gray-400 uppercase bg-gray-900/50">
               <tr>
-                {/* FIX: Cast results of t() to string to resolve 'unknown' type errors. */}
-                <th scope="col" className="px-6 py-3">{t('wristbandReport.list.header.name') as string}</th>
-                <th scope="col" className="px-6 py-3">{t('wristbandReport.list.header.wristband') as string}</th>
-                <th scope="col" className="px-6 py-3">{t('wristbandReport.list.header.sector') as string}</th>
-                <th scope="col" className="px-6 py-3 text-center">{t('wristbandReport.list.header.color') as string}</th>
+                {/* FIX: Removed unnecessary casts. The t() function is already typed to return a string. */}
+                <th scope="col" className="px-6 py-3">{t('wristbandReport.list.header.name')}</th>
+                <th scope="col" className="px-6 py-3">{t('wristbandReport.list.header.wristband')}</th>
+                <th scope="col" className="px-6 py-3">{t('wristbandReport.list.header.sector')}</th>
+                <th scope="col" className="px-6 py-3 text-center">{t('wristbandReport.list.header.color')}</th>
               </tr>
             </thead>
             <tbody>

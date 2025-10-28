@@ -94,8 +94,8 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   };
 
   const handleDelete = () => {
-    // FIX: Cast result of t() to string to resolve 'unknown' type error.
-    if (window.confirm(t('attendeeDetail.deleteConfirm', attendee.name) as string)) {
+    // FIX: Removed unnecessary cast. The t() function is already typed to return a string.
+    if (window.confirm(t('attendeeDetail.deleteConfirm', attendee.name))) {
       onDelete(attendee.id);
     }
   };
@@ -136,8 +136,8 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     setWristbandErrorSectors(errorSectors);
 
     if (duplicates.size > 0) {
-        // FIX: Cast result of t() to string to resolve 'unknown' type error.
-        setError(t('attendeeDetail.wristbandsDuplicateError', Array.from(duplicates).join(', ')) as string);
+        // FIX: Removed unnecessary cast. The t() function is already typed to return a string.
+        setError(t('attendeeDetail.wristbandsDuplicateError', Array.from(duplicates).join(', ')));
         return false;
     }
     
