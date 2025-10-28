@@ -139,7 +139,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
             <option value="ALL">{t('checkin.filter.allStatuses')}</option>
             {Object.values(CheckinStatus).map(status => (
               // FIX: Explicitly cast the result of the translation function `t` to a string. This resolves a TypeScript error where the return type was inferred as `unknown`, which is not assignable to the `string` child expected by the `<option>` element.
-              <option key={status} value={status}>{t(`status.${status.toLowerCase()}` as any)}</option>
+              <option key={status} value={status}>{String(t(`status.${status.toLowerCase()}` as any))}</option>
             ))}
           </select>
           <select
@@ -158,19 +158,18 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
         {filteredAttendees.map((attendee) => {
-            const areSectorsLoading = sectors.length === 0;
             const attendeeSectors = Array.isArray(attendee.sectors) ? attendee.sectors : [];
 
             const labelsAndColors = attendeeSectors.map(id => {
                 const sector = sectorMap.get(id);
                 return {
-                    label: sector?.label || id,
+                    label: sector?.label || id, // Fallback to ID if sector not found
                     color: sector?.color
                 };
             });
 
             const joinedLabels = labelsAndColors.map(item => item.label).filter(Boolean).join(', ');
-            const sectorLabel = joinedLabels || (attendeeSectors.length > 0 && areSectorsLoading ? 'Carregando...' : 'Sem setor');
+            const sectorLabel = joinedLabels || 'Sem setor';
             const primarySectorColor = labelsAndColors.length > 0 ? labelsAndColors[0].color : undefined;
             const supplier = attendee.supplierId ? supplierMap.get(attendee.supplierId) : undefined;
             

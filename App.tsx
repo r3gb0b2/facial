@@ -18,6 +18,7 @@ const App: React.FC = () => {
     const { t } = useTranslation();
     // App State
     const [isLoading, setIsLoading] = useState(true);
+    const [isDataLoading, setIsDataLoading] = useState(true);
     const [isLoggedIn, setIsLoggedIn] = useState(false);
     const [loginError, setLoginError] = useState<string | null>(null);
     const [appError, setAppError] = useState('');
@@ -105,24 +106,49 @@ const App: React.FC = () => {
 
     // This effect manages the real-time data listeners for the admin view.
     useEffect(() => {
-        // If we are not in the admin view or there's no selected event, we should not have any listeners active.
-        // The cleanup function from the previous render will handle detaching them.
         if (currentView !== 'admin' || !currentEvent) {
+            setIsDataLoading(true);
             return;
         }
 
-        // We are in the admin view with an event selected, so attach the listeners.
-        const unsubAttendees = api.getAttendees(currentEvent.id, setAttendees);
-        const unsubSuppliers = api.getSuppliers(currentEvent.id, setSuppliers);
-        const unsubSectors = api.getSectors(currentEvent.id, setSectors);
+        setIsDataLoading(true);
         
-        // This cleanup function is crucial. It runs when the dependencies change (e.g., when the user
-        // navigates away from the admin view by changing `currentView` or `currentEvent`).
+        let attendeesInitialized = false;
+        let suppliersInitialized = false;
+        let sectorsInitialized = false;
+
+        const checkAllDataLoaded = () => {
+            if (attendeesInitialized && suppliersInitialized && sectorsInitialized) {
+                setIsDataLoading(false);
+            }
+        };
+        
+        const unsubAttendees = api.getAttendees(currentEvent.id, (data) => {
+            setAttendees(data);
+            if (!attendeesInitialized) {
+                attendeesInitialized = true;
+                checkAllDataLoaded();
+            }
+        });
+        const unsubSuppliers = api.getSuppliers(currentEvent.id, (data) => {
+            setSuppliers(data);
+            if (!suppliersInitialized) {
+                suppliersInitialized = true;
+                checkAllDataLoaded();
+            }
+        });
+        const unsubSectors = api.getSectors(currentEvent.id, (data) => {
+            setSectors(data);
+            if (!sectorsInitialized) {
+                sectorsInitialized = true;
+                checkAllDataLoaded();
+            }
+        });
+        
         return () => {
             unsubAttendees();
             unsubSuppliers();
             unsubSectors();
-            // Clear the data to ensure no stale data flashes on the screen when returning to the admin view later.
             setAttendees([]);
             setSuppliers([]);
             setSectors([]);
@@ -332,6 +358,7 @@ const App: React.FC = () => {
             case 'admin':
                 if (!currentEvent) return null; // Should not happen
                 return <AdminView
+                    isLoading={isDataLoading}
                     currentEvent={currentEvent}
                     attendees={attendees}
                     suppliers={suppliers}

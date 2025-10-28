@@ -6,11 +6,12 @@ import RegisterView from './RegisterView.tsx';
 import SupplierManagementView from './SupplierManagementView.tsx';
 import SectorManagementView from './SectorManagementView.tsx';
 import WristbandReportView from './WristbandReportView.tsx';
-import { ArrowLeftOnRectangleIcon } from '../icons.tsx';
+import { ArrowLeftOnRectangleIcon, SpinnerIcon } from '../icons.tsx';
 
 type AdminTab = 'checkin' | 'register' | 'suppliers' | 'sectors' | 'wristbands';
 
 interface AdminViewProps {
+    isLoading: boolean;
     currentEvent: Event;
     attendees: Attendee[];
     suppliers: Supplier[];
@@ -44,6 +45,14 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
     ];
     
     const renderContent = () => {
+        if (props.isLoading) {
+            return (
+                <div className="flex items-center justify-center h-64">
+                    <SpinnerIcon className="w-12 h-12 text-white" />
+                </div>
+            );
+        }
+
         switch(activeTab) {
             case 'checkin':
                 return <CheckinView 

@@ -50,7 +50,6 @@ const WristbandReportView: React.FC<WristbandReportViewProps> = ({ attendees, se
   const wristbandData = useMemo(() => {
     const checkedInAttendees = attendees.filter(a => a.status === CheckinStatus.CHECKED_IN && a.wristbands);
     const normalizedTerm = normalizeString(searchTerm);
-    const areSectorsLoading = sectors.length === 0;
 
     const data: { attendeeId: string, name: string, cpf: string, sectorId: string, sectorLabel: string, sectorColor?: string, wristbandNumber: string }[] = [];
 
@@ -70,7 +69,7 @@ const WristbandReportView: React.FC<WristbandReportViewProps> = ({ attendees, se
         }
 
         const sectorInfo = sectorMap.get(sectorId);
-        const sectorLabel = sectorInfo?.label || (areSectorsLoading ? 'Carregando...' : sectorId);
+        const sectorLabel = sectorInfo?.label || sectorId; // Fallback to ID
 
         data.push({
           attendeeId: attendee.id,
@@ -84,7 +83,7 @@ const WristbandReportView: React.FC<WristbandReportViewProps> = ({ attendees, se
       }
     }
     return data.sort((a, b) => a.name.localeCompare(b.name));
-  }, [attendees, sectors, searchTerm, sectorFilter, sectorMap]);
+  }, [attendees, searchTerm, sectorFilter, sectorMap]);
   
   const formatCPF = (cpf: string) => {
     if (!cpf) return '';
