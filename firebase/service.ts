@@ -1,6 +1,7 @@
 import firebase from "firebase/compat/app";
 import { db, storage, FieldValue } from './config.ts';
-import type { Attendee, Event, Sector, Supplier, CheckinStatus } from '../types.ts';
+// FIX: `CheckinStatus` is an enum used as a value, so it must be imported as a value. Other members are interfaces and can be imported as types.
+import { type Attendee, type Event, type Sector, type Supplier, CheckinStatus } from '../types.ts';
 
 // Helper to convert Firestore doc to a typed object with ID
 const fromDoc = <T extends { id: string }>(doc: firebase.firestore.DocumentSnapshot): T => {
@@ -14,6 +15,14 @@ const fromDoc = <T extends { id: string }>(doc: firebase.firestore.DocumentSnaps
 export const getEvents = async (): Promise<Event[]> => {
     const snapshot = await db.collection('events').orderBy('createdAt', 'desc').get();
     return snapshot.docs.map(doc => fromDoc<Event>(doc));
+};
+
+export const getEvent = async (eventId: string): Promise<Event | null> => {
+    const doc = await db.collection('events').doc(eventId).get();
+    if (!doc.exists) {
+        return null;
+    }
+    return fromDoc<Event>(doc);
 };
 
 export const addEvent = (name: string) => {

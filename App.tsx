@@ -26,7 +26,7 @@ const App: React.FC = () => {
     const { t } = useTranslation();
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [isAuthenticated, setIsAuthenticated] = useState(() => sessionStorage.getItem('isAuthenticated') === 'true');
     
     // App route/view state
     const [appRoute, setAppRoute] = useState(getAppRoute());
@@ -61,26 +61,69 @@ const App: React.FC = () => {
     }, [error]);
 
     const handleLogin = (password: string) => {
-        // This is a simplified, insecure password check.
-        // In a real app, use Firebase Auth or another secure method.
         if (password === 'admin') {
+            sessionStorage.setItem('isAuthenticated', 'true');
             setIsAuthenticated(true);
             setError(null);
         } else {
             setError(t('login.errors.invalidPassword'));
         }
     };
+
+    const handleLogout = useCallback(() => {
+        sessionStorage.removeItem('isAuthenticated');
+        sessionStorage.removeItem('currentEventId');
+        setCurrentEvent(null);
+        setIsAuthenticated(false);
+    }, []);
+
+    const handleSelectEvent = useCallback((event: Event) => {
+        sessionStorage.setItem('currentEventId', event.id);
+        setCurrentEvent(event);
+    }, []);
     
-    // Fetch events for admin view
+    // Main data loading and session restoration logic for the admin view
     useEffect(() => {
-        if (isAuthenticated && appRoute.view === 'admin') {
-            setIsLoading(true);
-            api.getEvents().then(setEvents).catch(err => {
-                console.error(err);
-                setError(t('events.errors.load'));
-            }).finally(() => setIsLoading(false));
+        if (appRoute.view === 'admin') {
+            if (!isAuthenticated) {
+                setIsLoading(false);
+                return;
+            }
+
+            // If an event is already loaded, don't re-run this logic
+            if (currentEvent) {
+                return; 
+            }
+
+            const savedEventId = sessionStorage.getItem('currentEventId');
+            if (savedEventId) {
+                // Restore session to a specific event
+                api.getEvent(savedEventId).then(event => {
+                    if (event) {
+                        setCurrentEvent(event);
+                    } else {
+                        sessionStorage.removeItem('currentEventId');
+                        api.getEvents().then(setEvents);
+                    }
+                }).catch(err => {
+                    console.error("Failed to restore event:", err);
+                    sessionStorage.removeItem('currentEventId');
+                    setError("Falha ao carregar o evento anterior.");
+                    api.getEvents().then(setEvents);
+                }).finally(() => {
+                    setIsLoading(false);
+                });
+            } else {
+                // No saved event, load the list of events
+                api.getEvents().then(setEvents).catch(err => {
+                    console.error(err);
+                    setError(t('events.errors.load'));
+                }).finally(() => {
+                    setIsLoading(false);
+                });
+            }
         }
-    }, [isAuthenticated, appRoute.view, t]);
+    }, [isAuthenticated, appRoute.view, t, currentEvent]);
 
     // Fetch data when a supplier route is accessed
     useEffect(() => {
@@ -106,14 +149,12 @@ const App: React.FC = () => {
     }, [appRoute]);
 
 
-    // Fetch data for the selected event
+    // Subscribe to live data for the selected event
     useEffect(() => {
         if (currentEvent) {
-            setIsLoading(true);
             const unsubscribeAttendees = api.subscribeToAttendees(currentEvent.id, setAttendees);
             const unsubscribeSectors = api.subscribeToSectors(currentEvent.id, setSectors);
             const unsubscribeSuppliers = api.subscribeToSuppliers(currentEvent.id, setSuppliers);
-            setIsLoading(false);
             
             return () => {
                 unsubscribeAttendees();
@@ -240,7 +281,7 @@ const App: React.FC = () => {
             return (
                 <EventSelectionView
                     events={events}
-                    onSelectEvent={setCurrentEvent}
+                    onSelectEvent={handleSelectEvent}
                     onCreateEvent={() => {/* Logic to open modal */}}
                     onEditEvent={(event) => {/* Logic to open modal */}}
                     onDeleteEvent={handleDeleteEvent}
@@ -264,10 +305,7 @@ const App: React.FC = () => {
                 onUpdateSupplier={(id, data) => api.updateSupplier(currentEvent.id, id, data)}
                 onDeleteSupplier={(supplier) => api.deleteSupplier(currentEvent.id, supplier.id)}
                 onToggleSupplierRegistration={(id, isOpen) => api.toggleSupplierRegistration(currentEvent.id, id, isOpen)}
-                onLogout={() => {
-                    setCurrentEvent(null);
-                    setIsAuthenticated(false);
-                }}
+                onLogout={handleLogout}
                 setError={setError}
             />
         );
