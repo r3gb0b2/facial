@@ -145,17 +145,15 @@ const App: React.FC = () => {
     const handleSupplierAdminLink = async (token: string) => {
         setIsLoading(true);
         try {
+            // The service function now throws specific errors instead of returning null.
             const data = await api.getSupplierDataForAdminView(token);
-            if (data) {
-                setSupplierAdminData(data);
-                setCurrentView('supplier_admin');
-            } else {
-                setCurrentView('registration_closed');
-            }
+            setSupplierAdminData(data); // `data` will not be null if we reach here
+            setCurrentView('supplier_admin');
         } catch (error: any) {
             console.error("Failed to process supplier admin link:", error);
-            // Display the specific index error message to the user via the toast
-            setAppError(error.message || t('supplierAdmin.invalidLink'));
+            // The custom error message from the service will be displayed in the toast.
+            setAppError(error.message || t('supplierAdmin.invalidLink')); 
+            // We still need a view to show while the error toast is visible.
             setCurrentView('registration_closed');
         } finally {
             setIsLoading(false);

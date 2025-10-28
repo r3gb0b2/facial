@@ -1,5 +1,3 @@
-// In firebase/service.ts
-
 import { db, storage, FieldValue } from './config.ts';
 import { Attendee, CheckinStatus, Event, Sector, SubCompany, Supplier } from '../types.ts';
 
@@ -491,37 +489,52 @@ export const regenerateSupplierAdminToken = async (eventId: string, supplierId: 
     return newToken;
 };
 
-export const getSupplierDataForAdminView = async (adminToken: string): Promise<{ supplierName: string; attendees: Attendee[] } | null> => {
-    // This new robust implementation uses a direct lookup on the `supplier_tokens` collection.
-    // It is fast, efficient, and does not require any manual index creation.
-    const tokenRef = db.collection('supplier_tokens').doc(adminToken);
-    const tokenDoc = await tokenRef.get();
-
-    if (!tokenDoc.exists) {
-        console.error(`Admin token document not found: ${adminToken}`);
-        return null; // The link is invalid. App.tsx will show the "closed" page.
+export const getSupplierDataForAdminView = async (adminToken: string): Promise<{ supplierName: string; attendees: Attendee[] }> => {
+    if (!adminToken || typeof adminToken !== 'string' || adminToken.length < 5) {
+        console.error("getSupplierDataForAdminView was called with an invalid or empty token.");
+        throw new Error("Token de verificação inválido.");
     }
 
-    const { eventId, supplierId } = tokenDoc.data() as { eventId: string; supplierId: string };
+    try {
+        const tokenRef = db.collection('supplier_tokens').doc(adminToken);
+        const tokenDoc = await tokenRef.get();
 
-    const supplier = await getSupplier(eventId, supplierId);
-    if (!supplier) {
-        // This indicates a data inconsistency (token exists, but supplier was deleted).
-        console.error(`Supplier ${supplierId} in event ${eventId} not found, but its token exists.`);
-        return null;
+        if (!tokenDoc.exists) {
+            console.error(`Admin token document not found in 'supplier_tokens' collection for token: ${adminToken}`);
+            throw new Error("O link de verificação é inválido ou expirou. Por favor, solicite um novo link ao administrador.");
+        }
+
+        const tokenData = tokenDoc.data();
+        if (!tokenData || !tokenData.eventId || !tokenData.supplierId) {
+            console.error(`Token document ${adminToken} is malformed:`, tokenData);
+            throw new Error("O link de verificação está corrompido.");
+        }
+        
+        const { eventId, supplierId } = tokenData as { eventId: string; supplierId: string };
+
+        const supplier = await getSupplier(eventId, supplierId);
+        if (!supplier) {
+            console.error(`Supplier ${supplierId} in event ${eventId} not found, but its token exists. This indicates a data inconsistency.`);
+            throw new Error("O fornecedor associado a este link não foi encontrado. Pode ter sido excluído.");
+        }
+        
+        const attendeesQuery = db.collection('events').doc(eventId).collection('attendees').where('supplierId', '==', supplierId).orderBy('name');
+        const attendeesSnapshot = await attendeesQuery.get();
+        
+        const attendees = attendeesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        } as Attendee));
+
+        return {
+            supplierName: supplier.name,
+            attendees: attendees,
+        };
+    } catch (error: any) {
+        console.error("An unexpected error occurred in getSupplierDataForAdminView:", error);
+        if (error.message.includes("verificação") || error.message.includes("fornecedor")) {
+            throw error;
+        }
+        throw new Error("Ocorreu um erro ao processar o link. Verifique sua conexão e tente novamente.");
     }
-    
-    // Fetch all attendees for the found supplier.
-    const attendeesQuery = db.collection('events').doc(eventId).collection('attendees').where('supplierId', '==', supplierId).orderBy('name');
-    const attendeesSnapshot = await attendeesQuery.get();
-    
-    const attendees = attendeesSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-    } as Attendee));
-
-    return {
-        supplierName: supplier.name,
-        attendees: attendees,
-    };
 };
