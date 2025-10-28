@@ -11,7 +11,7 @@ interface CheckinViewProps {
   suppliers: Supplier[];
   sectors: Sector[];
   currentEventId: string;
-  onUpdateAttendeeDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector' | 'wristbandNumber' | 'subCompany'>>) => Promise<void>;
+  onUpdateAttendeeDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'wristbandNumber' | 'subCompany'>>) => Promise<void>;
   onDeleteAttendee: (attendeeId: string) => Promise<void>;
   setError: (message: string) => void;
 }
@@ -157,7 +157,9 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
         {filteredAttendees.map((attendee) => {
-            const sector = sectorMap.get(attendee.sector);
+            const attendeeSectors = (attendee.sectors || []).map(id => sectorMap.get(id)).filter(Boolean) as Sector[];
+            const sectorLabels = attendeeSectors.map(s => s.label).join(', ') || 'Sem setor';
+            const primarySectorColor = attendeeSectors.length > 0 ? attendeeSectors[0].color : undefined;
             const supplier = attendee.supplierId ? supplierMap.get(attendee.supplierId) : undefined;
             
             return (
@@ -165,8 +167,8 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
                 key={attendee.id} 
                 attendee={attendee} 
                 onSelect={handleSelectAttendee}
-                sectorLabel={sector?.label || attendee.sector}
-                sectorColor={sector?.color}
+                sectorLabel={sectorLabels}
+                sectorColor={primarySectorColor}
                 supplierName={supplier?.name}
               />
             );

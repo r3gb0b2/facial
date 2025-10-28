@@ -33,8 +33,8 @@ const WristbandReportView: React.FC<WristbandReportViewProps> = ({ attendees, se
 
   const sectorStats = useMemo(() => {
     return sectors.map(sector => {
-      const total = attendees.filter(a => a.sector === sector.id).length;
-      const delivered = deliveredAttendees.filter(a => a.sector === sector.id).length;
+      const total = attendees.filter(a => (a.sectors || []).includes(sector.id)).length;
+      const delivered = deliveredAttendees.filter(a => (a.sectors || []).includes(sector.id)).length;
       return { ...sector, total, delivered };
     });
   }, [sectors, attendees, deliveredAttendees]);
@@ -42,7 +42,7 @@ const WristbandReportView: React.FC<WristbandReportViewProps> = ({ attendees, se
   const filteredList = useMemo(() => {
     const normalizedTerm = normalizeString(searchTerm);
     return deliveredAttendees.filter(attendee => {
-      if (sectorFilter !== 'ALL' && attendee.sector !== sectorFilter) {
+      if (sectorFilter !== 'ALL' && !(attendee.sectors || []).includes(sectorFilter)) {
         return false;
       }
       if (normalizedTerm) {
@@ -120,15 +120,23 @@ const WristbandReportView: React.FC<WristbandReportViewProps> = ({ attendees, se
               </thead>
               <tbody className="divide-y divide-gray-700">
                 {filteredList.map(attendee => {
-                  const sector = sectorMap.get(attendee.sector);
+                  const attendeeSectors = (attendee.sectors || []).map(id => sectorMap.get(id)).filter(Boolean) as Sector[];
+                  const sectorLabels = attendeeSectors.map(s => s.label).join(', ');
                   return (
                     <tr key={attendee.id} className="hover:bg-gray-700/50">
                       <td className="p-3 font-medium text-white">{attendee.name}</td>
                       <td className="p-3 text-gray-300">{attendee.wristbandNumber}</td>
-                      <td className="p-3 text-gray-300">{sector?.label || attendee.sector}</td>
+                      <td className="p-3 text-gray-300">{sectorLabels}</td>
                       <td className="p-3">
-                        <div className="flex justify-center">
-                          <span className="w-5 h-5 rounded-full" style={{ backgroundColor: sector?.color || '#4B5563' }}></span>
+                        <div className="flex justify-center items-center gap-1">
+                          {attendeeSectors.map(sector => (
+                            <span
+                              key={sector.id}
+                              className="w-4 h-4 rounded-full"
+                              style={{ backgroundColor: sector.color || '#4B5563' }}
+                              title={sector.label}
+                            ></span>
+                          ))}
                         </div>
                       </td>
                     </tr>

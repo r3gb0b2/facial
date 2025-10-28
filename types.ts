@@ -13,7 +13,7 @@ export interface Attendee {
   name: string;
   cpf: string;
   photo: string; // This is a URL to the image in Firebase Storage
-  sector: string;
+  sectors: string[];
   status: CheckinStatus;
   eventId: string;
   createdAt: Timestamp;

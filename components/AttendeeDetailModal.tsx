@@ -8,7 +8,7 @@ interface AttendeeDetailModalProps {
   sectors: Sector[];
   onClose: () => void;
   onUpdateStatus: (status: CheckinStatus, wristbandNumber?: string) => void;
-  onUpdateDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector' | 'wristbandNumber' | 'subCompany'>>) => Promise<void>;
+  onUpdateDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'wristbandNumber' | 'subCompany'>>) => Promise<void>;
   onDelete: (attendeeId: string) => Promise<void>;
   setError: (message: string) => void;
   supplier?: Supplier;
@@ -31,7 +31,7 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   const [editData, setEditData] = useState({
     name: attendee.name,
     cpf: attendee.cpf,
-    sector: attendee.sector,
+    sectors: attendee.sectors,
     subCompany: attendee.subCompany || '',
   });
   
@@ -41,7 +41,7 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     setEditData({
       name: attendee.name,
       cpf: formatCPF(attendee.cpf),
-      sector: attendee.sector,
+      sectors: attendee.sectors || [],
       subCompany: attendee.subCompany || '',
     });
     setWristbandNumber(attendee.wristbandNumber || '');
@@ -94,7 +94,7 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     setEditData({
       ...editData,
       subCompany: subCompanyName,
-      sector: subCompany ? subCompany.sector : editData.sector // Keep old sector if selection is cleared or invalid
+      sectors: subCompany ? [subCompany.sector] : [] // Reset sectors based on sub-company
     });
   };
 
@@ -217,11 +217,31 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                       <input type="text" value={editData.subCompany} onChange={(e) => setEditData({...editData, subCompany: e.target.value})} className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"/>
                   )}
               </div>
-              <div>
+               <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.sectorLabel')}</label>
-                <select value={editData.sector} onChange={(e) => setEditData({...editData, sector: e.target.value})} className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white" disabled={hasSubCompanies}>
-                  {sectors.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-                </select>
+                <div className="space-y-2 bg-gray-900 border border-gray-600 rounded-md p-3 max-h-40 overflow-y-auto">
+                    {sectors.map(s => {
+                        const isSubCompanySector = hasSubCompanies && s.id === supplier?.subCompanies?.find(sc => sc.name === editData.subCompany)?.sector;
+                        return (
+                            <div key={s.id} className="flex items-center">
+                                <input
+                                    type="checkbox"
+                                    id={`sector-edit-${s.id}`}
+                                    checked={editData.sectors.includes(s.id)}
+                                    onChange={(e) => {
+                                        const newSectors = e.target.checked
+                                            ? [...editData.sectors, s.id]
+                                            : editData.sectors.filter(id => id !== s.id);
+                                        setEditData({ ...editData, sectors: newSectors });
+                                    }}
+                                    className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500 disabled:opacity-50"
+                                    disabled={isSubCompanySector}
+                                />
+                                <label htmlFor={`sector-edit-${s.id}`} className={`ml-2 text-sm ${isSubCompanySector ? 'text-gray-500' : 'text-gray-300'}`}>{s.label}</label>
+                            </div>
+                        )
+                    })}
+                </div>
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button onClick={() => setIsEditing(false)} className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg">{t('attendeeDetail.cancelButton')}</button>

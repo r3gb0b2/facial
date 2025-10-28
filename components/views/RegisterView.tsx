@@ -154,7 +154,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
           name, 
           cpf: rawCpf, 
           photo, 
-          sector,
+          sectors: [sector],
           ...(hasSubCompanies && { subCompany })
       };
       await onRegister(attendeeData);

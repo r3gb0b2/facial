@@ -109,7 +109,7 @@ export const addAttendee = async (
 export const registerAttendeeForSupplier = async (
     eventId: string,
     supplierId: string,
-    attendeeData: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt' | 'supplierId'>
+    attendeeData: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>
 ): Promise<string> => {
     const eventRef = db.collection('events').doc(ensureEventId(eventId));
     const supplierRef = eventRef.collection('suppliers').doc(supplierId);
@@ -158,11 +158,11 @@ export const registerAttendeeForSupplier = async (
         }
 
         // If a subCompany was selected, find its associated sector and override the sector in attendeeData
-        let finalSector = attendeeData.sector;
+        let finalSectors = attendeeData.sectors;
         if (attendeeData.subCompany && supplier.subCompanies) {
             const subCompanyInfo = supplier.subCompanies.find(sc => sc.name === attendeeData.subCompany);
             if (subCompanyInfo) {
-                finalSector = subCompanyInfo.sector;
+                finalSectors = [subCompanyInfo.sector];
             } else {
                 // Handle case where subCompany name is sent but doesn't match any on the list
                 console.warn(`Sub-company "${attendeeData.subCompany}" not found for supplier "${supplier.name}". Falling back to default sector.`);
@@ -171,7 +171,7 @@ export const registerAttendeeForSupplier = async (
         
         const newAttendee = {
             ...attendeeData,
-            sector: finalSector, // Use the derived or original sector
+            sectors: finalSectors, // Use the derived or original sectors
             photo: finalPhotoUrl,
             supplierId: supplierId,
             status: CheckinStatus.PENDING,
@@ -196,7 +196,7 @@ export const updateAttendeeStatus = async (eventId: string, attendeeId: string, 
     await eventRef.collection('attendees').doc(attendeeId).update(dataToUpdate);
 };
 
-export const updateAttendeeDetails = async (eventId: string, attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector' | 'wristbandNumber' | 'subCompany'>>): Promise<void> => {
+export const updateAttendeeDetails = async (eventId: string, attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'wristbandNumber' | 'subCompany'>>): Promise<void> => {
     const eventRef = db.collection('events').doc(ensureEventId(eventId));
     await eventRef.collection('attendees').doc(attendeeId).update(data);
 };
@@ -265,7 +265,7 @@ export const addAttendeesFromSpreadsheet = async (eventId: string, data: any[], 
         const newAttendee = {
             name: nome,
             cpf: rawCpf,
-            sector: sectorMatch.id,
+            sectors: [sectorMatch.id],
             photo: placeholderPhoto,
             status: CheckinStatus.PENDING,
             eventId,
@@ -364,7 +364,7 @@ export const updateSector = async (eventId: string, sectorId: string, data: { la
 export const deleteSector = async (eventId: string, sectorId: string): Promise<void> => {
     const eventRef = db.collection('events').doc(ensureEventId(eventId));
     // Here we should check if the sector is in use by attendees or suppliers.
-    const attendeesSnapshot = await eventRef.collection('attendees').where('sector', '==', sectorId).limit(1).get();
+    const attendeesSnapshot = await eventRef.collection('attendees').where('sectors', 'array-contains', sectorId).limit(1).get();
     const suppliersSnapshot = await eventRef.collection('suppliers').where('sectors', 'array-contains', sectorId).limit(1).get();
     
     if (!attendeesSnapshot.empty || !suppliersSnapshot.empty) {
