@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { Attendee, Sector, Supplier } from '../../types';
-import WebcamCapture from '../WebcamCapture';
+// FIX: Add .ts extension to types import.
+import { Attendee, Sector, Supplier } from '../../types.ts';
+// FIX: Add .tsx extension to local component imports.
+import WebcamCapture from '../WebcamCapture.tsx';
 // FIX: Added .tsx extension to module import.
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { UsersIcon, CheckCircleIcon, SpinnerIcon } from '../icons';
+// FIX: Add .tsx extension to local component imports.
+import { UsersIcon, CheckCircleIcon, SpinnerIcon } from '../icons.tsx';
 // FIX: Added .ts extension to module import.
 import * as api from '../../firebase/service.ts';
-import SpreadsheetUploadView from './SpreadsheetUploadView';
+// FIX: Add .tsx extension to local component imports.
+import SpreadsheetUploadView from './SpreadsheetUploadView.tsx';
 
 interface RegisterViewProps {
   onRegister: (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => Promise<void>;

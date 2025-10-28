@@ -1,418 +1,192 @@
-import React, { useState, useMemo } from 'react';
-import { Supplier, Sector, Attendee, SubCompany } from '../../types';
-// FIX: Added .tsx extension to module import.
+import React, { useState, useEffect } from 'react';
+import { Supplier, Sector } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { LinkIcon, ClipboardDocumentIcon, NoSymbolIcon, CheckCircleIcon, PencilIcon, TrashIcon, XMarkIcon, EyeIcon, KeyIcon } from '../icons';
+import { PencilIcon, TrashIcon, UsersIcon, LinkIcon, ClipboardDocumentIcon, XMarkIcon } from '../icons.tsx';
 
 interface SupplierManagementViewProps {
-    currentEventId: string;
     suppliers: Supplier[];
-    attendees: Attendee[];
     sectors: Sector[];
-    onAddSupplier: (name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[]) => Promise<void>;
+    onAddSupplier: (name: string, sectorIds: string[]) => Promise<void>;
     onUpdateSupplier: (supplierId: string, data: Partial<Supplier>) => Promise<void>;
     onDeleteSupplier: (supplier: Supplier) => Promise<void>;
-    onSupplierStatusUpdate: (supplierId: string, active: boolean) => Promise<void>;
-    onRegenerateAdminToken: (supplierId: string) => Promise<string>;
+    onToggleRegistration: (supplierId: string, isOpen: boolean) => Promise<void>;
     setError: (message: string) => void;
 }
 
-
-const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ currentEventId, suppliers, attendees, sectors, onAddSupplier, onUpdateSupplier, onDeleteSupplier, onSupplierStatusUpdate, onRegenerateAdminToken, setError }) => {
+const SupplierModal: React.FC<{
+    isOpen: boolean;
+    onClose: () => void;
+    onSave: (data: { name: string, sectors: string[] }, id?: string) => void;
+    supplierToEdit: Supplier | null;
+    allSectors: Sector[];
+}> = ({ isOpen, onClose, onSave, supplierToEdit, allSectors }) => {
     const { t } = useTranslation();
-    
-    // State for the creation form
-    const [supplierName, setSupplierName] = useState('');
+    const [name, setName] = useState('');
     const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
-    const [limit, setLimit] = useState('');
-    const [subCompanies, setSubCompanies] = useState<SubCompany[]>([]);
-    const [currentSubCompanyName, setCurrentSubCompanyName] = useState('');
-    const [currentSubCompanySector, setCurrentSubCompanySector] = useState('');
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    
-    // State for inline editing
-    const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
-    const [editSubCompanyName, setEditSubCompanyName] = useState('');
-    const [editSubCompanySector, setEditSubCompanySector] = useState('');
+    const [error, setError] = useState('');
 
-    // State for UI feedback
-    const [copiedLink, setCopiedLink] = useState<string | null>(null);
-    const [copiedAdminLink, setCopiedAdminLink] = useState<string | null>(null);
-
-    
-    const registrationCounts = useMemo(() => {
-        const counts = new Map<string, number>();
-        for (const attendee of attendees) {
-            if (attendee.supplierId) {
-                counts.set(attendee.supplierId, (counts.get(attendee.supplierId) || 0) + 1);
-            }
-        }
-        return counts;
-    }, [attendees]);
-
-    const sectorMap = useMemo(() => new Map(sectors.map(s => [s.id, s])), [sectors]);
-
-    const handleSectorChange = (sectorId: string, isEditing: boolean) => {
-        if (isEditing) {
-            if (!editingSupplier) return;
-            const current = editingSupplier.sectors || [];
-            const newSectors = current.includes(sectorId)
-                ? current.filter(s => s !== sectorId)
-                : [...current, sectorId];
-            setEditingSupplier({ ...editingSupplier, sectors: newSectors });
+    useEffect(() => {
+        if (supplierToEdit) {
+            setName(supplierToEdit.name);
+            setSelectedSectors(supplierToEdit.sectors);
         } else {
-            const current = selectedSectors;
-            const newSectors = current.includes(sectorId)
-                ? current.filter(s => s !== sectorId)
-                : [...current, sectorId];
-            setSelectedSectors(newSectors);
-        }
-    };
-    
-    // --- Sub-company handlers ---
-    const handleAddSubCompany = (isEditing: boolean) => {
-        const name = (isEditing ? editSubCompanyName : currentSubCompanyName).trim();
-        const sector = isEditing ? editSubCompanySector : currentSubCompanySector;
-        if (!name || !sector) return;
-
-        if (isEditing) {
-            if (editingSupplier) {
-                const existingCompanies = editingSupplier.subCompanies || [];
-                if (!existingCompanies.some(sc => sc.name === name)) {
-                    setEditingSupplier({ ...editingSupplier, subCompanies: [...existingCompanies, { name, sector }] });
-                }
-            }
-            setEditSubCompanyName('');
-            setEditSubCompanySector('');
-        } else {
-            if (!subCompanies.some(sc => sc.name === name)) {
-                setSubCompanies([...subCompanies, { name, sector }]);
-            }
-            setCurrentSubCompanyName('');
-            setCurrentSubCompanySector('');
-        }
-    };
-    
-    const handleRemoveSubCompany = (companyNameToRemove: string, isEditing: boolean) => {
-        if (isEditing) {
-            if (editingSupplier) {
-                setEditingSupplier({ ...editingSupplier, subCompanies: (editingSupplier.subCompanies || []).filter(sc => sc.name !== companyNameToRemove) });
-            }
-        } else {
-            setSubCompanies(subCompanies.filter(sc => sc.name !== companyNameToRemove));
-        }
-    };
-
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!supplierName.trim()) {
-            setError(t('suppliers.noNameError'));
-            return;
-        }
-        if (selectedSectors.length === 0) {
-            setError(t('suppliers.noSectorsError'));
-            return;
-        }
-        const registrationLimit = parseInt(limit, 10);
-        if (isNaN(registrationLimit) || registrationLimit <= 0) {
-            setError(t('suppliers.noLimitError'));
-            return;
-        }
-
-        setIsSubmitting(true);
-        try {
-            await onAddSupplier(supplierName, selectedSectors, registrationLimit, subCompanies);
-            setSupplierName('');
+            setName('');
             setSelectedSectors([]);
-            setLimit('');
-            setSubCompanies([]);
-            setCurrentSubCompanyName('');
-        } finally {
-            setIsSubmitting(false);
         }
-    };
-    
-    const handleEditClick = (supplier: Supplier) => {
-        setEditingSupplier({...supplier});
-        setEditSubCompanySector(sectors.length > 0 ? sectors[0].id : '');
-    };
+        setError('');
+    }, [supplierToEdit, isOpen]);
 
-    const handleCancelEdit = () => {
-        setEditingSupplier(null);
-    };
-    
-    const handleSaveEdit = async () => {
-        if (!editingSupplier) return;
-
-        if (!editingSupplier.name.trim()) {
-            setError(t('suppliers.noNameError'));
+    const handleSave = () => {
+        if (!name.trim() || selectedSectors.length === 0) {
+            setError(t('suppliers.modal.error'));
             return;
         }
-        if (editingSupplier.sectors.length === 0) {
-            setError(t('suppliers.noSectorsError'));
-            return;
-        }
-        if (isNaN(editingSupplier.registrationLimit) || editingSupplier.registrationLimit <= 0) {
-            setError(t('suppliers.noLimitError'));
-            return;
-        }
-        
-        const { id, ...dataToUpdate } = editingSupplier;
-        await onUpdateSupplier(id, dataToUpdate);
-        setEditingSupplier(null);
+        onSave({ name, sectors: selectedSectors }, supplierToEdit?.id);
     };
 
-    const handleCopyLink = (supplierId: string) => {
-        const url = `${window.location.origin}?eventId=${currentEventId}&supplierId=${supplierId}`;
-        navigator.clipboard.writeText(url);
-        setCopiedLink(supplierId);
-        setTimeout(() => setCopiedLink(null), 2000);
-    };
-
-    const handleCopyAdminLink = (token: string, supplierId: string) => {
-        const url = `${window.location.origin}?verify=${token}`;
-        navigator.clipboard.writeText(url);
-        setCopiedAdminLink(supplierId);
-        setTimeout(() => setCopiedAdminLink(null), 2000);
-    };
-
-    const handleRegenerateToken = async (supplier: Supplier) => {
-        if (window.confirm(`Tem certeza que deseja gerar um novo link de administrador para "${supplier.name}"? O link antigo deixará de funcionar.`)) {
-            const newToken = await onRegenerateAdminToken(supplier.id);
-            handleCopyAdminLink(newToken, supplier.id);
-        }
-    };
-
-    const handleDelete = async (supplier: Supplier) => {
-        if (window.confirm(t('suppliers.deleteConfirm', supplier.name))) {
-            try {
-                await onDeleteSupplier(supplier);
-            } catch (e: any) {
-                 if (e.message.includes("cannot be deleted")) {
-                    setError(t('suppliers.deleteErrorInUse', supplier.name));
-                } else {
-                    setError(e.message || 'Falha ao deletar o fornecedor.');
-                }
-            }
-        }
-    };
-    
-    const renderSectorCheckboxes = (isEditing: boolean) => {
-        const currentSectors = isEditing ? editingSupplier?.sectors || [] : selectedSectors;
-        
-        return sectors.map(sector => (
-            <div key={sector.id} className="flex items-center space-x-3">
-                <span className="w-5 h-5 rounded-full border border-gray-500 flex-shrink-0" style={{ backgroundColor: sector.color || '#4B5563' }}></span>
-                <input
-                    type="checkbox"
-                    id={`sector-${sector.id}-${isEditing}`}
-                    checked={currentSectors.includes(sector.id)}
-                    onChange={() => handleSectorChange(sector.id, isEditing)}
-                    className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
-                    disabled={isSubmitting && !isEditing}
-                />
-                <label htmlFor={`sector-${sector.id}-${isEditing}`} className="text-white cursor-pointer">{sector.label}</label>
-            </div>
-        ));
-    };
-    
-    const renderSubCompanyManager = (isEditing: boolean) => {
-        const currentList = isEditing ? editingSupplier?.subCompanies || [] : subCompanies;
-        const nameValue = isEditing ? editSubCompanyName : currentSubCompanyName;
-        const setNameValue = isEditing ? setEditSubCompanyName : setCurrentSubCompanyName;
-        const sectorValue = isEditing ? editSubCompanySector : currentSubCompanySector;
-        const setSectorValue = isEditing ? setEditSubCompanySector : setCurrentSubCompanySector;
-        
-        return (
-            <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">{t('suppliers.subCompaniesLabel')}</label>
-                <div className="flex flex-col sm:flex-row gap-2">
-                    <input
-                        type="text"
-                        value={nameValue}
-                        onChange={(e) => setNameValue(e.target.value)}
-                        className="flex-grow bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        placeholder={t('suppliers.subCompaniesPlaceholder')}
-                    />
-                    <select
-                        value={sectorValue}
-                        onChange={(e) => setSectorValue(e.target.value)}
-                        className="bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    >
-                        <option value="" disabled>{t('suppliers.subCompanySectorPlaceholder')}</option>
-                        {sectors.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-                    </select>
-                    <button type="button" onClick={() => handleAddSubCompany(isEditing)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex-shrink-0">{t('suppliers.addSubCompanyButton')}</button>
-                </div>
-                <div className="flex flex-wrap gap-2 mt-3">
-                    {currentList.map(company => {
-                        const sectorInfo = sectorMap.get(company.sector);
-                        return (
-                            <div key={company.name} className="text-sm font-medium px-3 py-1 rounded-full flex items-center gap-2 bg-gray-600 text-white">
-                                {sectorInfo && <span className="w-3 h-3 rounded-full" style={{ backgroundColor: sectorInfo.color }}></span>}
-                                <span>{company.name} ({sectorInfo?.label || 'N/A'})</span>
-                                <button type="button" onClick={() => handleRemoveSubCompany(company.name, isEditing)} className="text-current opacity-70 hover:opacity-100">
-                                    <XMarkIcon className="w-4 h-4" />
-                                </button>
-                            </div>
-                        )
-                    })}
-                </div>
-            </div>
+    const handleSectorToggle = (sectorId: string) => {
+        setSelectedSectors(prev =>
+            prev.includes(sectorId) ? prev.filter(id => id !== sectorId) : [...prev, sectorId]
         );
     };
 
+    if (!isOpen) return null;
 
     return (
-        <div className="w-full max-w-7xl mx-auto space-y-10">
-            {/* Form for new supplier */}
-            <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
-                <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
-                    <LinkIcon className="w-7 h-7"/>
-                    {t('suppliers.generateTitle')}
-                </h2>
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label htmlFor="supplierName" className="block text-sm font-medium text-gray-300 mb-1">{t('suppliers.nameLabel')}</label>
-                            <input
-                                type="text" id="supplierName" value={supplierName}
-                                onChange={(e) => setSupplierName(e.target.value)}
-                                className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                placeholder={t('suppliers.namePlaceholder')} disabled={isSubmitting}
-                            />
-                        </div>
-                        <div>
-                            <label htmlFor="limit" className="block text-sm font-medium text-gray-300 mb-1">{t('suppliers.limitLabel')}</label>
-                            <input
-                                type="number" id="limit" value={limit}
-                                onChange={(e) => setLimit(e.target.value)}
-                                className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                placeholder={t('suppliers.limitPlaceholder')} disabled={isSubmitting} min="1"
-                            />
-                        </div>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+            <div className="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg border border-gray-700 flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="p-6 border-b border-gray-700 flex justify-between items-center">
+                    <h2 className="text-2xl font-bold text-white">{supplierToEdit ? t('suppliers.modal.editTitle') : t('suppliers.modal.createTitle')}</h2>
+                    <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors"><XMarkIcon className="w-6 h-6" /></button>
+                </div>
+                <div className="p-8 space-y-6 overflow-y-auto max-h-[70vh]">
+                    <div>
+                        <label htmlFor="supplierName" className="block text-sm font-medium text-gray-300 mb-1">{t('suppliers.modal.nameLabel')}</label>
+                        <input type="text" id="supplierName" value={name} onChange={e => setName(e.target.value)} className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500" autoFocus />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">{t('suppliers.sectorsLabel')}</label>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                           {renderSectorCheckboxes(false)}
+                        <label className="block text-sm font-medium text-gray-300 mb-2">{t('suppliers.modal.sectorsLabel')}</label>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                            {allSectors.map(sector => (
+                                <button key={sector.id} onClick={() => handleSectorToggle(sector.id)} className={`p-2 rounded-md text-sm border transition-colors ${selectedSectors.includes(sector.id) ? 'bg-indigo-600 border-indigo-500 text-white' : 'bg-gray-700 border-gray-600 text-gray-300 hover:bg-gray-600'}`}>
+                                    {sector.label}
+                                </button>
+                            ))}
                         </div>
                     </div>
-                    {renderSubCompanyManager(false)}
-                    <button type="submit" disabled={isSubmitting} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors disabled:bg-indigo-400 disabled:cursor-wait">
-                        {isSubmitting ? 'Gerando...' : t('suppliers.generateButton')}
-                    </button>
-                </form>
+                     {error && <p className="text-red-400 text-sm">{error}</p>}
+                </div>
+                <div className="p-6 bg-gray-900/50 rounded-b-2xl">
+                    <button onClick={handleSave} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg">{supplierToEdit ? t('suppliers.modal.saveButton') : t('suppliers.modal.createButton')}</button>
+                </div>
             </div>
+        </div>
+    );
+};
 
-            {/* List of existing suppliers */}
-            <div>
-                <h3 className="text-xl font-bold text-white mb-4">{t('suppliers.existingLinks')}</h3>
-                {suppliers.length > 0 ? (
-                    <div className="space-y-4">
-                        {suppliers.map(supplier => (
-                            editingSupplier?.id === supplier.id ? (
-                                // EDITING VIEW
-                                <div key={supplier.id} className="bg-gray-700 p-4 rounded-lg border-2 border-indigo-500 space-y-4">
-                                    <input
-                                        type="text" value={editingSupplier.name}
-                                        onChange={(e) => setEditingSupplier({...editingSupplier, name: e.target.value })}
-                                        className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-white"
-                                    />
-                                    <input
-                                        type="number" value={editingSupplier.registrationLimit}
-                                        onChange={(e) => setEditingSupplier({...editingSupplier, registrationLimit: parseInt(e.target.value, 10) || 0 })}
-                                        className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-white"
-                                    />
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-gray-600 pt-3">
-                                        {renderSectorCheckboxes(true)}
-                                    </div>
-                                    <div className="border-t border-gray-600 pt-3">
-                                        {renderSubCompanyManager(true)}
-                                    </div>
-                                    <div className="flex justify-end gap-2">
-                                        <button onClick={handleCancelEdit} className="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg">{t('suppliers.cancelButton')}</button>
-                                        <button onClick={handleSaveEdit} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">{t('suppliers.saveButton')}</button>
-                                    </div>
-                                </div>
-                            ) : (
-                                // NORMAL VIEW
-                                <div key={supplier.id} className="bg-gray-800 p-4 rounded-lg border border-gray-700 flex flex-col md:flex-row md:items-start md:justify-between gap-4">
-                                    <div className="flex-grow">
-                                        <div className="flex items-center gap-3 mb-1">
-                                            <p className="font-bold text-white text-lg">{supplier.name}</p>
-                                            <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${supplier.active ? 'bg-green-600 text-white' : 'bg-gray-600 text-gray-200'}`}>
-                                            {supplier.active ? t('suppliers.active') : t('suppliers.inactive')}
-                                            </span>
-                                        </div>
-                                        <p className="text-sm text-gray-400">
-                                            {t('suppliers.registrations')}: {registrationCounts.get(supplier.id) || 0} / {supplier.registrationLimit}
-                                        </p>
-                                        <div className="text-sm text-gray-400 mt-2 flex items-center flex-wrap gap-x-4 gap-y-1">
-                                            <span>Setores:</span>
-                                            <div className="flex flex-wrap items-center gap-2">
-                                            {(supplier.sectors || []).map(sectorId => {
-                                                const sector = sectorMap.get(sectorId);
-                                                return (
-                                                <div key={sectorId} className="flex items-center gap-1.5">
-                                                    <span className="w-3 h-3 rounded-full" style={{ backgroundColor: sector?.color }}></span>
-                                                    <span>{sector?.label}</span>
-                                                </div>
-                                            )})}
-                                            </div>
-                                        </div>
-                                         {(supplier.subCompanies && supplier.subCompanies.length > 0) && (
-                                            <div className="text-sm text-gray-400 mt-2">
-                                                <span className="font-medium">Sub-empresas:</span>
-                                                <div className="flex flex-wrap gap-2 mt-1">
-                                                    {supplier.subCompanies.map(sc => {
-                                                        const sector = sectorMap.get(sc.sector);
-                                                        return (
-                                                            <span key={sc.name} className="px-2 py-1 text-xs rounded-full bg-gray-600 text-white">
-                                                                {sc.name} ({sector?.label || 'N/A'})
-                                                            </span>
-                                                        );
-                                                    })}
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="flex flex-col items-stretch gap-2 flex-shrink-0">
-                                        <div className="flex items-center gap-2">
-                                            <button onClick={() => handleCopyLink(supplier.id)} className="flex-1 bg-gray-600 hover:bg-gray-500 text-white font-bold py-2 px-3 rounded-lg flex items-center gap-2 justify-center">
-                                                {copiedLink === supplier.id ? <><CheckCircleIcon className="w-5 h-5" /><span>{t('suppliers.copiedButton')}</span></> : <><ClipboardDocumentIcon className="w-5 h-5" /><span>{t('suppliers.copyButton')}</span></>}
-                                            </button>
-                                            <button onClick={() => handleCopyAdminLink(supplier.adminToken!, supplier.id)} title={t('suppliers.adminLink.copyTooltip')} className="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-3 rounded-lg flex items-center gap-2 justify-center" disabled={!supplier.adminToken}>
-                                                 {copiedAdminLink === supplier.id ? <CheckCircleIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}
-                                            </button>
-                                             <button onClick={() => handleRegenerateToken(supplier)} title={t('suppliers.adminLink.regenerateTooltip')} className="bg-gray-600 hover:bg-gray-500 text-white font-bold p-2 rounded-lg">
-                                                <KeyIcon className="w-5 h-5" />
-                                            </button>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <button onClick={() => onSupplierStatusUpdate(supplier.id, !supplier.active)} className={`flex-1 font-bold py-2 px-3 rounded-lg flex items-center gap-2 justify-center ${supplier.active ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white`}>
-                                                {supplier.active ? <NoSymbolIcon className="w-4 h-4"/> : <CheckCircleIcon className="w-4 h-4"/>}
-                                                {supplier.active ? t('suppliers.disableButton') : t('suppliers.enableButton')}
-                                            </button>
-                                            <button onClick={() => handleEditClick(supplier)} className="bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-2 px-3 rounded-lg flex items-center gap-2 justify-center">
-                                                <PencilIcon className="w-4 h-4" />
-                                                {t('suppliers.editButton')}
-                                            </button>
-                                        </div>
-                                         <button onClick={() => handleDelete(supplier)} className="w-full bg-red-800 hover:bg-red-700 text-white font-bold py-2 px-3 rounded-lg flex items-center gap-2 justify-center">
-                                            <TrashIcon className="w-4 h-4" />
-                                            <span>{t('suppliers.deleteButton')}</span>
+
+const SupplierManagementView: React.FC<SupplierManagementViewProps> = (props) => {
+    const { t } = useTranslation();
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [supplierToEdit, setSupplierToEdit] = useState<Supplier | null>(null);
+    const [copiedLink, setCopiedLink] = useState<string | null>(null);
+
+    const handleOpenModal = (supplier: Supplier | null) => {
+        setSupplierToEdit(supplier);
+        setIsModalOpen(true);
+    };
+
+    const handleCloseModal = () => {
+        setSupplierToEdit(null);
+        setIsModalOpen(false);
+    };
+
+    const handleSave = async (data: { name: string; sectors: string[] }, supplierId?: string) => {
+        try {
+            if (supplierId) {
+                await props.onUpdateSupplier(supplierId, data);
+            } else {
+                await props.onAddSupplier(data.name, data.sectors);
+            }
+            handleCloseModal();
+        } catch (error) {
+            console.error(error);
+        }
+    };
+    
+    const handleDelete = (supplier: Supplier) => {
+        if (window.confirm(t('suppliers.deleteConfirm', supplier.name))) {
+            props.onDeleteSupplier(supplier).catch(e => props.setError(e.message));
+        }
+    };
+    
+    const handleCopyLink = (path: string) => {
+        const url = `${window.location.origin}${window.location.pathname}#supplier/${path}`;
+        navigator.clipboard.writeText(url);
+        setCopiedLink(path);
+        setTimeout(() => setCopiedLink(null), 2000);
+    };
+
+    return (
+        <div className="w-full max-w-4xl mx-auto">
+            <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
+                <h2 className="text-3xl font-bold text-white mb-6 flex items-center justify-center gap-3">
+                    <UsersIcon className="w-8 h-8"/>
+                    {t('suppliers.title')}
+                </h2>
+                {props.suppliers.length === 0 ? (
+                    <div className="text-center text-gray-400 py-8">
+                        <p className="text-lg mb-2">{t('suppliers.noSuppliers')}</p>
+                        <p className="text-sm">{t('suppliers.noSuppliersSubtitle')}</p>
+                    </div>
+                ) : (
+                    <ul className="space-y-3">
+                        {props.suppliers.map((supplier) => (
+                            <li key={supplier.id} className="bg-gray-900/70 p-4 rounded-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-all hover:bg-gray-800">
+                                <div className="flex-grow">
+                                    <p className="font-semibold text-white">{supplier.name}</p>
+                                    <div className="flex items-center gap-2 mt-2">
+                                        <button onClick={() => handleCopyLink(supplier.id)} className="flex items-center gap-1.5 text-xs text-indigo-400 hover:underline">
+                                            <LinkIcon className="w-4 h-4"/>
+                                            {copiedLink === supplier.id ? t('suppliers.copied') : t('suppliers.registrationLink')}
+                                        </button>
+                                         <button onClick={() => handleCopyLink(`${supplier.id}/admin`)} className="flex items-center gap-1.5 text-xs text-gray-400 hover:underline">
+                                            <ClipboardDocumentIcon className="w-4 h-4"/>
+                                            Link de Visualização
                                         </button>
                                     </div>
                                 </div>
-                            )
+                                <div className="flex items-center gap-2 w-full md:w-auto">
+                                    <div className="flex items-center gap-2 mr-4 flex-grow">
+                                        <span className="text-xs font-medium text-gray-400">{t('suppliers.registrationStatus')}:</span>
+                                        <button onClick={() => props.onToggleRegistration(supplier.id, !supplier.registrationOpen)} className={`px-2 py-0.5 text-xs font-bold rounded-full ${supplier.registrationOpen ? 'bg-green-500/80 text-white' : 'bg-red-500/80 text-white'}`}>
+                                            {supplier.registrationOpen ? t('suppliers.open') : t('suppliers.closed')}
+                                        </button>
+                                    </div>
+                                    <button onClick={() => handleOpenModal(supplier)} className="p-2 text-gray-400 hover:text-yellow-400 transition-colors rounded-full hover:bg-gray-700">
+                                        <PencilIcon className="w-5 h-5" />
+                                    </button>
+                                    <button onClick={() => handleDelete(supplier)} className="p-2 text-gray-400 hover:text-red-400 transition-colors rounded-full hover:bg-gray-700">
+                                        <TrashIcon className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            </li>
                         ))}
-                    </div>
-                ) : (
-                    <p className="text-gray-500 text-center py-4">{t('suppliers.noLinks')}</p>
+                    </ul>
                 )}
+                <div className="mt-8">
+                    <button onClick={() => handleOpenModal(null)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300">
+                        {t('suppliers.createButton')}
+                    </button>
+                </div>
             </div>
+            {isModalOpen && <SupplierModal
+                isOpen={isModalOpen}
+                onClose={handleCloseModal}
+                onSave={handleSave}
+                supplierToEdit={supplierToEdit}
+                allSectors={props.sectors}
+            />}
         </div>
     );
 };

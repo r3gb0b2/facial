@@ -2,7 +2,8 @@ import React, { useState, useRef } from 'react';
 import * as Papa from 'papaparse';
 // FIX: Added .tsx extension to module import.
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { CheckCircleIcon, SpinnerIcon, XMarkIcon, UsersIcon } from '../icons';
+// FIX: Add .tsx extension to icons import.
+import { CheckCircleIcon, SpinnerIcon, XMarkIcon, UsersIcon } from '../icons.tsx';
 
 interface SpreadsheetUploadViewProps {
   onImport: (data: any[]) => Promise<{ successCount: number; errors: { row: number; message: string }[] }>;
@@ -12,134 +13,128 @@ interface SpreadsheetUploadViewProps {
 const SpreadsheetUploadView: React.FC<SpreadsheetUploadViewProps> = ({ onImport, setError }) => {
   const { t } = useTranslation();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [importReport, setImportReport] = useState<{ successCount: number; errors: { row: number; message: string }[] } | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{ successCount: number; errors: { row: number; message: string }[] } | null>(null);
 
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
+  const handleFileParse = (file: File) => {
     if (!file) return;
 
-    if (file.type !== 'text/csv' && !file.name.endsWith('.csv')) {
-      setError(t('register.import.errors.fileType'));
-      return;
-    }
-
-    setIsLoading(true);
-    setImportReport(null);
+    setIsImporting(true);
+    setImportResult(null);
+    setError('');
 
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
-      complete: async (results: any) => {
-        const requiredColumns = ['nome', 'cpf', 'setor'];
-        const headers = results.meta.fields || [];
-        const missingColumns = requiredColumns.filter(col => !headers.includes(col));
-
-        if (missingColumns.length > 0) {
-          setError(t('register.import.errors.missingColumns'));
-          setIsLoading(false);
-          return;
-        }
-
+      complete: async (results) => {
         try {
-          const report = await onImport(results.data);
-          setImportReport(report);
-        } catch (error: any) {
-          setError(error.message || t('register.import.errors.parsing'));
+          const result = await onImport(results.data);
+          setImportResult(result);
+        } catch (err) {
+          console.error("Import Error:", err);
+          setError(t('spreadsheet.error'));
         } finally {
-          setIsLoading(false);
+          setIsImporting(false);
+          if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+          }
         }
       },
-      error: () => {
-        setError(t('register.import.errors.parsing'));
-        setIsLoading(false);
-      }
+      error: (error: any) => {
+        console.error("Parsing Error:", error);
+        setError(`Erro ao ler o arquivo CSV: ${error.message}`);
+        setIsImporting(false);
+      },
     });
+  };
 
-    // Reset file input to allow re-uploading the same file
-    if (fileInputRef.current) {
-        fileInputRef.current.value = "";
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      handleFileParse(file);
     }
   };
 
-  const handleDownloadTemplate = () => {
-    const csvContent = "data:text/csv;charset=utf-8,nome,cpf,setor\n";
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "modelo_importacao.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-  
-  const handleButtonClick = () => {
-    fileInputRef.current?.click();
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const file = event.dataTransfer.files?.[0];
+    if (file && file.type === 'text/csv') {
+      handleFileParse(file);
+    } else {
+      setError("Por favor, solte um arquivo .csv");
+    }
   };
 
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+  };
 
   return (
     <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
-      <h3 className="text-2xl font-bold text-white mb-4 flex items-center justify-center gap-3">
-        <UsersIcon className="w-7 h-7"/>
-        {t('register.import.title')}
-      </h3>
-      <p className="text-gray-400 text-center mb-2">{t('register.import.instructions')}</p>
-      <p className="text-center mb-6">
-        <button onClick={handleDownloadTemplate} className="text-indigo-400 hover:text-indigo-300 transition-colors text-sm font-semibold">
-          {t('register.import.downloadTemplate')}
-        </button>
-      </p>
+      <div className="text-center mb-6">
+        <h2 className="text-3xl font-bold text-white flex items-center justify-center gap-3">
+          <UsersIcon className="w-8 h-8"/>
+          {t('spreadsheet.title')}
+        </h2>
+      </div>
 
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        className="hidden"
-        accept=".csv"
-        disabled={isLoading}
-      />
-      
-      <button 
-        onClick={handleButtonClick}
-        disabled={isLoading}
-        className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:cursor-wait"
+      <div
+        className="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center cursor-pointer hover:border-indigo-500 transition-colors"
+        onClick={() => fileInputRef.current?.click()}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
       >
-        {isLoading ? (
-            <>
-                <SpinnerIcon className="w-5 h-5"/>
-                <span>{t('register.import.processing')}</span>
-            </>
-        ) : (
-            <span>{t('register.import.button')}</span>
-        )}
-      </button>
-
-      {importReport && (
-        <div className="mt-6">
-          <h4 className="font-bold text-lg text-white mb-2">{t('register.import.reportTitle')}</h4>
-          <div className="bg-gray-900/50 p-4 rounded-lg max-h-60 overflow-y-auto">
-            {importReport.successCount > 0 && (
-              <div className="flex items-center gap-2 text-green-400 mb-2">
-                <CheckCircleIcon className="w-5 h-5" />
-                <p>{t('register.import.success', importReport.successCount)}</p>
-              </div>
-            )}
-            {importReport.errors.length > 0 && (
-                <div className="space-y-1">
-                    {importReport.errors.map((err, index) => (
-                         <div key={index} className="flex items-start gap-2 text-red-400 text-sm">
-                            <XMarkIcon className="w-4 h-4 mt-0.5 flex-shrink-0"/>
-                            <span>{t('register.import.errors.rowError', err.row, err.message)}</span>
-                        </div>
-                    ))}
-                </div>
-            )}
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          className="hidden"
+          accept=".csv"
+          disabled={isImporting}
+        />
+        {isImporting ? (
+          <div className="flex flex-col items-center justify-center">
+            <SpinnerIcon className="w-8 h-8 text-indigo-400" />
+            <p className="mt-2 text-gray-300">{t('spreadsheet.importing')}</p>
           </div>
+        ) : (
+          <div>
+            <p className="text-white font-semibold">{t('spreadsheet.uploadButton')}</p>
+            <p className="text-gray-400 text-sm">{t('spreadsheet.dragAndDrop')}</p>
+          </div>
+        )}
+      </div>
+
+      <div className="text-center mt-4">
+        <a href="/template.csv" download className="text-sm text-indigo-400 hover:underline">
+          {t('spreadsheet.templateLink')}
+        </a>
+      </div>
+
+      {importResult && (
+        <div className="mt-6">
+          {importResult.errors.length === 0 && importResult.successCount > 0 && (
+            <div className="bg-green-500/20 text-green-300 border border-green-500 p-3 rounded-lg flex items-center justify-center gap-2">
+              <CheckCircleIcon className="w-5 h-5" />
+              <p>{t('spreadsheet.success', importResult.successCount)}</p>
+            </div>
+          )}
+          {importResult.errors.length > 0 && (
+            <div className="bg-yellow-500/20 text-yellow-300 border border-yellow-500 p-3 rounded-lg">
+              <p className="font-bold">{t('spreadsheet.partialSuccess', importResult.successCount, importResult.successCount + importResult.errors.length)}</p>
+              <p className="text-sm mt-2 font-semibold">{t('spreadsheet.errorListTitle')}</p>
+              <ul className="list-disc list-inside mt-1 text-xs max-h-40 overflow-y-auto">
+                {importResult.errors.map((err, index) => (
+                  <li key={index}>Linha {err.row + 2}: {err.message}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
     </div>
   );
 };
-
 export default SpreadsheetUploadView;

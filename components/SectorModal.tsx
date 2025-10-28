@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Sector } from '../types';
+// FIX: Add .ts extension to types import.
+import { Sector } from '../types.ts';
 // FIX: Added .tsx extension to module import.
 import { useTranslation } from '../hooks/useTranslation.tsx';
-import { XMarkIcon } from './icons';
+// FIX: Add .tsx extension to icons import.
+import { XMarkIcon } from './icons.tsx';
 
 interface SectorModalProps {
   isOpen: boolean;

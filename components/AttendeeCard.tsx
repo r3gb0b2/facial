@@ -1,5 +1,6 @@
 import React from 'react';
-import { Attendee, CheckinStatus } from '../types';
+// FIX: Added .ts extension to module import.
+import { Attendee, CheckinStatus } from '../types.ts';
 // FIX: Added .tsx extension to module import.
 import { useTranslation } from '../hooks/useTranslation.tsx';
 import { TagIcon } from './icons.tsx';

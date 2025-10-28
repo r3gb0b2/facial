@@ -1,7 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { Attendee, CheckinStatus, Sector } from '../../types';
-import { useTranslation } from '../../hooks/useTranslation';
-import { SearchIcon, TagIcon } from '../icons';
+// FIX: Add .ts extension to types import.
+import { Attendee, CheckinStatus, Sector } from '../../types.ts';
+// FIX: Add .tsx extension to module import.
+import { useTranslation } from '../../hooks/useTranslation.tsx';
+import { SearchIcon, TagIcon } from '../icons.tsx';
 
 interface WristbandReportViewProps {
   attendees: Attendee[];

@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { Sector } from '../../types';
+// FIX: Add .ts extension to types import.
+import { Sector } from '../../types.ts';
 // FIX: Added .tsx extension to module import.
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { PencilIcon, TagIcon, TrashIcon } from '../icons';
-import SectorModal from '../SectorModal';
+// FIX: Add .tsx extension to local component imports.
+import { PencilIcon, TagIcon, TrashIcon } from '../icons.tsx';
+// FIX: Add .tsx extension to local component imports.
+import SectorModal from '../SectorModal.tsx';
 
 interface SectorManagementViewProps {
     sectors: Sector[];

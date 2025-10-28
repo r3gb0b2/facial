@@ -1,234 +1,263 @@
-import React, { createContext, useContext, useState, ReactNode, PropsWithChildren } from 'react';
+import React, { createContext, useContext, useState, ReactNode } from 'react';
 
-// Basic dictionary structure
+// Basic translations, can be expanded.
 const translations = {
   pt: {
-    // Header & General
-    'header.title': 'Reconhecimento Facial',
-    'header.subtitle': 'Gestão de Credenciamento',
-
-    // Login
-    'login.title': 'Acesso Restrito',
-    'login.passwordLabel': 'Senha de Acesso',
-    'login.passwordPlaceholder': 'Digite sua senha',
-    'login.button': 'Entrar',
-
-    // Events
-    'events.title': 'Gerenciador de Eventos',
-    'events.noEvents': 'Nenhum evento encontrado.',
-    'events.noEventsSubtitle': 'Crie um novo evento para começar a gerenciar os participantes.',
-    'events.createButton': 'Criar Novo Evento',
-    'events.modal.createTitle': 'Criar Novo Evento',
-    'events.modal.editTitle': 'Editar Evento',
-    'events.modal.nameLabel': 'Nome do Evento',
-    'events.modal.namePlaceholder': 'Ex: Conferência Anual 2024',
-    'events.modal.error': 'O nome do evento não pode ser vazio.',
-    'events.modal.saveButton': 'Salvar Alterações',
-    'events.modal.createButton': 'Criar Evento',
-
-    // Admin
-    'admin.tabs.checkin': 'Check-in',
-    'admin.tabs.register': 'Cadastrar',
-    'admin.tabs.suppliers': 'Fornecedores',
-    'admin.tabs.sectors': 'Setores',
-    'admin.tabs.wristbands': 'Pulseiras',
-    'admin.backButton': 'Voltar para Eventos',
-
-    // Check-in
-    'checkin.searchPlaceholder': 'Buscar por nome, CPF ou pulseira...',
-    'checkin.stats.checkedIn': 'Presentes',
-    'checkin.stats.pending': 'Aguardando',
-    'checkin.stats.total': 'Total',
-    'checkin.filter.status': 'Filtrar por Status',
-    'checkin.filter.supplier': 'Filtrar por Fornecedor',
-    'checkin.filter.allStatuses': 'Todos os Status',
-    'checkin.filter.allSuppliers': 'Todos os Fornecedores',
-    'checkin.search.noResultsForTerm': (term: string) => `Nenhum cadastro encontrado para "${term}".`,
-    'checkin.search.noResultsForFilter': 'Nenhum participante encontrado para os filtros selecionados.',
-
-
-    // Register
-    'register.title': 'Cadastrar Participante',
-    'register.checkingCpf': 'Verificando CPF...',
-    'register.cpfFound': 'CPF encontrado. Dados carregados.',
-    'register.cpfNotFound': 'CPF não encontrado. Preencha os dados.',
-    'register.errors.cpfCheckError': 'Erro ao verificar CPF.',
-    'register.errors.cpfCheckIndexError': 'Erro de índice no Firestore. Crie o índice para CPF.',
-    'register.errors.allFields': 'Todos os campos são obrigatórios, incluindo a foto.',
-    'register.errors.invalidCpf': 'CPF inválido. Deve conter 11 dígitos.',
-    'register.errors.subCompanyRequired': 'Por favor, selecione sua empresa.',
-    'register.form.cpfLabel': 'CPF',
-    'register.form.cpfPlaceholder': '000.000.000-00',
-    'register.form.nameLabel': 'Nome Completo',
-    'register.form.namePlaceholder': 'Digite o nome do participante',
-    'register.form.subCompanyLabel': 'Empresa',
-    'register.form.subCompanyPlaceholder': 'Selecione sua empresa',
-    'register.form.sectorLabel': 'Setor',
-    'register.form.sectorPlaceholder': 'Selecione um setor',
-    'register.form.button': 'Confirmar Cadastro',
-    'register.import.title': 'Importar via Planilha (.csv)',
-    'register.import.instructions': 'A planilha deve conter as colunas: nome, cpf, setor.',
-    'register.import.downloadTemplate': 'Baixar modelo da planilha',
-    'register.import.button': 'Selecionar Arquivo CSV',
-    'register.import.processing': 'Processando...',
-    'register.import.reportTitle': 'Relatório de Importação',
-    'register.import.success': (count: number) => `${count} participante(s) importado(s) com sucesso.`,
-    'register.import.errors.fileType': 'Tipo de arquivo inválido. Por favor, envie um arquivo .csv.',
-    'register.import.errors.missingColumns': 'A planilha está faltando colunas obrigatórias (nome, cpf, setor).',
-    'register.import.errors.parsing': 'Erro ao processar o arquivo.',
-    'register.import.errors.rowError': (row: number, message: string) => `Linha ${row}: ${message}`,
-    'register.successMessage': 'Cadastro realizado com sucesso!',
-    'register.photoLocked': 'Foto carregada do cadastro existente e não pode ser alterada.',
-    'register.cpfAlreadyRegistered': 'Este CPF já está cadastrado. Limpe o formulário para adicionar um novo participante.',
-
-    // Suppliers
-    'suppliers.generateTitle': 'Gerar Link de Cadastro',
-    'suppliers.nameLabel': 'Nome do Fornecedor/Responsável',
-    'suppliers.namePlaceholder': 'Ex: Empresa de Segurança Ltda.',
-    'suppliers.limitLabel': 'Limite de Cadastros',
-    'suppliers.limitPlaceholder': 'Ex: 50',
-    'suppliers.sectorsLabel': 'Setores Permitidos (Fallback)',
-    'suppliers.subCompaniesLabel': 'Sub-empresas (Opcional)',
-    'suppliers.subCompaniesPlaceholder': 'Nome da empresa',
-    'suppliers.subCompanySectorLabel': 'Setor',
-    'suppliers.subCompanySectorPlaceholder': 'Selecione o setor',
-    'suppliers.addSubCompanyButton': 'Adicionar',
-    'suppliers.generateButton': 'Gerar Link',
-    'suppliers.existingLinks': 'Links Gerados',
-    'suppliers.noLinks': 'Nenhum link de fornecedor foi gerado ainda.',
-    'suppliers.registrations': 'Cadastros',
-    'suppliers.active': 'Ativo',
-    'suppliers.inactive': 'Inativo',
-    'suppliers.copyButton': 'Copiar',
-    'suppliers.copiedButton': 'Copiado!',
-    'suppliers.disableButton': 'Desativar',
-    'suppliers.enableButton': 'Ativar',
-    'suppliers.editButton': 'Editar',
-    'suppliers.deleteButton': 'Deletar',
-    'suppliers.cancelButton': 'Cancelar',
-    'suppliers.saveButton': 'Salvar',
-    'suppliers.noNameError': 'O nome do fornecedor é obrigatório.',
-    'suppliers.noSectorsError': 'Selecione ao menos um setor.',
-    'suppliers.noLimitError': 'O limite de cadastro deve ser um número maior que zero.',
-    'suppliers.deleteConfirm': (name: string) => `Tem certeza que deseja deletar o fornecedor "${name}"? Esta ação não pode ser desfeita.`,
-    'suppliers.deleteErrorInUse': (name: string) => `O fornecedor "${name}" não pode ser excluído pois já possui participantes cadastrados.`,
-    'suppliers.adminLink.button': 'Link Admin',
-    'suppliers.adminLink.regenerateTooltip': 'Regerar link de acesso',
-    'suppliers.adminLink.copyTooltip': 'Copiar link de acesso',
-
-    // Sectors
-    'sectors.title': 'Gerenciar Setores',
-    'sectors.noSectors': 'Nenhum setor cadastrado.',
-    'sectors.noSectorsSubtitle': 'Adicione setores para organizar os participantes.',
-    'sectors.createButton': 'Criar Novo Setor',
-    'sectors.deleteConfirm': (label: string) => `Tem certeza que deseja deletar o setor "${label}"? Esta ação não pode ser desfeita.`,
-    'sectors.deleteErrorInUse': (label: string) => `O setor "${label}" não pode ser excluído pois está em uso por participantes ou fornecedores.`,
-    'sectors.modal.createTitle': 'Criar Novo Setor',
-    'sectors.modal.editTitle': 'Editar Setor',
-    'sectors.modal.labelLabel': 'Nome do Setor',
-    'sectors.modal.labelPlaceholder': 'Ex: Staff, Imprensa, Convidado',
-    'sectors.modal.colorLabel': 'Cor da Pulseira',
-    'sectors.modal.error': 'O nome do setor não pode ser vazio.',
-    'sectors.modal.saveButton': 'Salvar',
-    'sectors.modal.createButton': 'Criar Setor',
-
-    // Statuses
-    'status.pending': 'PENDENTE',
-    'status.checked_in': 'CHECK-IN',
-    'status.cancelled': 'CANCELADO',
-    'status.substitution': 'SUBSTITUIÇÃO',
-    'status.missed': 'AUSENTE',
-
-    // Webcam
-    'webcam.starting': 'Iniciando câmera...',
-    'webcam.retakeButton': 'Tirar Outra Foto',
-    'webcam.captureButton': 'Capturar Foto',
-    'webcam.uploadButton': 'Carregar da Galeria',
-    
-    // Wristband Report
-    'wristbandReport.title': 'Relatório de Pulseiras Entregues',
-    'wristbandReport.stats.deliveredOf': (delivered: number, total: number) => `${delivered} de ${total} entregues`,
-    'wristbandReport.searchPlaceholder': 'Buscar por nome, CPF ou pulseira...',
-    'wristbandReport.filter.sector': 'Filtrar por Setor',
-    'wristbandReport.filter.allSectors': 'Todos os Setores',
-    'wristbandReport.list.header.name': 'Colaborador',
-    'wristbandReport.list.header.wristband': 'Nº da Pulseira',
-    'wristbandReport.list.header.sector': 'Setor',
-    'wristbandReport.list.header.color': 'Cor',
-    'wristbandReport.noWristbands': 'Nenhuma pulseira foi entregue ainda.',
-    'wristbandReport.noResults': 'Nenhum resultado encontrado para os filtros aplicados.',
-
-    // Modals
-    'verificationModal.title': 'Verificação de',
-    'verificationModal.registeredPhoto': 'Foto Cadastrada',
-    'verificationModal.liveVerification': 'Verificação ao Vivo',
-    'verificationModal.confirmButton': 'Confirmar Check-in',
-    'statusUpdateModal.title': 'Alterar Status',
-    'statusUpdateModal.currentStatus': 'Status Atual:',
-    'statusUpdateModal.confirmCheckin': 'Confirmar Check-in',
-    'statusUpdateModal.cancelCheckin': 'Cancelar Check-in',
-    'statusUpdateModal.markAsMissed': 'Marcar como Ausente',
-    'statusUpdateModal.allowSubstitution': 'Permitir Substituição',
-    'statusUpdateModal.cancelRegistration': 'Cancelar Inscrição',
-    'statusUpdateModal.reactivateRegistration': 'Reativar Inscrição',
-    'statusUpdateModal.closeButton': 'Fechar',
-    'attendeeDetail.title': 'Detalhes do Participante',
-    'attendeeDetail.editButton': 'Editar',
-    'attendeeDetail.saveButton': 'Salvar',
-    'attendeeDetail.updateWristbandButton': 'Atualizar',
-    'attendeeDetail.cancelButton': 'Cancelar',
-    'attendeeDetail.deleteButton': 'Excluir Cadastro',
-    'attendeeDetail.deleteConfirm': (name: string) => `Tem certeza que deseja excluir o cadastro de "${name}"? Esta ação removerá a foto e todos os dados.`,
-    'attendeeDetail.formError': 'Nome e CPF são obrigatórios.',
-    'attendeeDetail.wristbandLabel': 'Nº da Pulseira (Opcional)',
-    'attendeeDetail.wristbandPlaceholder': 'Digite o número',
-    'attendeeDetail.wristbandUpdateSuccess': 'Pulseira atualizada com sucesso!',
-    'attendeeCard.wristbandNumber': 'Pulseira',
-    'attendeeCard.supplierLabel': 'Fornecedor',
-    'attendeeCard.subCompanyLabel': 'Empresa',
-
-    // Supplier Registration View
-    'supplierRegistration.closedTitle': 'Cadastro Encerrado',
-    'supplierRegistration.closedMessage': 'O link de cadastro não está mais ativo ou atingiu o limite.',
-
-    // Supplier Admin View
-    'supplierAdmin.title': 'Verificação de Colaboradores',
-    'supplierAdmin.supplier': 'Fornecedor:',
-    'supplierAdmin.noAttendees': 'Nenhum colaborador cadastrado para este fornecedor ainda.',
-    'supplierAdmin.invalidLink': 'Falha ao carregar a página. O link pode ser inválido ou expirado.',
-  },
+    header: {
+        title: "Check-in Facial",
+        subtitle: "Gestão de Eventos Simplificada"
+    },
+    login: {
+      title: "Acesso Restrito",
+      passwordLabel: "Senha de Acesso",
+      passwordPlaceholder: "Digite a senha",
+      button: "Entrar",
+      errors: {
+        invalidPassword: "Senha inválida."
+      }
+    },
+    events: {
+        title: "Seleção de Evento",
+        noEvents: "Nenhum evento encontrado.",
+        noEventsSubtitle: "Crie um novo evento para começar.",
+        createButton: "Criar Novo Evento",
+        deleteConfirm: (eventName: string) => `Tem certeza que deseja deletar o evento "${eventName}"? Esta ação não pode ser desfeita.`,
+        modal: {
+            createTitle: "Criar Novo Evento",
+            editTitle: "Editar Evento",
+            nameLabel: "Nome do Evento",
+            namePlaceholder: "Ex: Conferência Anual 2024",
+            createButton: "Criar Evento",
+            saveButton: "Salvar Alterações",
+            error: "O nome do evento não pode ser vazio."
+        },
+        errors: {
+            load: "Falha ao carregar eventos.",
+            delete: "Falha ao deletar o evento."
+        }
+    },
+    register: {
+        title: "Cadastro de Credenciados",
+        checkingCpf: "Verificando CPF...",
+        cpfFound: "CPF já cadastrado. Dados carregados.",
+        cpfNotFound: "CPF não encontrado. Prossiga com o cadastro.",
+        cpfAlreadyRegistered: "Este participante já está cadastrado neste evento. Não é necessário registrar novamente.",
+        photoLocked: "A foto está bloqueada pois o participante já possui cadastro.",
+        successMessage: "Participante registrado com sucesso!",
+        form: {
+            cpfLabel: "CPF",
+            cpfPlaceholder: "000.000.000-00",
+            nameLabel: "Nome Completo",
+            namePlaceholder: "Digite o nome completo",
+            sectorLabel: "Setor",
+            sectorPlaceholder: "Selecione um setor",
+            subCompanyLabel: "Empresa / Sub-Contratada",
+            subCompanyPlaceholder: "Selecione a empresa",
+            button: "Registrar Participante"
+        },
+        errors: {
+            allFields: "Todos os campos (nome, CPF, foto e setor) são obrigatórios.",
+            invalidCpf: "CPF inválido.",
+            subCompanyRequired: "A seleção da empresa é obrigatória.",
+            cpfCheckError: "Erro ao verificar CPF.",
+            cpfCheckIndexError: "Erro de configuração do banco (índice ausente). Contate o suporte.",
+            submit: "Falha ao registrar participante."
+        }
+    },
+    checkin: {
+        searchPlaceholder: "Buscar por nome, CPF ou pulseira...",
+        stats: {
+            checkedIn: "Presentes",
+            pending: "Aguardando",
+            total: "Total"
+        },
+        filter: {
+            allStatuses: "Todos os Status",
+            allSuppliers: "Todos os Fornecedores"
+        },
+        search: {
+            noResultsForTerm: (term: string) => `Nenhum resultado para "${term}".`,
+            noResultsForFilter: "Nenhum participante encontrado com os filtros atuais."
+        }
+    },
+    attendeeCard: {
+        supplierLabel: "Fornecedor",
+        wristbandNumber: "Pulseira"
+    },
+    attendeeDetail: {
+        title: "Detalhes do Participante",
+        wristbandLabel: "Nº da Pulseira",
+        wristbandPlaceholder: "Digite ou leia o nº",
+        updateWristbandButton: "Salvar",
+        wristbandUpdateSuccess: "Pulseira atualizada!",
+        formError: "Nome e CPF são obrigatórios.",
+        deleteConfirm: (name: string) => `Tem certeza que deseja remover "${name}" do evento?`,
+        cancelButton: "Cancelar",
+        saveButton: "Salvar",
+        deleteButton: "Remover do Evento",
+    },
+    verificationModal: {
+        title: "Verificação Facial de",
+        registeredPhoto: "Foto do Cadastro",
+        liveVerification: "Verificação ao Vivo",
+        confirmButton: "Confirmar Check-in Manual"
+    },
+    status: {
+        pending: 'Aguardando',
+        checked_in: 'Presente',
+        cancelled: 'Cancelado',
+        substitution: 'Substituição',
+        missed: 'Ausente',
+    },
+    statusUpdateModal: {
+        currentStatus: "Status Atual",
+        confirmCheckin: "Confirmar Check-in",
+        cancelCheckin: "Cancelar Check-in (Voltar para Aguardando)",
+        reactivateRegistration: "Reativar Inscrição",
+        markAsMissed: "Marcar como Ausente",
+        allowSubstitution: "Permitir Substituição",
+        cancelRegistration: "Cancelar Inscrição",
+        closeButton: "Fechar"
+    },
+    webcam: {
+        starting: "Iniciando câmera...",
+        captureButton: "Capturar Foto",
+        retakeButton: "Tirar Outra Foto",
+        uploadButton: "Enviar Arquivo",
+    },
+    sectors: {
+        title: "Gerenciar Setores",
+        noSectors: "Nenhum setor cadastrado.",
+        noSectorsSubtitle: "Crie setores para organizar os participantes.",
+        createButton: "Adicionar Setor",
+        deleteConfirm: (label: string) => `Tem certeza que deseja deletar o setor "${label}"?`,
+        deleteErrorInUse: (label: string) => `O setor "${label}" não pode ser excluído pois está em uso por participantes ou fornecedores.`,
+        modal: {
+            createTitle: "Criar Novo Setor",
+            editTitle: "Editar Setor",
+            labelLabel: "Nome do Setor",
+            labelPlaceholder: "Ex: Staff, Produção, Convidado",
+            colorLabel: "Cor de Identificação",
+            createButton: "Criar Setor",
+            saveButton: "Salvar",
+            error: "O nome do setor é obrigatório."
+        }
+    },
+    suppliers: {
+        title: "Gerenciar Fornecedores",
+        noSuppliers: "Nenhum fornecedor cadastrado.",
+        noSuppliersSubtitle: "Adicione fornecedores para liberar links de cadastro.",
+        createButton: "Adicionar Fornecedor",
+        registrationLink: "Link de Cadastro",
+        copyLink: "Copiar Link",
+        copied: "Copiado!",
+        registrationStatus: "Cadastros",
+        open: "Abertos",
+        closed: "Fechados",
+        toggleOpen: "Abrir cadastros",
+        toggleClose: "Fechar cadastros",
+        deleteConfirm: (name: string) => `Tem certeza que deseja deletar o fornecedor "${name}"?`,
+        modal: {
+            createTitle: "Criar Novo Fornecedor",
+            editTitle: "Editar Fornecedor",
+            nameLabel: "Nome do Fornecedor",
+            namePlaceholder: "Ex: Empresa de Limpeza",
+            sectorsLabel: "Setores Permitidos",
+            sectorsPlaceholder: "Selecione um ou mais setores",
+            subCompaniesLabel: "Sub-empresas (Opcional)",
+            subCompaniesPlaceholder: "Nome da Empresa,Setor\nOutra Empresa,Outro Setor",
+            createButton: "Criar Fornecedor",
+            saveButton: "Salvar",
+            error: "Nome e pelo menos um setor são obrigatórios."
+        }
+    },
+    spreadsheet: {
+        title: "Importar Participantes via Planilha",
+        uploadButton: "Importar Planilha (.csv)",
+        dragAndDrop: "ou arraste e solte o arquivo aqui",
+        templateLink: "Baixar modelo CSV",
+        importing: "Importando, por favor aguarde...",
+        partialSuccess: (success: number, total: number) => `Importação parcial: ${success} de ${total} registros foram importados com sucesso.`,
+        success: (count: number) => `Importação concluída! ${count} registros importados com sucesso.`,
+        error: "Ocorreu um erro na importação. Verifique o console para mais detalhes.",
+        errorListTitle: "Erros encontrados:",
+    },
+    supplierRegistration: {
+        closedTitle: "Cadastros Encerrados",
+        closedMessage: "O período de cadastro para este link foi encerrado pelo organizador do evento."
+    },
+    supplierAdmin: {
+        title: "Visualização de Fornecedor",
+        supplier: "Fornecedor",
+        noAttendees: "Nenhum participante cadastrado por este fornecedor ainda."
+    },
+    wristbandReport: {
+        title: "Relatório de Pulseiras Entregues",
+        searchPlaceholder: "Buscar por nome, pulseira ou CPF...",
+        filter: {
+            allSectors: "Todos os Setores",
+        },
+        stats: {
+            deliveredOf: (delivered: number, total: number) => `${delivered} de ${total} entregues`
+        },
+        list: {
+            header: {
+                name: "Nome",
+                wristband: "Pulseira",
+                sector: "Setor",
+                color: "Cor"
+            }
+        },
+        noWristbands: "Nenhuma pulseira foi entregue ainda.",
+        noResults: "Nenhum resultado encontrado para a sua busca."
+    }
+  }
 };
 
-type Language = 'pt';
+type Language = keyof typeof translations;
 
-type TranslationKey = keyof typeof translations.pt;
-
-const LanguageContext = createContext<{
+interface LanguageContextType {
   language: Language;
-  t: (key: TranslationKey, ...args: any[]) => string;
-}>({
-  language: 'pt',
-  t: (key) => key,
-});
+  setLanguage: (language: Language) => void;
+  t: (key: string, ...args: (string | number)[]) => string;
+}
 
-// FIX: Changed component signature to use PropsWithChildren to resolve a TypeScript error where children were not being recognized. This makes the `children` prop optional, satisfying the compiler while runtime behavior remains correct due to usage.
-export const LanguageProvider = ({ children }: PropsWithChildren<{}>) => {
-  // FIX: Renamed state variable to avoid potential naming collision with the 'Language' type.
-  const [currentLanguage] = useState<Language>('pt');
+const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-  const t = (key: TranslationKey, ...args: any[]): string => {
-    const translation = translations[currentLanguage][key];
+// Helper to access nested keys like 'header.title'
+const getNestedTranslation = (language: Language, key: string): string | ((...args: any[]) => string) | undefined => {
+    return key.split('.').reduce((obj: any, k) => {
+        return obj && obj[k];
+    }, translations[language]);
+};
+
+
+export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [language, setLanguage] = useState<Language>('pt');
+
+  const t = (key: string, ...args: (string | number)[]) => {
+    const translation = getNestedTranslation(language, key);
     if (typeof translation === 'function') {
-        return (translation as (...args: any[]) => string)(...args);
+        return translation(...args);
     }
-    return translation || key;
+    if (typeof translation === 'string') {
+        return translation;
+    }
+    console.warn(`Translation key not found: ${key}`);
+    return key;
   };
 
   return (
-    <LanguageContext.Provider value={{ language: currentLanguage, t }}>
+    <LanguageContext.Provider value={{ language, setLanguage, t }}>
       {children}
     </LanguageContext.Provider>
   );
 };
 
-export const useTranslation = () => useContext(LanguageContext);
+export const useTranslation = (): LanguageContextType => {
+  const context = useContext(LanguageContext);
+  if (context === undefined) {
+    throw new Error('useTranslation must be used within a LanguageProvider');
+  }
+  return context;
+};
