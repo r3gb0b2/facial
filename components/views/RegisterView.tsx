@@ -193,7 +193,11 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, onImportAttende
             required
           >
             <option value="" disabled>{t('register.form.subCompanyPlaceholder')}</option>
-            {supplierInfo?.data.subCompanies?.map(name => <option key={name} value={name}>{name}</option>)}
+            {supplierInfo?.data.subCompanies?.map(sc => 
+                <option key={sc.name} value={sc.name}>
+                    {`\u25CF ${sc.name}`}
+                </option>
+            )}
           </select>
         </div>
     );

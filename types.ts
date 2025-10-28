@@ -28,13 +28,18 @@ export interface Event {
   createdAt: Timestamp;
 }
 
+export interface SubCompany {
+  name: string;
+  color: string;
+}
+
 export interface Supplier {
   id: string;
   name: string;
   sectors: string[];
   active: boolean;
   registrationLimit: number;
-  subCompanies?: string[]; // Optional list of sub-companies for this supplier
+  subCompanies?: SubCompany[]; // Optional list of sub-companies for this supplier
 }
 
 export interface Sector {

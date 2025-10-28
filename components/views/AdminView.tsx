@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Attendee, Sector, Supplier, Event } from '../../types.ts';
+import { Attendee, Sector, Supplier, Event, SubCompany } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import CheckinView from './CheckinView.tsx';
 import RegisterView from './RegisterView.tsx';
@@ -17,7 +17,7 @@ interface AdminViewProps {
     sectors: Sector[];
     onRegister: (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => Promise<void>;
     onImportAttendees: (data: any[]) => Promise<any>;
-    onAddSupplier: (name: string, sectors: string[], registrationLimit: number, subCompanies: string[]) => Promise<void>;
+    onAddSupplier: (name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[]) => Promise<void>;
     onUpdateSupplier: (supplierId: string, data: Partial<Supplier>) => Promise<void>;
     onDeleteSupplier: (supplier: Supplier) => Promise<void>;
     onSupplierStatusUpdate: (supplierId: string, active: boolean) => Promise<void>;

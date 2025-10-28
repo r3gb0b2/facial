@@ -56,7 +56,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
   }, [sectors]);
 
   const supplierMap = useMemo(() => {
-    return new Map(suppliers.map(s => [s.id, s.name]));
+    return new Map(suppliers.map(s => [s.id, s]));
   }, [suppliers]);
 
 
@@ -158,7 +158,9 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
         {filteredAttendees.map((attendee) => {
             const sector = sectorMap.get(attendee.sector);
-            const supplierName = attendee.supplierId ? supplierMap.get(attendee.supplierId) : undefined;
+            const supplier = attendee.supplierId ? supplierMap.get(attendee.supplierId) : undefined;
+            const subCompanyColor = supplier?.subCompanies?.find(sc => sc.name === attendee.subCompany)?.color;
+            
             return (
               <AttendeeCard 
                 key={attendee.id} 
@@ -166,7 +168,8 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
                 onSelect={handleSelectAttendee}
                 sectorLabel={sector?.label || attendee.sector}
                 sectorColor={sector?.color}
-                supplierName={supplierName}
+                supplierName={supplier?.name}
+                subCompanyColor={subCompanyColor}
               />
             );
         })}
@@ -184,17 +187,24 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
           </div>
       )}
       
-      {selectedAttendee && (
-        <AttendeeDetailModal
-          attendee={selectedAttendee}
-          sectors={sectors}
-          onClose={() => setSelectedAttendee(null)}
-          onUpdateStatus={handleUpdateStatus}
-          onUpdateDetails={onUpdateAttendeeDetails}
-          onDelete={handleDelete}
-          setError={setError}
-        />
-      )}
+      {selectedAttendee && (() => {
+          const supplier = selectedAttendee.supplierId ? supplierMap.get(selectedAttendee.supplierId) : undefined;
+          const subCompanyColor = supplier?.subCompanies?.find(sc => sc.name === selectedAttendee.subCompany)?.color;
+          
+          return (
+            <AttendeeDetailModal
+              attendee={selectedAttendee}
+              sectors={sectors}
+              onClose={() => setSelectedAttendee(null)}
+              onUpdateStatus={handleUpdateStatus}
+              onUpdateDetails={onUpdateAttendeeDetails}
+              onDelete={handleDelete}
+              setError={setError}
+              supplierName={supplier?.name}
+              subCompanyColor={subCompanyColor}
+            />
+          );
+      })()}
     </div>
   );
 };

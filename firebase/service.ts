@@ -1,7 +1,7 @@
 // In firebase/service.ts
 
 import { db, storage, FieldValue } from './config.ts';
-import { Attendee, CheckinStatus, Event, Sector, Supplier } from '../types.ts';
+import { Attendee, CheckinStatus, Event, Sector, SubCompany, Supplier } from '../types.ts';
 
 // Helper to get eventId, otherwise throw error
 const ensureEventId = (eventId?: string): string => {
@@ -382,7 +382,7 @@ export const getAttendeeCountForSupplier = async (eventId: string, supplierId: s
 };
 
 
-export const addSupplier = async (eventId: string, name: string, sectors: string[], registrationLimit: number, subCompanies: string[]): Promise<string> => {
+export const addSupplier = async (eventId: string, name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[]): Promise<string> => {
     const eventRef = db.collection('events').doc(ensureEventId(eventId));
     const newSupplier = {
         name,

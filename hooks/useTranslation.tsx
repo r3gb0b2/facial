@@ -88,6 +88,7 @@ const translations = {
     'suppliers.sectorsLabel': 'Setores Permitidos',
     'suppliers.subCompaniesLabel': 'Sub-empresas (Opcional)',
     'suppliers.subCompaniesPlaceholder': 'Nome da empresa',
+    'suppliers.subCompanyColorLabel': 'Cor',
     'suppliers.addSubCompanyButton': 'Adicionar',
     'suppliers.generateButton': 'Gerar Link',
     'suppliers.existingLinks': 'Links Gerados',

@@ -11,6 +11,8 @@ interface AttendeeDetailModalProps {
   onUpdateDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sector' | 'wristbandNumber' | 'subCompany'>>) => Promise<void>;
   onDelete: (attendeeId: string) => Promise<void>;
   setError: (message: string) => void;
+  supplierName?: string;
+  subCompanyColor?: string;
 }
 
 const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
@@ -21,6 +23,8 @@ const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   onUpdateDetails,
   onDelete,
   setError,
+  supplierName,
+  subCompanyColor,
 }) => {
   const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);

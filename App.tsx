@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Attendee, Event, Sector, Supplier } from './types.ts';
+import { Attendee, Event, Sector, SubCompany, Supplier } from './types.ts';
 import * as api from './firebase/service.ts';
 import LoginView from './components/views/LoginView.tsx';
 import EventSelectionView from './components/views/EventSelectionView.tsx';
@@ -196,7 +196,7 @@ const App: React.FC = () => {
         return api.addAttendeesFromSpreadsheet(currentEvent.id, data, sectors, attendees);
     };
 
-    const handleAddSupplier = async (name: string, sectors: string[], registrationLimit: number, subCompanies: string[]) => {
+    const handleAddSupplier = async (name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[]) => {
         if (!currentEvent) return Promise.reject();
         await api.addSupplier(currentEvent.id, name, sectors, registrationLimit, subCompanies);
     };
