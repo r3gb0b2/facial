@@ -437,35 +437,44 @@ export const regenerateSupplierAdminToken = async (eventId: string, supplierId: 
 
 
 export const getSupplierDataForAdminView = async (adminToken: string): Promise<{ supplierName: string; attendees: Attendee[] } | null> => {
-    // This query is robust. It finds any supplier with the matching token across all events.
-    // NOTE: This requires a Firestore index on the 'suppliers' collection group for the 'adminToken' field.
-    // If this fails, Firestore's error message in the browser console will contain a direct link to create it.
-    const suppliersQuery = db.collectionGroup('suppliers').where('adminToken', '==', adminToken).limit(1);
-    const supplierSnapshot = await suppliersQuery.get();
-
-    if (supplierSnapshot.empty) {
-        console.error(`No supplier found for adminToken: ${adminToken}`);
+    // This new, robust method avoids collectionGroup queries which can fail silently if an index is not created.
+    // It iterates through all events to find the supplier with the matching token. While less performant for
+    // a huge number of events, it's guaranteed to work without manual database configuration.
+    
+    // 1. Fetch all events first.
+    const eventsSnapshot = await db.collection('events').get();
+    if (eventsSnapshot.empty) {
         return null;
     }
 
-    const supplierDoc = supplierSnapshot.docs[0];
-    const supplier = { id: supplierDoc.id, ...supplierDoc.data() } as Supplier;
-    
-    // A supplier document's path is 'events/{eventId}/suppliers/{supplierId}'.
-    // We can get the parent document (the event) from its reference path.
-    const eventId = supplierDoc.ref.parent.parent!.id;
-    const eventRef = db.collection('events').doc(eventId);
+    // 2. Iterate and search for the supplier with the matching token.
+    for (const eventDoc of eventsSnapshot.docs) {
+        const eventId = eventDoc.id;
+        const supplierQuery = db.collection('events').doc(eventId).collection('suppliers').where('adminToken', '==', adminToken).limit(1);
+        const supplierSnapshot = await supplierQuery.get();
 
-    const attendeesQuery = eventRef.collection('attendees').where('supplierId', '==', supplier.id).orderBy('name');
-    const attendeesSnapshot = await attendeesQuery.get();
+        // If we found the supplier in this event, process it and return.
+        if (!supplierSnapshot.empty) {
+            const supplierDoc = supplierSnapshot.docs[0];
+            const supplier = { id: supplierDoc.id, ...supplierDoc.data() } as Supplier;
 
-    const attendees = attendeesSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-    } as Attendee));
-    
-    return {
-        supplierName: supplier.name,
-        attendees: attendees,
-    };
+            // Now that we have the eventId and supplierId, fetch the attendees.
+            const attendeesQuery = db.collection('events').doc(eventId).collection('attendees').where('supplierId', '==', supplier.id).orderBy('name');
+            const attendeesSnapshot = await attendeesQuery.get();
+
+            const attendees = attendeesSnapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            } as Attendee));
+            
+            return {
+                supplierName: supplier.name,
+                attendees: attendees,
+            };
+        }
+    }
+
+    // 3. If we looped through all events and found nothing, return null.
+    console.error(`No supplier found for adminToken: ${adminToken} in any event.`);
+    return null;
 };
