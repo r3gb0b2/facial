@@ -141,6 +141,8 @@ const translations: { [lang: string]: Translations } = {
     'supplierAdmin.noAttendees': 'Nenhum participante credenciado por este fornecedor ainda.',
     'supplierAdmin.requestSubstitution': 'Solicitar Substituição',
     'supplierAdmin.substitutionRequested': 'Substituição Solicitada',
+    'supplierAdmin.filter.searchPlaceholder': 'Buscar por nome...',
+    'supplierAdmin.filter.allCompanies': 'Todas as Empresas',
     'substitutionModal.title': 'Solicitar Substituição para',
     'substitutionModal.newPersonData': 'Dados do Novo Participante',
     'substitutionModal.submitButton': 'Enviar Solicitação',
