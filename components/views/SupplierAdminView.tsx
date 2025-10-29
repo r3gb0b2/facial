@@ -119,7 +119,8 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                           const isSubstRequested = submittedRequests.has(attendee.id) || attendee.status === CheckinStatus.SUBSTITUTION_REQUEST;
                           const isSectorChangeRequested = submittedRequests.has(attendee.id) || attendee.status === CheckinStatus.SECTOR_CHANGE_REQUEST;
                           
-                          const canChangeSector = allowedSectorsForSupplier.length > (attendee.sectors?.length || 0);
+                          const currentSectorIds = new Set(attendee.sectors || []);
+                          const canChangeSector = allowedSectorsForSupplier.some(s => !currentSectorIds.has(s.id));
 
                           return (
                             <div key={attendee.id} className="bg-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-700 flex flex-col">
