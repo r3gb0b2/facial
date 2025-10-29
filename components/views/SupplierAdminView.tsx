@@ -123,17 +123,11 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                           const isSubstRequested = submittedSubstitutions.has(attendee.id) || attendee.status === CheckinStatus.SUBSTITUTION_REQUEST;
                           const isSectorChangeRequested = submittedSectorChanges.has(attendee.id) || attendee.status === CheckinStatus.SECTOR_CHANGE_REQUEST;
                           
-                          // Get all valid sector IDs for the event
-                          const validEventSectorIds = new Set(sectors.map(s => s.id));
-                          // Get the sectors the attendee is currently in
+                          // A change is possible if there's any sector the supplier can manage that the attendee isn't currently in.
+                          // `allowedSectorsForSupplier` is already filtered to valid, existing sectors for the event.
                           const attendeeSectorIds = new Set(Array.isArray(attendee.sectors) ? attendee.sectors : []);
-
-                          // A change is possible if there is any sector that the supplier is configured to manage,
-                          // which is also a valid event sector, and which the attendee is not currently in.
-                          const canChangeSector = (supplier.sectors || []).some(
-                              (supplierSectorId) =>
-                              !attendeeSectorIds.has(supplierSectorId) &&
-                              validEventSectorIds.has(supplierSectorId)
+                          const canChangeSector = allowedSectorsForSupplier.some(
+                            (allowedSector) => !attendeeSectorIds.has(allowedSector.id)
                           );
 
                           return (
