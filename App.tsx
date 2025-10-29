@@ -1,239 +1,370 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { Attendee, Event, Sector, Supplier, CheckinStatus, SubCompany } from './types.ts';
+import * as api from './firebase/service.ts';
+import { useTranslation } from './hooks/useTranslation.tsx';
+
 import LoginView from './components/views/LoginView.tsx';
 import EventSelectionView from './components/views/EventSelectionView.tsx';
 import AdminView from './components/views/AdminView.tsx';
 import RegisterView from './components/views/RegisterView.tsx';
 import SupplierAdminView from './components/views/SupplierAdminView.tsx';
 import RegistrationClosedView from './components/views/RegistrationClosedView.tsx';
-import { Event, Attendee, Supplier, Sector, CheckinStatus } from './types.ts';
-import * as api from './firebase/service.ts';
-import { useTranslation } from './hooks/useTranslation.tsx';
+import EventModal from './components/EventModal.tsx';
 
-type View = 'LOADING' | 'LOGIN' | 'EVENT_SELECTION' | 'ADMIN' | 'SUPPLIER_REGISTRATION' | 'SUPPLIER_ADMIN' | 'REGISTRATION_CLOSED' | 'ERROR';
+type View = 'login' | 'event-selection' | 'admin' | 'supplier-registration' | 'supplier-admin' | 'closed';
 
 const App: React.FC = () => {
-    const { t } = useTranslation();
-    const [view, setView] = useState<View>('LOADING');
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-    const [events, setEvents] = useState<Event[]>([]);
-    const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-    const [eventData, setEventData] = useState<{ attendees: Attendee[], suppliers: Supplier[], sectors: Sector[] } | null>(null);
-    
-    // State for supplier/public views
-    const [supplierInfo, setSupplierInfo] = useState<{ data: Supplier & { eventId: string }, name: string, sectors: Sector[] } | null>(null);
-    const [supplierAdminData, setSupplierAdminData] = useState<{ eventName: string, attendees: Attendee[], eventId: string, supplierId: string } | null>(null);
-    
+  const { t } = useTranslation();
+  const [isLoggedIn, setIsLoggedIn] = useState(sessionStorage.getItem('isLoggedIn') === 'true');
+  const [loginError, setLoginError] = useState<string | null>(null);
+  const [view, setView] = useState<View>('login');
+  const [isLoading, setIsLoading] = useState(true);
+  const [globalError, setGlobalError] = useState<string>('');
 
-    const clearError = () => setError(null);
+  // Data state
+  const [events, setEvents] = useState<Event[]>([]);
+  const [currentEvent, setCurrentEvent] = useState<Event | null>(null);
+  const [attendees, setAttendees] = useState<Attendee[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [sectors, setSectors] = useState<Sector[]>([]);
+  
+  // Supplier view state
+  const [supplierInfo, setSupplierInfo] = useState<{data: Supplier, name: string} | null>(null);
+  const [supplierAdminData, setSupplierAdminData] = useState<{eventName: string, attendees: Attendee[], eventId: string, supplierId: string} | null>(null);
 
-    const handleSetError = (message: string) => {
-        setError(message);
-        setTimeout(() => clearError(), 5000);
-    };
+  // Modal state
+  const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
 
-    const loadEvents = useCallback(async () => {
-        try {
-            const fetchedEvents = await api.getEvents();
-            setEvents(fetchedEvents);
-        } catch (err) {
-            handleSetError(t('errors.loadEvents'));
-        }
-    }, [t]);
+  const clearGlobalError = () => {
+    if (globalError) {
+      setTimeout(() => setGlobalError(''), 5000);
+    }
+  };
 
-    // Check URL params on initial load
-    useEffect(() => {
+  useEffect(clearGlobalError, [globalError]);
+
+  const handleLogin = (password: string) => {
+    if (password === '12345') {
+      sessionStorage.setItem('isLoggedIn', 'true');
+      setIsLoggedIn(true);
+      setLoginError(null);
+      setView('event-selection');
+    } else {
+      setLoginError(t('login.errors.invalidPassword'));
+    }
+  };
+
+  const loadEvents = useCallback(async () => {
+    setIsLoading(true);
+    try {
+      const fetchedEvents = await api.getEvents();
+      setEvents(fetchedEvents);
+    } catch (error) {
+      console.error(error);
+      setGlobalError(t('errors.loadEvents'));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [t]);
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      loadEvents();
+    }
+  }, [isLoggedIn, loadEvents]);
+
+  useEffect(() => {
+    let unsubscribe: (() => void) | null = null;
+    const checkUrlParams = async () => {
         const params = new URLSearchParams(window.location.search);
         const eventId = params.get('eventId');
         const supplierId = params.get('supplierId');
-        const adminToken = params.get('verify');
+        const verifyToken = params.get('verify');
 
-        if (adminToken) {
-            const unsub = api.subscribeToSupplierAdminData(
-                adminToken,
+        if (verifyToken) {
+            setIsLoading(true);
+            unsubscribe = api.subscribeToSupplierAdminData(
+                verifyToken,
                 (data) => {
                     setSupplierAdminData(data);
-                    setView('SUPPLIER_ADMIN');
+                    setView('supplier-admin');
+                    setIsLoading(false); // Set loading to false once data arrives
                 },
-                (err) => {
-                    console.error(err);
-                    setView('REGISTRATION_CLOSED');
+                (error) => {
+                    console.error(error);
+                    setGlobalError('Link de administrador inválido ou expirado.');
+                    setView('closed');
+                    setIsLoading(false);
                 }
             );
-            return () => unsub();
         } else if (eventId && supplierId) {
-            api.getSupplierForRegistration(eventId, supplierId).then(async (data) => {
-                if (data && data.data.active) {
-                    const count = await api.getRegistrationsCountForSupplier(eventId, supplierId);
-                    if (count >= data.data.registrationLimit) {
-                         setView('REGISTRATION_CLOSED');
-                         setError(t('errors.registrationLimitReached'));
-                    } else {
-                        setSupplierInfo(data);
-                        setView('SUPPLIER_REGISTRATION');
-                    }
+            setIsLoading(true);
+            const registrationData = await api.getSupplierForRegistration(eventId, supplierId);
+            if (registrationData) {
+                if (registrationData.data.active) {
+                    setSupplierInfo({ data: registrationData.data, name: registrationData.name });
+                    setSectors(registrationData.sectors);
+                    setView('supplier-registration');
                 } else {
-                    setView('REGISTRATION_CLOSED');
+                     setView('closed');
                 }
-            }).catch(() => setView('REGISTRATION_CLOSED'));
-        } else {
-            setView('LOGIN');
-        }
-    }, [t]);
-
-    useEffect(() => {
-        if (isLoggedIn) {
-            setView('EVENT_SELECTION');
-            loadEvents();
-        } else {
-            // This condition prevents resetting the view for public links
-            if (!['SUPPLIER_REGISTRATION', 'SUPPLIER_ADMIN', 'REGISTRATION_CLOSED'].includes(view)) {
-                setView('LOGIN');
-            }
-        }
-    }, [isLoggedIn, loadEvents, view]);
-
-    // Subscribe to event data when an event is selected
-    useEffect(() => {
-        if (selectedEvent) {
-            const unsubscribe = api.subscribeToEventData(
-                selectedEvent.id,
-                (data) => setEventData(data),
-                (err) => {
-                    console.error(err);
-                    handleSetError(t('errors.subscriptionError'));
-                }
-            );
-            return () => unsubscribe();
-        } else {
-            setEventData(null);
-        }
-    }, [selectedEvent, t]);
-
-
-    const handleLogin = (password: string) => {
-        clearError();
-        // In a real app, this would be a proper auth check.
-        // For this demo, we'll use a hardcoded password.
-        if (password === '1234') {
-            setIsLoggedIn(true);
-        } else {
-            setError(t('login.errors.invalidPassword'));
-        }
-    };
-
-    const handleEventSelect = (event: Event) => {
-        setSelectedEvent(event);
-        setView('ADMIN');
-    };
-
-    const handleBackToEvents = () => {
-        setSelectedEvent(null);
-        setView('EVENT_SELECTION');
-    };
-
-    const handleSaveEvent = async (name: string, eventId?: string) => {
-        try {
-            if (eventId) {
-                await api.updateEvent(eventId, name);
             } else {
-                await api.createEvent(name);
+                setGlobalError(t('errors.invalidSupplierLink'));
+                setView('login'); // Fallback to login
             }
-            loadEvents();
-        } catch (err) {
-            handleSetError(t('errors.saveEvent'));
+            setIsLoading(false);
+        } else {
+            if (isLoggedIn) {
+                setView('event-selection');
+            } else {
+                setView('login');
+            }
+            setIsLoading(false);
         }
     };
+    checkUrlParams();
 
-    const handleDeleteEvent = async (event: Event) => {
-        try {
-            await api.deleteEvent(event.id);
-            loadEvents();
-        } catch (err) {
-            handleSetError(t('errors.deleteEvent'));
+    return () => {
+        if (unsubscribe) {
+            unsubscribe();
         }
     };
+  }, [t, isLoggedIn]);
+  
+  useEffect(() => {
+    let unsubscribe: () => void = () => {};
+    if (currentEvent) {
+      setIsLoading(true);
+      unsubscribe = api.subscribeToEventData(currentEvent.id, (data) => {
+        setAttendees(data.attendees);
+        setSuppliers(data.suppliers);
+        setSectors(data.sectors);
+        setIsLoading(false);
+      }, (error) => {
+        console.error(error);
+        setGlobalError(t('errors.subscriptionError'));
+        setIsLoading(false);
+      });
+    }
+    return () => unsubscribe();
+  }, [currentEvent, t]);
+
+  const handleSelectEvent = (event: Event) => {
+    setCurrentEvent(event);
+    setView('admin');
+  };
+  
+  const handleBackToEvents = () => {
+    setCurrentEvent(null);
+    setAttendees([]);
+    setSuppliers([]);
+    setSectors([]);
+    setView('event-selection');
+  };
+
+  // Event handlers
+  const handleSaveEvent = async (name: string, eventId?: string) => {
+    try {
+      if (eventId) {
+        await api.updateEvent(eventId, name);
+      } else {
+        await api.createEvent(name);
+      }
+      await loadEvents();
+      setIsEventModalOpen(false);
+      setEventToEdit(null);
+    } catch (error) {
+      console.error(error);
+      setGlobalError(t('errors.saveEvent'));
+    }
+  };
+
+  const handleDeleteEvent = async (event: Event) => {
+    if (window.confirm(t('events.deleteConfirm', event.name))) {
+      try {
+        await api.deleteEvent(event.id);
+        await loadEvents();
+      } catch (error) {
+        console.error(error);
+        setGlobalError(t('errors.deleteEvent'));
+      }
+    }
+  };
+  
+  // Attendee Handlers
+  const handleRegister = async (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>, supplierIdFromForm?: string) => {
+    const eventId = currentEvent?.id || supplierInfo?.data.eventId;
+    if (!eventId) {
+      setGlobalError("ID do evento não encontrado.");
+      return;
+    }
+
+    const supplierId = supplierInfo?.data.id || supplierIdFromForm;
     
-    const handleRegister = async (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>, supplierId?: string) => {
-        const eventId = supplierInfo?.data.eventId || selectedEvent?.id;
-        if (!eventId) {
-            throw new Error("No event selected for registration.");
+    // Supplier registration limit check
+    if (supplierId) {
+      const currentSupplier = supplierInfo ? supplierInfo.data : suppliers.find(s => s.id === supplierId);
+      if (currentSupplier) {
+        const currentCount = await api.getRegistrationsCountForSupplier(eventId, supplierId);
+        if (currentCount >= currentSupplier.registrationLimit) {
+            setGlobalError(t('errors.registrationLimitReached'));
+            throw new Error('Limit reached');
         }
-        
+      }
+    }
+    
+    await api.addAttendee(eventId, newAttendee, supplierId);
+  };
+  
+  const handleUpdateAttendeeDetails = async (attendeeId: string, data: Partial<Attendee>) => {
+    if (!currentEvent) return;
+    await api.updateAttendeeDetails(currentEvent.id, attendeeId, data);
+  };
+
+  const handleDeleteAttendee = async (attendeeId: string) => {
+    if (!currentEvent) return;
+    await api.deleteAttendee(currentEvent.id, attendeeId);
+  };
+
+  const handleApproveSubstitution = async (attendeeId: string) => {
+    if (!currentEvent) return;
+    await api.approveSubstitution(currentEvent.id, attendeeId);
+  };
+  
+  const handleRejectSubstitution = async (attendeeId: string) => {
+    if (!currentEvent) return;
+    await api.rejectSubstitution(currentEvent.id, attendeeId);
+  };
+
+  // Supplier Handlers
+  const handleAddSupplier = async (name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[]) => {
+    if (!currentEvent) return;
+    await api.addSupplier(currentEvent.id, name, sectors, registrationLimit, subCompanies);
+  };
+
+  const handleUpdateSupplier = async (supplierId: string, data: Partial<Supplier>) => {
+    if (!currentEvent) return;
+    await api.updateSupplier(currentEvent.id, supplierId, data);
+  };
+
+  const handleDeleteSupplier = async (supplier: Supplier) => {
+    if (!currentEvent) return;
+    await api.deleteSupplier(currentEvent.id, supplier.id);
+  };
+  
+  const handleSupplierStatusUpdate = async (supplierId: string, active: boolean) => {
+    if (!currentEvent) return;
+    await api.updateSupplierStatus(currentEvent.id, supplierId, active);
+  };
+
+  const handleRegenerateAdminToken = async (supplierId: string): Promise<string> => {
+      if (!currentEvent) throw new Error("Evento não selecionado");
+      return api.regenerateSupplierAdminToken(currentEvent.id, supplierId);
+  };
+  
+  // Sector Handlers
+  const handleAddSector = async (label: string, color: string) => {
+    if (!currentEvent) return;
+    await api.addSector(currentEvent.id, label, color);
+  };
+
+  const handleUpdateSector = async (sectorId: string, data: { label: string, color: string }) => {
+    if (!currentEvent) return;
+    await api.updateSector(currentEvent.id, sectorId, data);
+  };
+
+  const handleDeleteSector = async (sector: Sector) => {
+    if (!currentEvent) return;
+    await api.deleteSector(currentEvent.id, sector.id);
+  };
+  
+  
+  const renderContent = () => {
+    if (isLoading) {
+      return <div className="min-h-screen flex items-center justify-center"><div className="w-16 h-16 border-4 border-dashed rounded-full animate-spin border-indigo-500"></div></div>;
+    }
+    
+    switch (view) {
+      case 'login':
+        return <LoginView onLogin={handleLogin} error={loginError} />;
+      case 'event-selection':
+        return <EventSelectionView events={events} onSelectEvent={handleSelectEvent} onCreateEvent={() => { setEventToEdit(null); setIsEventModalOpen(true); }} onEditEvent={(e) => { setEventToEdit(e); setIsEventModalOpen(true); }} onDeleteEvent={handleDeleteEvent} />;
+      case 'admin':
+        if (currentEvent) {
+          return <AdminView 
+            isLoading={isLoading}
+            currentEvent={currentEvent}
+            attendees={attendees}
+            suppliers={suppliers}
+            sectors={sectors}
+            onRegister={handleRegister}
+            onAddSupplier={handleAddSupplier}
+            onUpdateSupplier={handleUpdateSupplier}
+            onDeleteSupplier={handleDeleteSupplier}
+            onSupplierStatusUpdate={handleSupplierStatusUpdate}
+            onRegenerateAdminToken={handleRegenerateAdminToken}
+            onAddSector={handleAddSector}
+            onUpdateSector={handleUpdateSector}
+            onDeleteSector={handleDeleteSector}
+            onAttendeeDetailsUpdate={handleUpdateAttendeeDetails}
+            onDeleteAttendee={handleDeleteAttendee}
+            onApproveSubstitution={handleApproveSubstitution}
+            onRejectSubstitution={handleRejectSubstitution}
+            onBack={handleBackToEvents}
+            setError={setGlobalError}
+          />;
+        }
+        return null;
+      case 'supplier-registration':
         if (supplierInfo) {
-            const count = await api.getRegistrationsCountForSupplier(eventId, supplierInfo.data.id);
-            if (count >= supplierInfo.data.registrationLimit) {
-                setView('REGISTRATION_CLOSED');
-                setError(t('errors.registrationLimitReached'));
-                throw new Error(t('errors.registrationLimitReached'));
-            }
+          return <RegisterView 
+            onRegister={handleRegister} 
+            setError={setGlobalError} 
+            sectors={sectors} 
+            predefinedSector={supplierInfo.data.sectors}
+            eventName={supplierInfo.name}
+            supplierName={supplierInfo.data.name}
+            supplierInfo={supplierInfo}
+          />
         }
-
-        await api.addAttendee(eventId, newAttendee, supplierId || supplierInfo?.data.id);
-    };
-
-    const renderView = () => {
-        switch (view) {
-            case 'LOGIN':
-                return <LoginView onLogin={handleLogin} error={error} />;
-            case 'EVENT_SELECTION':
-                return <EventSelectionView events={events} onSelectEvent={handleEventSelect} onCreateEvent={() => {}} onEditEvent={() => {}} onDeleteEvent={handleDeleteEvent} />;
-            case 'ADMIN':
-                if (selectedEvent && eventData) {
-                    return (
-                        <AdminView
-                            event={selectedEvent}
-                            attendees={eventData.attendees}
-                            suppliers={eventData.suppliers}
-                            sectors={eventData.sectors}
-                            onBack={handleBackToEvents}
-                            onRegister={handleRegister}
-                            setError={handleSetError}
-                        />
-                    );
-                }
-                return null; // Or a loading indicator
-            case 'SUPPLIER_REGISTRATION':
-                if (supplierInfo) {
-                    const { data, name, sectors } = supplierInfo;
-                    const permittedSectors = sectors.filter(s => data.sectors.includes(s.id));
-                    return <RegisterView 
-                                onRegister={handleRegister} 
-                                setError={handleSetError}
-                                sectors={permittedSectors}
-                                predefinedSector={data.sectors.length === 1 ? data.sectors[0] : data.sectors}
-                                eventName={name}
-                                supplierName={data.name}
-                                supplierInfo={supplierInfo}
-                           />;
-                }
-                return <RegistrationClosedView message={t('errors.invalidSupplierLink')} />;
-             case 'SUPPLIER_ADMIN':
-                 if (supplierAdminData) {
-                     return <SupplierAdminView {...supplierAdminData} />;
-                 }
-                 return null;
-            case 'REGISTRATION_CLOSED':
-                return <RegistrationClosedView message={error || undefined} />;
-            case 'LOADING':
-                 return <div className="text-white text-center">Loading...</div>; // Replace with a proper spinner/loader
-            default:
-                return <div className="text-red-500 text-center">An unexpected error occurred.</div>;
+        return null;
+      case 'supplier-admin':
+        if (supplierAdminData) {
+          return <SupplierAdminView 
+            eventName={supplierAdminData.eventName} 
+            attendees={supplierAdminData.attendees}
+            eventId={supplierAdminData.eventId}
+          />;
         }
-    };
+        return null;
+      case 'closed':
+        return <RegistrationClosedView />;
+      default:
+        return <LoginView onLogin={handleLogin} error={loginError} />;
+    }
+  };
 
-    return (
-        <div className="bg-gray-900 text-white min-h-screen font-sans">
-            <div className="container mx-auto px-4 py-8">
-                 {error && view !== 'LOGIN' && (
-                    <div className="fixed top-5 right-5 bg-red-600 text-white py-2 px-4 rounded-lg shadow-lg z-50">
-                        {error}
-                    </div>
-                 )}
-                {renderView()}
-            </div>
-        </div>
-    );
+  return (
+    <div className="bg-gray-900 text-white min-h-screen font-sans bg-grid">
+      <div className="relative z-10">
+        {renderContent()}
+        {isEventModalOpen && (
+          <EventModal 
+            isOpen={isEventModalOpen}
+            onClose={() => { setIsEventModalOpen(false); setEventToEdit(null); }}
+            onSave={handleSaveEvent}
+            eventToEdit={eventToEdit}
+          />
+        )}
+        {globalError && (
+          <div className="fixed bottom-5 right-5 bg-red-600 text-white py-3 px-5 rounded-lg shadow-lg animate-fade-in-up">
+            <p>{globalError}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 };
 
 export default App;

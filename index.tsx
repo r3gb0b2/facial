@@ -1,6 +1,5 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-// FIX: The import path for 'App.tsx' must be relative.
 import App from './App.tsx';
 import { LanguageProvider } from './hooks/useTranslation.tsx';
 
