@@ -35,6 +35,8 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
   const [existingAttendeeFound, setExistingAttendeeFound] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   
+  const isSupplierWithMultipleSectors = Array.isArray(predefinedSector);
+  const isSupplierWithSingleSector = typeof predefinedSector === 'string';
   const isAdminView = !predefinedSector; // True if it's the main admin view, not a supplier link
   const hasSubCompanies = Array.isArray(supplierInfo?.data.subCompanies) && supplierInfo!.data.subCompanies!.length > 0;
 
@@ -49,20 +51,19 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
       // If there are sub-companies, sector is determined by them.
       // Set to empty initially, will be set when a sub-company is chosen.
       setSector('');
-      setSubCompany('');
+      setSubCompany(''); // Reset to default/placeholder
     } else {
-      const isSupplierReg = Array.isArray(predefinedSector);
-      const isSingleSector = isSupplierReg && predefinedSector.length === 1;
-
+      // Standard behavior without sub-companies
       let initialSector = '';
-      if (isSingleSector) {
-        // If the supplier has only one sector, it's pre-selected.
-        initialSector = predefinedSector[0];
+      if (isSupplierWithSingleSector) {
+        initialSector = predefinedSector as string;
+      } else if (isSupplierWithMultipleSectors) {
+        const availableSectors = sectors.filter(s => (predefinedSector as string[]).includes(s.id));
+        initialSector = availableSectors.length > 0 ? availableSectors[0].id : '';
       }
-      // For multi-sector suppliers and the main admin, the sector starts empty, forcing a selection.
       setSector(initialSector);
     }
-  }, [predefinedSector, hasSubCompanies]);
+  }, [predefinedSector, isSupplierWithSingleSector, isSupplierWithMultipleSectors, sectors, hasSubCompanies]);
 
   // Effect to auto-select sector when a sub-company is chosen
   useEffect(() => {
@@ -109,13 +110,9 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
     else if (!predefinedSector) { // Admin View
       setSector('');
       setSubCompany('');
-    } else {
-      const isSingleSector = Array.isArray(predefinedSector) && predefinedSector.length === 1;
-      if (isSingleSector) {
-          setSector(predefinedSector[0]);
-      } else {
-          setSector(''); // Reset for multi-sector
-      }
+    } else if (isSupplierWithMultipleSectors) {
+      const availableSectors = sectors.filter(s => (predefinedSector as string[]).includes(s.id));
+      setSector(availableSectors.length > 0 ? availableSectors[0].id : '');
     }
   };
 
@@ -211,24 +208,18 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
   
   const renderSectorInput = () => {
     const adminHasSubCompanies = isAdminView && selectedSupplier?.subCompanies && selectedSupplier.subCompanies.length > 0;
-
-    const isSupplierRegistration = Array.isArray(predefinedSector);
-    const isSingleSectorSupplier = isSupplierRegistration && predefinedSector.length === 1;
-
-    // The sector input should not be displayed if:
-    // 1. The sector is determined by a selected sub-company.
-    // 2. The supplier is configured for only one specific sector.
-    if (hasSubCompanies || adminHasSubCompanies || isSingleSectorSupplier) {
-      return null;
+    
+    // If supplier has sub-companies (either from supplier link or admin selection), sector is derived, so hide this input.
+    if (hasSubCompanies || adminHasSubCompanies) return null;
+    
+    if (isSupplierWithSingleSector) {
+      return null; // Sector is predefined and hidden
     }
 
-    // Determine the list of sectors to show in the dropdown.
     let sectorOptions = sectors;
-    if (isSupplierRegistration) {
-      // For a multi-sector supplier, only show the sectors they are allowed to register for.
-      sectorOptions = sectors.filter(s => predefinedSector.includes(s.id));
+    if (isSupplierWithMultipleSectors) {
+        sectorOptions = sectors.filter(s => (predefinedSector as string[]).includes(s.id));
     }
-    // For the admin view (without a supplier with sub-companies), show all event sectors.
 
     return (
         <div>
@@ -237,9 +228,8 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
             id="sector" value={sector} onChange={(e) => setSector(e.target.value)}
             className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
             disabled={isSubmitting || isCheckingCpf || existingAttendeeFound}
-            required
           >
-            <option value="" disabled>{t('register.form.sectorPlaceholder')}</option>
+            {isSupplierWithMultipleSectors ? null : <option value="" disabled>{t('register.form.sectorPlaceholder')}</option>}
             {sectorOptions.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
         </div>
