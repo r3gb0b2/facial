@@ -377,7 +377,7 @@ const App: React.FC = () => {
     try {
       await api.deleteSupplier(currentEvent.id, supplier.id);
     } catch (error) {
-      // FIX: Safely handle 'unknown' error type by checking if it's an instance of Error before using its properties.
+      // FIX: The error object from a catch block is of type 'unknown'. We must check if it's an instance of Error before accessing its properties to ensure type safety.
       if (error instanceof Error) {
         setGlobalError(error.message);
       } else {
