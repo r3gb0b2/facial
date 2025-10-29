@@ -1,6 +1,8 @@
 
 
 
+
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Attendee, Event, Sector, Supplier, CheckinStatus, SubCompany } from './types.ts';
 import * as api from './firebase/service.ts';
@@ -207,7 +209,7 @@ const App: React.FC = () => {
       setEventToEdit(null);
     } catch (error) {
       console.error(error);
-      // FIX: Safely handle caught errors of type 'unknown' by checking if it's an instance of Error.
+      // FIX: Safely handle caught error of type 'unknown' by checking if it's an instance of Error.
       setGlobalError(error instanceof Error ? error.message : t('errors.saveEvent'));
     }
   };
@@ -219,6 +221,7 @@ const App: React.FC = () => {
         await loadEvents();
       } catch (error) {
         console.error(error);
+        // FIX: Safely handle caught error of type 'unknown' by checking if it's an instance of Error.
         setGlobalError(error instanceof Error ? error.message : t('errors.deleteEvent'));
       }
     }
