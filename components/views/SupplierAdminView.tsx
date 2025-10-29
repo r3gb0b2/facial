@@ -123,13 +123,8 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                           const isSubstRequested = submittedSubstitutions.has(attendee.id) || attendee.status === CheckinStatus.SUBSTITUTION_REQUEST;
                           const isSectorChangeRequested = submittedSectorChanges.has(attendee.id) || attendee.status === CheckinStatus.SECTOR_CHANGE_REQUEST;
                           
-                          // FIX: Refactored logic to be more robust and explicit.
-                          // It defensively ensures attendee.sectors is an array and then checks if there's any sector
-                          // allowed for the supplier that the attendee isn't currently in.
                           const attendeeCurrentSectors = Array.isArray(attendee.sectors) ? attendee.sectors : [];
-                          const canChangeSector = allowedSectorsForSupplier.some(
-                            (allowedSector) => !attendeeCurrentSectors.includes(allowedSector.id)
-                          );
+                          const canChangeSector = allowedSectorsForSupplier.length > attendeeCurrentSectors.length;
 
                           return (
                             <div key={attendee.id} className="bg-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-700 flex flex-col">
