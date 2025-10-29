@@ -192,7 +192,8 @@ const App: React.FC = () => {
       setEventToEdit(null);
     } catch (error) {
       console.error(error);
-      setGlobalError(t('errors.saveEvent'));
+      // FIX: The 'error' object is of type 'unknown' and cannot be directly assigned to a string state.
+      setGlobalError(error instanceof Error ? error.message : t('errors.saveEvent'));
     }
   };
 
@@ -203,7 +204,8 @@ const App: React.FC = () => {
         await loadEvents();
       } catch (error) {
         console.error(error);
-        setGlobalError(t('errors.deleteEvent'));
+        // FIX: The 'error' object is of type 'unknown' and cannot be directly assigned to a string state.
+        setGlobalError(error instanceof Error ? error.message : t('errors.deleteEvent'));
       }
     }
   };
@@ -370,6 +372,17 @@ const App: React.FC = () => {
     if (!currentEvent) return;
     await api.deleteSector(currentEvent.id, sector.id);
   };
+
+  // Company Handlers
+  const handleUpdateCompanySectors = async (companyName: string, sectorIds: string[]) => {
+    if (!currentEvent) return;
+    try {
+        await api.updateSectorsForCompany(currentEvent.id, companyName, sectorIds);
+    } catch (error) {
+        console.error(error);
+        setGlobalError("Falha ao atualizar setores da empresa.");
+    }
+  };
   
   
   const renderContent = () => {
@@ -404,6 +417,7 @@ const App: React.FC = () => {
             onDeleteAttendee={handleDeleteAttendee}
             onApproveSubstitution={handleApproveSubstitution}
             onRejectSubstitution={handleRejectSubstitution}
+            onUpdateCompanySectors={handleUpdateCompanySectors}
             onBack={handleBackToEvents}
             setError={setGlobalError}
           />;

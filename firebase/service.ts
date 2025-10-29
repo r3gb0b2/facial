@@ -200,6 +200,23 @@ export const rejectSubstitution = (eventId: string, attendeeId: string) => {
     });
 };
 
+export const updateSectorsForCompany = async (eventId: string, companyName: string, sectorIds: string[]) => {
+    const attendeesRef = db.collection('events').doc(eventId).collection('attendees');
+    const querySnapshot = await attendeesRef.where('subCompany', '==', companyName).get();
+
+    if (querySnapshot.empty) {
+        console.warn("No attendees found for this company to update.");
+        return;
+    }
+
+    const batch = db.batch();
+    querySnapshot.docs.forEach(doc => {
+        batch.update(doc.ref, { sectors: sectorIds });
+    });
+
+    await batch.commit();
+};
+
 
 // Supplier Management
 export const addSupplier = (eventId: string, name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[]) => {

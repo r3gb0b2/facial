@@ -7,9 +7,10 @@ import SupplierManagementView from './SupplierManagementView.tsx';
 import SectorManagementView from './SectorManagementView.tsx';
 import WristbandReportView from './WristbandReportView.tsx';
 import SpreadsheetUploadView from './SpreadsheetUploadView.tsx';
+import CompanyManagementView from './CompanyManagementView.tsx';
 import { ArrowLeftOnRectangleIcon, SpinnerIcon } from '../icons.tsx';
 
-type AdminTab = 'checkin' | 'register' | 'suppliers' | 'sectors' | 'wristbands';
+type AdminTab = 'checkin' | 'register' | 'suppliers' | 'sectors' | 'wristbands' | 'companies';
 
 interface AdminViewProps {
     isLoading: boolean;
@@ -31,6 +32,7 @@ interface AdminViewProps {
     onDeleteAttendee: (attendeeId: string) => Promise<void>;
     onApproveSubstitution: (attendeeId: string) => Promise<void>;
     onRejectSubstitution: (attendeeId: string) => Promise<void>;
+    onUpdateCompanySectors: (companyName: string, sectorIds: string[]) => Promise<void>;
     onBack: () => void;
     setError: (message: string) => void;
 }
@@ -51,6 +53,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
         { id: 'checkin', label: t('admin.tabs.checkin') },
         { id: 'register', label: t('admin.tabs.register') },
         { id: 'suppliers', label: t('admin.tabs.suppliers') },
+        { id: 'companies', label: t('admin.tabs.companies') },
         { id: 'sectors', label: t('admin.tabs.sectors') },
         { id: 'wristbands', label: t('admin.tabs.wristbands') },
     ];
@@ -106,6 +109,13 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                     onRegenerateAdminToken={props.onRegenerateAdminToken}
                     setError={props.setError} 
                 />;
+            case 'companies':
+                return <CompanyManagementView 
+                    attendees={props.attendees} 
+                    sectors={props.sectors} 
+                    onUpdateCompanySectors={props.onUpdateCompanySectors}
+                    setError={props.setError}
+                />;
             case 'sectors':
                 return <SectorManagementView sectors={props.sectors} onAddSector={props.onAddSector} onUpdateSector={props.onUpdateSector} onDeleteSector={props.onDeleteSector} setError={props.setError} />;
             case 'wristbands':
@@ -134,7 +144,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
             <nav className="mb-8">
                 <ul className="flex flex-wrap items-center justify-center gap-2 md:gap-4 p-2 bg-gray-900/50 rounded-lg">
                     {tabs.map(tab => (
-                        <li key={tab.id} className="flex-1">
+                        <li key={tab.id} className="flex-1 min-w-[100px]">
                             <button
                                 onClick={() => setActiveTab(tab.id)}
                                 className={`w-full font-semibold text-sm md:text-base py-2 px-4 rounded-md transition-colors ${activeTab === tab.id ? 'bg-indigo-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}

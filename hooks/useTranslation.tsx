@@ -30,6 +30,7 @@ const translations: { [lang: string]: Translations } = {
     'admin.tabs.suppliers': 'Fornecedores',
     'admin.tabs.sectors': 'Setores',
     'admin.tabs.wristbands': 'Relatório de Pulseiras',
+    'admin.tabs.companies': 'Empresas',
     'checkin.searchPlaceholder': 'Buscar por nome, CPF, pulseira...',
     'checkin.stats.checkedIn': 'Check-ins',
     'checkin.stats.pending': 'Pendentes',
@@ -186,6 +187,14 @@ const translations: { [lang: string]: Translations } = {
     'errors.subscriptionError': 'Erro ao sincronizar dados do evento.',
     'errors.invalidSupplierLink': 'Link de fornecedor inválido ou o evento não foi encontrado.',
     'errors.registrationLimitReached': 'O limite de cadastros para este fornecedor foi atingido.',
+    'companies.title': 'Gerenciar Empresas',
+    'companies.attendeeCount': (count: number) => `${count} participante(s)`,
+    'companies.noCompanies': 'Nenhuma empresa/unidade encontrada.',
+    'companies.noCompaniesSubtitle': 'Cadastre participantes com uma empresa para gerenciá-los aqui.',
+    'companies.modal.title': (name: string) => `Editar Setores para ${name}`,
+    'companies.modal.description': 'Selecione os novos setores. Esta ação atualizará todos os participantes associados a esta empresa.',
+    'companies.modal.saveButton': 'Salvar Alterações',
+    'companies.editButton': 'Editar Setores',
   },
 };
 
