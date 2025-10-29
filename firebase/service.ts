@@ -181,16 +181,19 @@ export const approveSubstitution = async (eventId: string, attendeeId: string) =
     }
     
     const { name, cpf, photo: photoDataUrl, newSectorId } = attendee.substitutionData;
-    
-    const photoUrl = await uploadPhoto(photoDataUrl, cpf);
 
     const dataToUpdate: any = {
         name: name,
         cpf: cpf,
-        photo: photoUrl,
         status: CheckinStatus.PENDING,
         substitutionData: FieldValue.delete(),
     };
+    
+    // Only upload and update photo if a new base64 photo is provided
+    if (photoDataUrl && photoDataUrl.startsWith('data:image')) {
+        const photoUrl = await uploadPhoto(photoDataUrl, cpf);
+        dataToUpdate.photo = photoUrl;
+    }
 
     if (newSectorId) {
         dataToUpdate.sectors = [newSectorId];

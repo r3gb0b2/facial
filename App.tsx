@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Attendee, Event, Sector, Supplier, CheckinStatus, SubCompany } from './types.ts';
 import * as api from './firebase/service.ts';
@@ -344,7 +345,7 @@ const App: React.FC = () => {
             successCount++;
 
         } catch (error) {
-            // Fix: Type-check error before accessing 'message' property.
+            // FIX: The 'error' object in a catch block is of type 'unknown'. We must verify it's an instance of Error before accessing the 'message' property to avoid a type error.
             const reason = error instanceof Error ? `Erro no servidor: ${error.message}` : 'Erro no servidor: desconhecido.';
             failedRows.push({ row, reason });
         }
@@ -375,7 +376,7 @@ const App: React.FC = () => {
     try {
       await api.deleteSupplier(currentEvent.id, supplier.id);
     } catch (error) {
-      // Fix: Type-check error before accessing 'message' property to safely set the global error.
+      // FIX: The 'error' object in a catch block is of type 'unknown'. We must verify it's an instance of Error before accessing the 'message' property to avoid a type error. This ensures we only pass a string to setGlobalError.
       if (error instanceof Error) {
         setGlobalError(error.message);
       } else {

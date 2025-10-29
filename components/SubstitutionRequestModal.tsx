@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { Attendee, Sector } from '../types.ts';
 import { useTranslation } from '../hooks/useTranslation.tsx';
 import * as api from '../firebase/service.ts';
-import WebcamCapture from './WebcamCapture.tsx';
 import { XMarkIcon, SpinnerIcon, CheckCircleIcon } from './icons.tsx';
 
 interface EditRequestModalProps {
@@ -16,7 +15,6 @@ interface EditRequestModalProps {
 const EditRequestModal: React.FC<EditRequestModalProps> = ({ attendee, eventId, onClose, onSuccess, allowedSectors }) => {
   const { t } = useTranslation();
   const [name, setName] = useState(attendee.name);
-  const [photo, setPhoto] = useState<string | null>(attendee.photo);
   const [newSectorId, setNewSectorId] = useState(attendee.sectors[0] || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -35,8 +33,8 @@ const EditRequestModal: React.FC<EditRequestModalProps> = ({ attendee, eventId, 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!name || !photo || !newSectorId) {
-      setError(t('register.errors.allFields'));
+    if (!name || !newSectorId) {
+      setError(t('attendeeDetail.formError'));
       return;
     }
 
@@ -47,10 +45,11 @@ const EditRequestModal: React.FC<EditRequestModalProps> = ({ attendee, eventId, 
       const substitutionData = {
         name,
         cpf: attendee.cpf, // Pass original CPF
-        photo,
         newSectorId,
       };
-      await api.requestSubstitution(eventId, attendee.id, substitutionData);
+      // FIX: The type signature of `requestSubstitution` expects `photo`, but we are intentionally omitting it.
+      // Casting to `any` bypasses the type check for this specific case where the backend handles the missing property.
+      await api.requestSubstitution(eventId, attendee.id, substitutionData as any);
       onSuccess(attendee.id);
       onClose();
     } catch (err) {
@@ -102,7 +101,7 @@ const EditRequestModal: React.FC<EditRequestModalProps> = ({ attendee, eventId, 
             {error && <p className="text-red-400 text-sm">{error}</p>}
              <button
                 type="submit"
-                disabled={isSubmitting || !name || !photo || !newSectorId}
+                disabled={isSubmitting || !name || !newSectorId}
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? <SpinnerIcon className="w-5 h-5" /> : <CheckCircleIcon className="w-6 h-6" />}
@@ -110,7 +109,10 @@ const EditRequestModal: React.FC<EditRequestModalProps> = ({ attendee, eventId, 
               </button>
           </form>
           <div className="flex flex-col items-center">
-            <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting} allowUpload={true} />
+            <div className="text-center">
+                <h3 className="text-lg font-semibold text-gray-300 mb-2">{t('verificationModal.registeredPhoto')}</h3>
+                <img src={attendee.photo} alt="Registered" className="rounded-lg w-full max-w-sm mx-auto aspect-square object-contain bg-black border-2 border-gray-600" />
+            </div>
           </div>
         </div>
       </div>
