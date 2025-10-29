@@ -73,7 +73,7 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
   }, [attendees, searchTerm, companyFilter]);
 
   const allowedSectorsForSupplier = useMemo(() => {
-    return sectors.filter(s => supplier.sectors.includes(s.id));
+    return sectors.filter(s => (supplier.sectors || []).includes(s.id));
   }, [sectors, supplier]);
 
 
@@ -123,8 +123,12 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                           const isSubstRequested = submittedSubstitutions.has(attendee.id) || attendee.status === CheckinStatus.SUBSTITUTION_REQUEST;
                           const isSectorChangeRequested = submittedSectorChanges.has(attendee.id) || attendee.status === CheckinStatus.SECTOR_CHANGE_REQUEST;
                           
-                          const attendeeCurrentSectors = Array.isArray(attendee.sectors) ? attendee.sectors : [];
-                          const canChangeSector = allowedSectorsForSupplier.some(s => !attendeeCurrentSectors.includes(s.id));
+                          // A change is possible if there is at least one sector managed by the supplier
+                          // that the attendee is not currently in. This direct comparison is more robust
+                          // against data inconsistencies (e.g., a deleted sector still in the supplier's list).
+                          const supplierSectors = supplier.sectors || [];
+                          const attendeeSectors = Array.isArray(attendee.sectors) ? attendee.sectors : [];
+                          const canChangeSector = supplierSectors.some(sId => !attendeeSectors.includes(sId));
 
                           return (
                             <div key={attendee.id} className="bg-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-700 flex flex-col">

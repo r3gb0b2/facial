@@ -346,7 +346,7 @@ const App: React.FC = () => {
             successCount++;
 
         } catch (error) {
-            // FIX: Safely handle 'unknown' error type by checking if it's an instance of Error before using its properties.
+            // FIX: Safely handle the 'unknown' error type by checking if it's an instance of Error before accessing the 'message' property. This resolves the error reported around line 318.
             const reason = error instanceof Error ? `Erro no servidor: ${error.message}` : 'Erro no servidor: desconhecido.';
             failedRows.push({ row, reason });
         }
@@ -377,7 +377,7 @@ const App: React.FC = () => {
     try {
       await api.deleteSupplier(currentEvent.id, supplier.id);
     } catch (error) {
-      // FIX: The error object from a catch block is of type 'unknown'. We must check if it's an instance of Error before accessing its properties to ensure type safety.
+      // FIX: Safely handle the 'unknown' error type from the catch block by checking if it's an instance of Error before accessing the 'message' property. This resolves the error reported around line 341.
       if (error instanceof Error) {
         setGlobalError(error.message);
       } else {
