@@ -38,45 +38,44 @@ export const subscribeToEventData = (
     callback: (data: { attendees: Attendee[], suppliers: Supplier[], sectors: Sector[] }) => void,
     onError: (error: Error) => void
 ) => {
+    // Maintain the latest state of each collection locally
+    let attendees: Attendee[] = [];
+    let suppliers: Supplier[] = [];
+    let sectors: Sector[] = [];
+    const loaded = { attendees: false, suppliers: false, sectors: false };
+
+    // This function will be called by each listener.
+    // It sends the complete, merged state to the App component.
+    const updateCallback = () => {
+        // Ensure all three initial loads have completed before sending data
+        if (loaded.attendees && loaded.suppliers && loaded.sectors) {
+            callback({ attendees, suppliers, sectors });
+        }
+    };
+
     const attendeesUnsub = db.collection('events').doc(eventId).collection('attendees').onSnapshot(snap => {
-        const attendees = getCollectionData<Attendee>(snap);
-        callback({ attendees, suppliers: [], sectors: [] }); // partial update
+        attendees = getCollectionData<Attendee>(snap);
+        if (!loaded.attendees) loaded.attendees = true;
+        updateCallback();
     }, onError);
 
     const suppliersUnsub = db.collection('events').doc(eventId).collection('suppliers').onSnapshot(snap => {
-        const suppliers = getCollectionData<Supplier>(snap);
-        callback({ attendees: [], suppliers, sectors: [] }); // partial update
+        suppliers = getCollectionData<Supplier>(snap);
+        if (!loaded.suppliers) loaded.suppliers = true;
+        updateCallback();
     }, onError);
     
     const sectorsUnsub = db.collection('events').doc(eventId).collection('sectors').onSnapshot(snap => {
-        const sectors = getCollectionData<Sector>(snap);
-        callback({ attendees: [], suppliers: [], sectors }); // partial update
+        sectors = getCollectionData<Sector>(snap);
+        if (!loaded.sectors) loaded.sectors = true;
+        updateCallback();
     }, onError);
 
-    // This is a simplified subscription model. A better approach would be to manage state more granularly.
-    // For now, we'll merge the state in the App component.
-    // We'll refetch all data on any change.
-    const combinedUnsub = db.collection('events').doc(eventId).onSnapshot(async () => {
-       try {
-            const attendeesSnap = await db.collection('events').doc(eventId).collection('attendees').get();
-            const suppliersSnap = await db.collection('events').doc(eventId).collection('suppliers').get();
-            const sectorsSnap = await db.collection('events').doc(eventId).collection('sectors').get();
-            callback({
-                attendees: getCollectionData<Attendee>(attendeesSnap),
-                suppliers: getCollectionData<Supplier>(suppliersSnap),
-                sectors: getCollectionData<Sector>(sectorsSnap),
-            });
-       } catch (error: any) {
-           onError(error)
-       }
-    });
-
-
+    // Return a function that unsubscribes from all listeners
     return () => {
-        // attendeesUnsub();
-        // suppliersUnsub();
-        // sectorsUnsub();
-        combinedUnsub();
+        attendeesUnsub();
+        suppliersUnsub();
+        sectorsUnsub();
     };
 };
 

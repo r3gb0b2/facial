@@ -64,7 +64,8 @@ const WristbandReportView: React.FC<WristbandReportViewProps> = ({ attendees, se
         if (normalizedTerm) {
           const nameMatch = normalizeString(attendee.name).includes(normalizedTerm);
           const cpfMatch = attendee.cpf.replace(/\D/g, '').includes(normalizedTerm);
-          const wristbandMatch = normalizeString(wristbandNumber).includes(normalizedTerm);
+          // FIX: Explicitly cast wristbandNumber to a string to satisfy normalizeString's type requirement.
+          const wristbandMatch = normalizeString(String(wristbandNumber)).includes(normalizedTerm);
           if (!nameMatch && !cpfMatch && !wristbandMatch) continue;
         }
 
@@ -78,7 +79,8 @@ const WristbandReportView: React.FC<WristbandReportViewProps> = ({ attendees, se
           sectorId: sectorId,
           sectorLabel: sectorLabel,
           sectorColor: sectorInfo?.color,
-          wristbandNumber: wristbandNumber,
+          // FIX: Explicitly cast wristbandNumber to string to match the defined type for the data array.
+          wristbandNumber: String(wristbandNumber),
         });
       }
     }
@@ -106,8 +108,7 @@ const WristbandReportView: React.FC<WristbandReportViewProps> = ({ attendees, se
               </div>
               <p className="text-2xl font-bold text-indigo-400 mt-1">{stat.delivered}</p>
               <p className="text-xs text-gray-400 uppercase font-semibold">
-                {/* FIX: Cast result of t() to string to resolve type error in JSX. */}
-                {t('wristbandReport.stats.deliveredOf', stat.delivered, stat.total) as string}
+                {t('wristbandReport.stats.deliveredOf', stat.delivered, stat.total)}
               </p>
             </div>
           ))}
@@ -140,11 +141,10 @@ const WristbandReportView: React.FC<WristbandReportViewProps> = ({ attendees, se
           <table className="w-full text-sm text-left text-gray-300">
             <thead className="text-xs text-gray-400 uppercase bg-gray-900/50">
               <tr>
-                {/* FIX: Cast result of t() to string to resolve type error in JSX. */}
-                <th scope="col" className="px-6 py-3">{t('wristbandReport.list.header.name') as string}</th>
-                <th scope="col" className="px-6 py-3">{t('wristbandReport.list.header.wristband') as string}</th>
-                <th scope="col" className="px-6 py-3">{t('wristbandReport.list.header.sector') as string}</th>
-                <th scope="col" className="px-6 py-3 text-center">{t('wristbandReport.list.header.color') as string}</th>
+                <th scope="col" className="px-6 py-3">{t('wristbandReport.list.header.name')}</th>
+                <th scope="col" className="px-6 py-3">{t('wristbandReport.list.header.wristband')}</th>
+                <th scope="col" className="px-6 py-3">{t('wristbandReport.list.header.sector')}</th>
+                <th scope="col" className="px-6 py-3 text-center">{t('wristbandReport.list.header.color')}</th>
               </tr>
             </thead>
             <tbody>

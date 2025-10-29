@@ -97,7 +97,8 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
       if (normalizedTerm) {
         const nameMatch = normalizeString(attendee.name).includes(normalizedTerm);
         const cpfMatch = attendee.cpf.replace(/\D/g, '').includes(normalizedTerm);
-        const wristbandMatch = attendee.wristbands ? Object.values(attendee.wristbands).some(num => normalizeString(num).includes(normalizedTerm)) : false;
+        // FIX: Explicitly cast num to string to satisfy normalizeString's type requirement.
+        const wristbandMatch = attendee.wristbands ? Object.values(attendee.wristbands).some(num => normalizeString(String(num)).includes(normalizedTerm)) : false;
         const subCompanyMatch = attendee.subCompany ? normalizeString(attendee.subCompany).includes(normalizedTerm) : false;
         if (!nameMatch && !cpfMatch && !wristbandMatch && !subCompanyMatch) {
           return false; // if neither name, CPF, wristband nor sub-company matches, filter it out
@@ -153,8 +154,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
           >
             <option value="ALL">{t('checkin.filter.allStatuses')}</option>
             {Object.values(CheckinStatus).map(status => (
-              // FIX: Cast enum value to string before calling .toLowerCase() to resolve type error.
-              <option key={status} value={status}>{t(`status.${(status as string).toLowerCase()}`)}</option>
+              <option key={status} value={status}>{t(`status.${status.toLowerCase()}`)}</option>
             ))}
           </select>
           <select
@@ -204,10 +204,9 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
       {filteredAttendees.length === 0 && (
           <div className="text-center col-span-full py-16">
               <p className="text-gray-400">
-                {/* FIX: Cast result of t() to string to resolve type error. */}
                 {searchTerm.trim()
-                  ? t('checkin.search.noResultsForTerm', searchTerm) as string
-                  : t('checkin.search.noResultsForFilter') as string
+                  ? t('checkin.search.noResultsForTerm', searchTerm)
+                  : t('checkin.search.noResultsForFilter')
                 }
               </p>
           </div>
