@@ -1,13 +1,3 @@
-
-
-
-
-
-
-
-
-
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Attendee, Event, Sector, Supplier, CheckinStatus, SubCompany } from './types.ts';
 import * as api from './firebase/service.ts';
@@ -214,7 +204,7 @@ const App: React.FC = () => {
       setEventToEdit(null);
     } catch (error) {
       console.error(error);
-      // FIX: Type 'unknown' is not assignable to type 'string'. Safely handle error before passing to state.
+      // Safely handle caught errors of type 'unknown' by checking if it's an instance of Error.
       if (error instanceof Error) {
         setGlobalError(error.message);
       } else {
@@ -230,7 +220,7 @@ const App: React.FC = () => {
         await loadEvents();
       } catch (error) {
         console.error(error);
-        // FIX: Type 'unknown' is not assignable to type 'string'. Safely handle error before passing to state.
+        // Safely handle caught errors of type 'unknown' by checking if it's an instance of Error.
         if (error instanceof Error) {
           setGlobalError(error.message);
         } else {
@@ -404,13 +394,13 @@ const App: React.FC = () => {
   };
 
   // Company Handlers
-  const handleUpdateCompanySectors = async (companyName: string, sectorIds: string[]) => {
+  const handleUpdateSectorsForSelectedAttendees = async (attendeeIds: string[], sectorIds: string[]) => {
     if (!currentEvent) return;
     try {
-        await api.updateSectorsForCompany(currentEvent.id, companyName, sectorIds);
+        await api.updateSectorsForAttendees(currentEvent.id, attendeeIds, sectorIds);
     } catch (error) {
         console.error(error);
-        setGlobalError("Falha ao atualizar setores da empresa.");
+        setGlobalError("Falha ao atualizar os setores dos colaboradores selecionados.");
     }
   };
   
@@ -447,7 +437,7 @@ const App: React.FC = () => {
             onDeleteAttendee={handleDeleteAttendee}
             onApproveSubstitution={handleApproveSubstitution}
             onRejectSubstitution={handleRejectSubstitution}
-            onUpdateCompanySectors={handleUpdateCompanySectors}
+            onUpdateSectorsForSelectedAttendees={handleUpdateSectorsForSelectedAttendees}
             onBack={handleBackToEvents}
             setError={setGlobalError}
           />;

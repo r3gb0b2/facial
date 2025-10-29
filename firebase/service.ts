@@ -200,18 +200,15 @@ export const rejectSubstitution = (eventId: string, attendeeId: string) => {
     });
 };
 
-export const updateSectorsForCompany = async (eventId: string, companyName: string, sectorIds: string[]) => {
-    const attendeesRef = db.collection('events').doc(eventId).collection('attendees');
-    const querySnapshot = await attendeesRef.where('subCompany', '==', companyName).get();
-
-    if (querySnapshot.empty) {
-        console.warn("No attendees found for this company to update.");
+export const updateSectorsForAttendees = async (eventId: string, attendeeIds: string[], sectorIds: string[]) => {
+    if (attendeeIds.length === 0) {
         return;
     }
 
     const batch = db.batch();
-    querySnapshot.docs.forEach(doc => {
-        batch.update(doc.ref, { sectors: sectorIds });
+    attendeeIds.forEach(attendeeId => {
+        const docRef = db.collection('events').doc(eventId).collection('attendees').doc(attendeeId);
+        batch.update(docRef, { sectors: sectorIds });
     });
 
     await batch.commit();
