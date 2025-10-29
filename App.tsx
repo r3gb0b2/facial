@@ -13,6 +13,9 @@ import EventModal from './components/EventModal.tsx';
 
 type View = 'login' | 'event-selection' | 'admin' | 'supplier-registration' | 'supplier-admin' | 'closed';
 
+const NO_PHOTO_PLACEHOLDER = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCIgZmlsbD0ibm9uZSI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiMzNzQxNTEiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IiNFNUU3RUIiIGZvbnQtd2VpZ2h0PSJib2xkIj5TRU0gRk9UTzwvdGV4dD48L3N2Zz4=';
+
+
 const App: React.FC = () => {
   const { t } = useTranslation();
   const [isLoggedIn, setIsLoggedIn] = useState(sessionStorage.getItem('isLoggedIn') === 'true');
@@ -265,10 +268,10 @@ const App: React.FC = () => {
 
     for (const row of data) {
         try {
-            const { name, cpf, sector, photoUrl, fornecedor, empresa } = row;
+            const { name, cpf, sector, fornecedor, empresa } = row;
 
-            if (!name || !cpf || !sector || !photoUrl) {
-                failedRows.push({ row, reason: "Colunas obrigatórias (name, cpf, sector, photoUrl) faltando." });
+            if (!name || !cpf || !sector) {
+                failedRows.push({ row, reason: t('import.errors.requiredColumns') });
                 continue;
             }
 
@@ -302,7 +305,7 @@ const App: React.FC = () => {
             const newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'> = {
                 name,
                 cpf: rawCpf,
-                photo: photoUrl,
+                photo: NO_PHOTO_PLACEHOLDER,
                 sectors: [sectorId],
                 subCompany: empresa || undefined,
             };
@@ -317,7 +320,7 @@ const App: React.FC = () => {
         }
     }
 
-    let summaryMessage = `${successCount} participantes importados com sucesso.`;
+    let summaryMessage = t('spreadsheet.importSuccess', successCount);
     if (failedRows.length > 0) {
         summaryMessage += ` ${failedRows.length} falharam. Verifique o console para detalhes.`;
         console.error("Falhas na importação:", failedRows);
