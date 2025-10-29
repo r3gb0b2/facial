@@ -124,16 +124,23 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                           const isSectorChangeRequested = submittedSectorChanges.has(attendee.id) || attendee.status === CheckinStatus.SECTOR_CHANGE_REQUEST;
                           
                           const attendeeSectorIds = new Set(Array.isArray(attendee.sectors) ? attendee.sectors : []);
-                          const supplierConfiguredSectorIds = new Set(supplier.sectors || []);
+                          const validSupplierSectors = allowedSectorsForSupplier;
+                          const validSupplierSectorIds = new Set(validSupplierSectors.map(s => s.id));
 
-                          // Check if the attendee's current sectors are an exact match for what the supplier is configured to manage.
-                          // A difference indicates a change is needed (either to add/remove/correct sectors).
-                          const areSetsEqual = supplierConfiguredSectorIds.size === attendeeSectorIds.size &&
-                                                [...supplierConfiguredSectorIds].every(id => attendeeSectorIds.has(id));
+                          // A change is possible if there's a valid sector the supplier manages that the attendee isn't in.
+                          const canAddNewSector = validSupplierSectors.some(
+                              (sector) => !attendeeSectorIds.has(sector.id)
+                          );
 
-                          // A change is only possible if there is at least one valid, existing sector the supplier can manage,
-                          // AND if the current state is not the desired state.
-                          const canChangeSector = allowedSectorsForSupplier.length > 0 && !areSetsEqual;
+                          // A change is also needed if the attendee has sectors that are NOT valid for this supplier.
+                          // This is the "correction" case.
+                          const needsCorrection = [...attendeeSectorIds].some(
+                              (attendeeSectorId) => !validSupplierSectorIds.has(attendeeSectorId)
+                          );
+
+                          // The button should be enabled in either case.
+                          const canChangeSector = canAddNewSector || needsCorrection;
+
 
                           return (
                             <div key={attendee.id} className="bg-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-700 flex flex-col">
