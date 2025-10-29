@@ -259,28 +259,22 @@ export const subscribeToSupplierForRegistration = (
     
     const updateCallback = () => {
         if (eventName !== null && supplier !== null && allSectors !== null) {
-            // 1. Create a set of all valid, existing sector IDs for this event.
             const validSectorIds = new Set(allSectors.map(s => s.id));
 
-            // 2. Sanitize supplier data by removing references to deleted sectors.
-            const cleanedSupplier = { ...supplier };
-            cleanedSupplier.sectors = (supplier.sectors || []).filter(sectorId => validSectorIds.has(sectorId));
-            if (supplier.subCompanies) {
-                cleanedSupplier.subCompanies = supplier.subCompanies.filter(sc => validSectorIds.has(sc.sector));
-            }
+            // Create a copy to avoid mutating the listener's cached object
+            const dataForUI = { ...supplier };
 
-            // 3. Determine the complete list of sectors this supplier can access,
-            // combining their main sector list and any sectors from their sub-companies.
-            const allowedSectorIds = new Set(cleanedSupplier.sectors);
-            if (cleanedSupplier.subCompanies) {
-                cleanedSupplier.subCompanies.forEach(sc => allowedSectorIds.add(sc.sector));
+            // 1. Sanitize the supplier's main sector list.
+            dataForUI.sectors = (supplier.sectors || []).filter(sectorId => validSectorIds.has(sectorId));
+            
+            // 2. Sanitize the sub-companies list, removing any that reference a deleted sector.
+            if (supplier.subCompanies) {
+                dataForUI.subCompanies = supplier.subCompanies.filter(sc => validSectorIds.has(sc.sector));
             }
             
-            // 4. Create the final list of sector objects to send to the UI.
-            const registrationSectors = allSectors.filter(sector => allowedSectorIds.has(sector.id));
-            
-            // 5. Pass the cleaned supplier data and the correctly compiled list of sectors.
-            callback({ data: cleanedSupplier, name: eventName, sectors: registrationSectors });
+            // 3. The UI is smart enough to switch between sector/company inputs.
+            // Give it ALL sectors so it can look up details for any valid sector ID it encounters.
+            callback({ data: dataForUI, name: eventName, sectors: allSectors });
         }
     };
 
