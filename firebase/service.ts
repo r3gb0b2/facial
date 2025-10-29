@@ -247,20 +247,52 @@ export const updateSupplierStatus = (eventId: string, supplierId: string, active
     return updateSupplier(eventId, supplierId, { active });
 };
 
-export const getSupplierForRegistration = async (eventId: string, supplierId: string): Promise<{ data: Supplier & {eventId: string}, name: string, sectors: Sector[] } | null> => {
-    const eventSnap = await db.collection('events').doc(eventId).get();
-    if (!eventSnap.exists) return null;
-
-    const supplierSnap = await db.collection('events').doc(eventId).collection('suppliers').doc(supplierId).get();
-    if (!supplierSnap.exists) return null;
+export const subscribeToSupplierForRegistration = (
+    eventId: string,
+    supplierId: string,
+    callback: (data: { data: Supplier & { eventId: string }, name: string, sectors: Sector[] } | null) => void,
+    onError: (error: Error) => void
+) => {
+    let eventName: string | null = null;
+    let supplier: (Supplier & { eventId: string }) | null = null;
+    let sectors: Sector[] | null = null;
     
-    const sectorsSnap = await db.collection('events').doc(eventId).collection('sectors').get();
-    const sectors = getCollectionData<Sector>(sectorsSnap);
+    // This function will be called by each listener.
+    // It sends the complete, merged state to the App component only when all data is ready.
+    const updateCallback = () => {
+        if (eventName !== null && supplier !== null && sectors !== null) {
+            callback({ data: supplier, name: eventName, sectors: sectors });
+        }
+    };
 
-    return {
-        data: { ...getData<Supplier>(supplierSnap), eventId },
-        name: eventSnap.data()?.name || 'Evento',
-        sectors,
+    const eventUnsub = db.collection('events').doc(eventId).onSnapshot(eventSnap => {
+        if (!eventSnap.exists) {
+            onError(new Error("Event not found"));
+            return;
+        }
+        eventName = eventSnap.data()?.name || 'Evento';
+        updateCallback();
+    }, onError);
+
+    const supplierUnsub = db.collection('events').doc(eventId).collection('suppliers').doc(supplierId).onSnapshot(supplierSnap => {
+        if (!supplierSnap.exists) {
+            onError(new Error("Supplier not found"));
+            return;
+        }
+        supplier = { ...getData<Supplier>(supplierSnap), eventId };
+        updateCallback();
+    }, onError);
+
+    const sectorsUnsub = db.collection('events').doc(eventId).collection('sectors').onSnapshot(sectorsSnap => {
+        sectors = getCollectionData<Sector>(sectorsSnap);
+        updateCallback();
+    }, onError);
+
+    // Return a function that unsubscribes from all listeners
+    return () => {
+        eventUnsub();
+        supplierUnsub();
+        sectorsUnsub();
     };
 };
 

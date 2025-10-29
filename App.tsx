@@ -106,20 +106,32 @@ const App: React.FC = () => {
             );
         } else if (eventId && supplierId) {
             setIsLoading(true);
-            const registrationData = await api.getSupplierForRegistration(eventId, supplierId);
-            if (registrationData) {
-                if (registrationData.data.active) {
-                    setSupplierInfo({ data: registrationData.data, name: registrationData.name });
-                    setSectors(registrationData.sectors);
-                    setView('supplier-registration');
-                } else {
-                     setView('closed');
+            unsubscribe = api.subscribeToSupplierForRegistration(
+                eventId,
+                supplierId,
+                (registrationData) => {
+                    if (registrationData) {
+                        if (registrationData.data.active) {
+                            setSupplierInfo({ data: registrationData.data, name: registrationData.name });
+                            setSectors(registrationData.sectors);
+                            setView('supplier-registration');
+                        } else {
+                             setView('closed');
+                        }
+                    } else {
+                        // This case might not be hit if onError handles it, but good to have.
+                        setGlobalError(t('errors.invalidSupplierLink'));
+                        setView('login');
+                    }
+                    setIsLoading(false);
+                },
+                (error) => {
+                    console.error(error);
+                    setGlobalError(t('errors.invalidSupplierLink'));
+                    setView('login');
+                    setIsLoading(false);
                 }
-            } else {
-                setGlobalError(t('errors.invalidSupplierLink'));
-                setView('login'); // Fallback to login
-            }
-            setIsLoading(false);
+            );
         } else {
             if (isLoggedIn) {
                 if (currentEvent) {
