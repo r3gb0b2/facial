@@ -1,13 +1,16 @@
 import React, { useState, useMemo } from 'react';
-import { Attendee, CheckinStatus } from '../../types.ts';
+import { Attendee, CheckinStatus, Sector, Supplier } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { EyeIcon, RefreshIcon, SearchIcon } from '../icons.tsx';
 import SubstitutionRequestModal from '../SubstitutionRequestModal.tsx';
+import SectorChangeRequestModal from '../SectorChangeRequestModal.tsx';
 
 interface SupplierAdminViewProps {
   eventName: string;
   attendees: Attendee[];
   eventId: string;
+  supplier: Supplier;
+  sectors: Sector[];
 }
 
 // Helper function for accent-insensitive search
@@ -21,9 +24,10 @@ const normalizeString = (str: string) => {
 };
 
 
-const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attendees, eventId }) => {
+const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attendees, eventId, supplier, sectors }) => {
   const { t } = useTranslation();
   const [substitutingAttendee, setSubstitutingAttendee] = useState<Attendee | null>(null);
+  const [changingSectorAttendee, setChangingSectorAttendee] = useState<Attendee | null>(null);
   const [submittedRequests, setSubmittedRequests] = useState<Set<string>>(new Set());
   
   // State for filters
@@ -63,6 +67,10 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
       return true;
     });
   }, [attendees, searchTerm, companyFilter]);
+
+  const allowedSectorsForSupplier = useMemo(() => {
+    return sectors.filter(s => supplier.sectors.includes(s.id));
+  }, [sectors, supplier]);
 
 
   return (
@@ -107,8 +115,9 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                 filteredAttendees.length > 0 ? (
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
                         {filteredAttendees.map((attendee) => {
-                          const isRequested = submittedRequests.has(attendee.id) || attendee.status === CheckinStatus.SUBSTITUTION_REQUEST;
-                          const canRequestSubstitution = attendee.status === CheckinStatus.PENDING;
+                          const isPending = attendee.status === CheckinStatus.PENDING;
+                          const isSubstRequested = submittedRequests.has(attendee.id) || attendee.status === CheckinStatus.SUBSTITUTION_REQUEST;
+                          const isSectorChangeRequested = submittedRequests.has(attendee.id) || attendee.status === CheckinStatus.SECTOR_CHANGE_REQUEST;
 
                           return (
                             <div key={attendee.id} className="bg-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-700 flex flex-col">
@@ -122,16 +131,28 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                                         <h3 className="font-semibold text-base text-white truncate" title={attendee.name}>{attendee.name}</h3>
                                         {attendee.subCompany && <p className="text-xs text-gray-400 truncate" title={attendee.subCompany}>{attendee.subCompany}</p>}
                                     </div>
-                                    {canRequestSubstitution && (
-                                      <button
-                                        onClick={() => setSubstitutingAttendee(attendee)}
-                                        disabled={isRequested}
-                                        className="mt-2 w-full text-sm font-semibold py-2 px-2 rounded-md transition-colors flex items-center justify-center gap-1.5 disabled:bg-gray-600 disabled:cursor-not-allowed bg-indigo-600 hover:bg-indigo-700 text-white"
-                                      >
-                                        <RefreshIcon className="w-4 h-4" />
-                                        {isRequested ? t('supplierAdmin.substitutionRequested') : t('supplierAdmin.requestSubstitution')}
-                                      </button>
-                                    )}
+                                    <div className='space-y-1'>
+                                      {isPending && (
+                                        <>
+                                          <button
+                                            onClick={() => setSubstitutingAttendee(attendee)}
+                                            disabled={isSubstRequested}
+                                            className="w-full text-sm font-semibold py-2 px-2 rounded-md transition-colors flex items-center justify-center gap-1.5 disabled:bg-gray-600 disabled:cursor-not-allowed bg-indigo-600 hover:bg-indigo-700 text-white"
+                                          >
+                                            <RefreshIcon className="w-4 h-4" />
+                                            {isSubstRequested ? t('supplierAdmin.substitutionRequested') : t('supplierAdmin.requestSubstitution')}
+                                          </button>
+                                          <button
+                                            onClick={() => setChangingSectorAttendee(attendee)}
+                                            disabled={isSectorChangeRequested}
+                                            className="w-full text-sm font-semibold py-2 px-2 rounded-md transition-colors flex items-center justify-center gap-1.5 disabled:bg-gray-600 disabled:cursor-not-allowed bg-purple-600 hover:bg-purple-700 text-white"
+                                          >
+                                            <RefreshIcon className="w-4 h-4" />
+                                            {isSectorChangeRequested ? t('supplierAdmin.sectorChangeRequested') : t('supplierAdmin.requestSectorChange')}
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
                                 </div>
                             </div>
                           )
@@ -154,6 +175,16 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
             attendee={substitutingAttendee}
             eventId={eventId}
             onClose={() => setSubstitutingAttendee(null)}
+            onSuccess={handleSuccess}
+        />
+      )}
+      {changingSectorAttendee && (
+        <SectorChangeRequestModal 
+            attendee={changingSectorAttendee}
+            eventId={eventId}
+            allowedSectors={allowedSectorsForSupplier}
+            allSectors={sectors}
+            onClose={() => setChangingSectorAttendee(null)}
             onSuccess={handleSuccess}
         />
       )}

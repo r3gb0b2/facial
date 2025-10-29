@@ -200,6 +200,38 @@ export const rejectSubstitution = (eventId: string, attendeeId: string) => {
     });
 };
 
+export const requestSectorChange = async (eventId: string, attendeeId: string, sectorChangeData: Required<Attendee>['sectorChangeData']) => {
+    return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).update({
+        status: CheckinStatus.SECTOR_CHANGE_REQUEST,
+        sectorChangeData: sectorChangeData,
+    });
+};
+
+export const approveSectorChange = async (eventId: string, attendeeId: string) => {
+    const attendeeRef = db.collection('events').doc(eventId).collection('attendees').doc(attendeeId);
+    const doc = await attendeeRef.get();
+    const attendee = doc.data() as Attendee;
+
+    if (!attendee || !attendee.sectorChangeData) {
+        throw new Error("Sector change data not found for this attendee.");
+    }
+    
+    const { newSectorId } = attendee.sectorChangeData;
+
+    return attendeeRef.update({
+        sectors: [newSectorId],
+        status: CheckinStatus.PENDING,
+        sectorChangeData: FieldValue.delete(),
+    });
+};
+
+export const rejectSectorChange = (eventId: string, attendeeId: string) => {
+    return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).update({
+        status: CheckinStatus.PENDING,
+        sectorChangeData: FieldValue.delete(),
+    });
+};
+
 export const updateSectorsForAttendees = async (eventId: string, attendeeIds: string[], sectorIds: string[]) => {
     if (attendeeIds.length === 0) {
         return;
@@ -309,33 +341,18 @@ export const getRegistrationsCountForSupplier = async (eventId: string, supplier
     return snapshot.size;
 };
 
-export const getSupplierAdminData = async (token: string): Promise<{ eventName: string, attendees: Attendee[], eventId: string, supplierId: string } | null> => {
-    const suppliersSnap = await db.collectionGroup('suppliers').where('adminToken', '==', token).limit(1).get();
-    if (suppliersSnap.empty) return null;
-    
-    const supplierDoc = suppliersSnap.docs[0];
-    const supplier = getData<Supplier>(supplierDoc);
-    const eventRef = supplierDoc.ref.parent.parent;
-    
-    if (!eventRef) return null;
-    
-    const eventSnap = await eventRef.get();
-    const eventName = eventSnap.data()?.name || 'Evento';
-    
-    const attendeesSnap = await eventRef.collection('attendees').where('supplierId', '==', supplier.id).get();
-    const attendees = getCollectionData<Attendee>(attendeesSnap);
-    
-    return { eventName: eventName, attendees, eventId: eventRef.id, supplierId: supplier.id };
-};
-
 export const subscribeToSupplierAdminData = (
     token: string,
-    callback: (data: { eventName: string, attendees: Attendee[], eventId: string, supplierId: string }) => void,
+    callback: (data: { eventName: string, attendees: Attendee[], eventId: string, supplierId: string, supplier: Supplier, sectors: Sector[] }) => void,
     onError: (error: Error) => void
 ) => {
-    let unsubscribe = () => {};
+    let unsubscribes: (() => void)[] = [];
 
     const findAndSubscribe = async () => {
+        // Clean up previous listeners if this function is ever called again for the same token
+        unsubscribes.forEach(unsub => unsub());
+        unsubscribes = [];
+
         const suppliersSnap = await db.collectionGroup('suppliers').where('adminToken', '==', token).limit(1).get();
         if (suppliersSnap.empty) {
             onError(new Error("Invalid token"));
@@ -343,7 +360,6 @@ export const subscribeToSupplierAdminData = (
         }
 
         const supplierDoc = suppliersSnap.docs[0];
-        const supplier = getData<Supplier>(supplierDoc);
         const eventRef = supplierDoc.ref.parent.parent;
 
         if (!eventRef) {
@@ -351,22 +367,52 @@ export const subscribeToSupplierAdminData = (
             return;
         }
 
-        const eventSnap = await eventRef.get();
-        const eventName = eventSnap.data()?.name || 'Evento';
+        let eventName: string | null = null;
+        let supplier: Supplier | null = null;
+        let sectors: Sector[] | null = null;
+        let attendees: Attendee[] | null = null;
+        
         const eventId = eventRef.id;
-        const supplierId = supplier.id;
 
-        unsubscribe = eventRef.collection('attendees').where('supplierId', '==', supplierId).onSnapshot(attendeesSnap => {
-            const attendees = getCollectionData<Attendee>(attendeesSnap);
-            callback({ eventName, attendees, eventId, supplierId });
+        const updateCallback = () => {
+            // Only fire callback once all data sources have loaded at least once
+            if (eventName !== null && supplier !== null && sectors !== null && attendees !== null) {
+                callback({ eventName, attendees, eventId, supplierId: supplier.id, supplier, sectors });
+            }
+        };
+
+        const eventSnap = await eventRef.get();
+        if (eventSnap.exists) {
+            eventName = eventSnap.data()?.name || 'Evento';
+        } else {
+            onError(new Error("Event data could not be retrieved."));
+            return;
+        }
+
+        const supplierUnsub = supplierDoc.ref.onSnapshot(doc => {
+            supplier = getData<Supplier>(doc);
+            updateCallback();
         }, onError);
+        unsubscribes.push(supplierUnsub);
+
+        const sectorsUnsub = eventRef.collection('sectors').onSnapshot(snap => {
+            sectors = getCollectionData<Sector>(snap);
+            updateCallback();
+        }, onError);
+        unsubscribes.push(sectorsUnsub);
+
+        const attendeesUnsub = eventRef.collection('attendees').where('supplierId', '==', supplierDoc.id).onSnapshot(attendeesSnap => {
+            attendees = getCollectionData<Attendee>(attendeesSnap);
+            updateCallback();
+        }, onError);
+        unsubscribes.push(attendeesUnsub);
     };
 
     findAndSubscribe().catch(onError);
 
-    return () => unsubscribe();
+    // Return a function to clean up all listeners
+    return () => unsubscribes.forEach(unsub => unsub());
 };
-
 
 export const regenerateSupplierAdminToken = async (eventId: string, supplierId: string): Promise<string> => {
     const newToken = uuidv4();

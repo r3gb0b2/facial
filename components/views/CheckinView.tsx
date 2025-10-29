@@ -16,6 +16,8 @@ interface CheckinViewProps {
   onDeleteAttendee: (attendeeId: string) => Promise<void>;
   onApproveSubstitution: (attendeeId: string) => Promise<void>;
   onRejectSubstitution: (attendeeId: string) => Promise<void>;
+  onApproveSectorChange: (attendeeId: string) => Promise<void>;
+  onRejectSectorChange: (attendeeId: string) => Promise<void>;
   setError: (message: string) => void;
 }
 
@@ -29,7 +31,7 @@ const normalizeString = (str: string) => {
     .trim();
 };
 
-const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors, currentEventId, onUpdateAttendeeDetails, onDeleteAttendee, onApproveSubstitution, onRejectSubstitution, setError }) => {
+const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors, currentEventId, onUpdateAttendeeDetails, onDeleteAttendee, onApproveSubstitution, onRejectSubstitution, onApproveSectorChange, onRejectSectorChange, setError }) => {
   const { t } = useTranslation();
   const sessionKey = `filters_${currentEventId}`;
 
@@ -248,6 +250,8 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
               onDelete={handleDelete}
               onApproveSubstitution={onApproveSubstitution}
               onRejectSubstitution={onRejectSubstitution}
+              onApproveSectorChange={onApproveSectorChange}
+              onRejectSectorChange={onRejectSectorChange}
               setError={setError}
               supplier={supplier}
             />

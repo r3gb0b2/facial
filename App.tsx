@@ -36,7 +36,7 @@ const App: React.FC = () => {
   
   // Supplier view state
   const [supplierInfo, setSupplierInfo] = useState<{data: Supplier, name: string} | null>(null);
-  const [supplierAdminData, setSupplierAdminData] = useState<{eventName: string, attendees: Attendee[], eventId: string, supplierId: string} | null>(null);
+  const [supplierAdminData, setSupplierAdminData] = useState<{eventName: string, attendees: Attendee[], eventId: string, supplierId: string, supplier: Supplier, sectors: Sector[]} | null>(null);
 
   // Modal state
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
@@ -204,7 +204,7 @@ const App: React.FC = () => {
       setEventToEdit(null);
     } catch (error) {
       console.error(error);
-      // Safely handle caught errors of type 'unknown' by checking if it's an instance of Error.
+      // FIX: Safely handle caught errors of type 'unknown' by checking if it's an instance of Error.
       if (error instanceof Error) {
         setGlobalError(error.message);
       } else {
@@ -220,7 +220,7 @@ const App: React.FC = () => {
         await loadEvents();
       } catch (error) {
         console.error(error);
-        // Safely handle caught errors of type 'unknown' by checking if it's an instance of Error.
+        // FIX: Safely handle caught errors of type 'unknown' by checking if it's an instance of Error.
         if (error instanceof Error) {
           setGlobalError(error.message);
         } else {
@@ -273,6 +273,16 @@ const App: React.FC = () => {
   const handleRejectSubstitution = async (attendeeId: string) => {
     if (!currentEvent) return;
     await api.rejectSubstitution(currentEvent.id, attendeeId);
+  };
+
+  const handleApproveSectorChange = async (attendeeId: string) => {
+    if (!currentEvent) return;
+    await api.approveSectorChange(currentEvent.id, attendeeId);
+  };
+  
+  const handleRejectSectorChange = async (attendeeId: string) => {
+    if (!currentEvent) return;
+    await api.rejectSectorChange(currentEvent.id, attendeeId);
   };
 
   const handleImportAttendees = async (data: any[]) => {
@@ -437,6 +447,8 @@ const App: React.FC = () => {
             onDeleteAttendee={handleDeleteAttendee}
             onApproveSubstitution={handleApproveSubstitution}
             onRejectSubstitution={handleRejectSubstitution}
+            onApproveSectorChange={handleApproveSectorChange}
+            onRejectSectorChange={handleRejectSectorChange}
             onUpdateSectorsForSelectedAttendees={handleUpdateSectorsForSelectedAttendees}
             onBack={handleBackToEvents}
             setError={setGlobalError}
@@ -462,6 +474,8 @@ const App: React.FC = () => {
             eventName={supplierAdminData.eventName} 
             attendees={supplierAdminData.attendees}
             eventId={supplierAdminData.eventId}
+            supplier={supplierAdminData.supplier}
+            sectors={supplierAdminData.sectors}
           />;
         }
         return null;

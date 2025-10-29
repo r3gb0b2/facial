@@ -7,6 +7,7 @@ export enum CheckinStatus {
   CANCELLED = 'CANCELLED',
   SUBSTITUTION = 'SUBSTITUTION',
   SUBSTITUTION_REQUEST = 'SUBSTITUTION_REQUEST',
+  SECTOR_CHANGE_REQUEST = 'SECTOR_CHANGE_REQUEST',
   MISSED = 'MISSED',
 }
 
@@ -26,6 +27,10 @@ export interface Attendee {
     name: string;
     cpf: string;
     photo: string; // Base64 data URL
+  };
+  sectorChangeData?: {
+    newSectorId: string;
+    justification?: string;
   };
 }
 

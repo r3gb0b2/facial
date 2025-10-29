@@ -14,6 +14,8 @@ interface AttendeeDetailModalProps {
   onDelete: (attendeeId: string) => Promise<void>;
   onApproveSubstitution: (attendeeId: string) => Promise<void>;
   onRejectSubstitution: (attendeeId: string) => Promise<void>;
+  onApproveSectorChange: (attendeeId: string) => Promise<void>;
+  onRejectSectorChange: (attendeeId: string) => Promise<void>;
   setError: (message: string) => void;
   supplier?: Supplier;
 }
@@ -29,12 +31,14 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   onDelete,
   onApproveSubstitution,
   onRejectSubstitution,
+  onApproveSectorChange,
+  onRejectSectorChange,
   setError,
   supplier,
 }) => {
   const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
-  const [isSubmittingSubstitution, setIsSubmittingSubstitution] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [wristbands, setWristbands] = useState(attendee.wristbands || {});
   const [wristbandErrorSectors, setWristbandErrorSectors] = useState<Set<string>>(new Set());
   const [showWristbandSuccess, setShowWristbandSuccess] = useState(false);
@@ -74,6 +78,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     [CheckinStatus.CANCELLED]: { bg: 'bg-red-600', text: 'text-white', label: t('status.cancelled') },
     [CheckinStatus.SUBSTITUTION]: { bg: 'bg-yellow-500', text: 'text-black', label: t('status.substitution') },
     [CheckinStatus.SUBSTITUTION_REQUEST]: { bg: 'bg-blue-500', text: 'text-white', label: t('status.substitution_request') },
+    [CheckinStatus.SECTOR_CHANGE_REQUEST]: { bg: 'bg-purple-500', text: 'text-white', label: t('status.sector_change_request') },
     [CheckinStatus.MISSED]: { bg: 'bg-gray-800', text: 'text-gray-400', label: t('status.missed') },
   }[attendee.status] || { bg: 'bg-gray-600', text: 'text-gray-200', label: attendee.status };
   
@@ -163,26 +168,50 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   };
   
   const handleApprove = async () => {
-    setIsSubmittingSubstitution(true);
+    setIsSubmitting(true);
     try {
         await onApproveSubstitution(attendee.id);
         onClose();
     } catch (e) {
         setError("Falha ao aprovar substituição.");
     } finally {
-        setIsSubmittingSubstitution(false);
+        setIsSubmitting(false);
     }
   };
 
   const handleReject = async () => {
-      setIsSubmittingSubstitution(true);
+      setIsSubmitting(true);
       try {
           await onRejectSubstitution(attendee.id);
           onClose();
       } catch (e) {
           setError("Falha ao rejeitar substituição.");
       } finally {
-          setIsSubmittingSubstitution(false);
+          setIsSubmitting(false);
+      }
+  };
+
+  const handleApproveSectorChange = async () => {
+    setIsSubmitting(true);
+    try {
+        await onApproveSectorChange(attendee.id);
+        onClose();
+    } catch (e) {
+        setError("Falha ao aprovar troca de setor.");
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
+
+  const handleRejectSectorChange = async () => {
+      setIsSubmitting(true);
+      try {
+          await onRejectSectorChange(attendee.id);
+          onClose();
+      } catch (e) {
+          setError("Falha ao rejeitar troca de setor.");
+      } finally {
+          setIsSubmitting(false);
       }
   };
 
@@ -314,13 +343,51 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                     </div>
                 </div>
                 <div className="flex gap-4 mt-4">
-                     <button onClick={handleReject} disabled={isSubmittingSubstitution} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50">
-                        {isSubmittingSubstitution && <SpinnerIcon className="w-5 h-5"/>}
+                     <button onClick={handleReject} disabled={isSubmitting} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50">
+                        {isSubmitting && <SpinnerIcon className="w-5 h-5"/>}
                         {t('attendeeDetail.rejectButton')}
                     </button>
-                     <button onClick={handleApprove} disabled={isSubmittingSubstitution} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50">
-                        {isSubmittingSubstitution && <SpinnerIcon className="w-5 h-5"/>}
+                     <button onClick={handleApprove} disabled={isSubmitting} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50">
+                        {isSubmitting && <SpinnerIcon className="w-5 h-5"/>}
                         {t('attendeeDetail.approveButton')}
+                    </button>
+                </div>
+            </div>
+        );
+    }
+    
+    if (attendee.status === CheckinStatus.SECTOR_CHANGE_REQUEST && attendee.sectorChangeData) {
+        const { sectorChangeData } = attendee;
+        const currentSector = sectors.find(s => s.id === attendee.sectors[0]);
+        const requestedSector = sectors.find(s => s.id === sectorChangeData.newSectorId);
+
+        return (
+            <div>
+                <h3 className="text-xl font-bold text-center text-purple-300 mb-4">{t('attendeeDetail.sectorChangeRequestTitle')}</h3>
+                <div className="space-y-3 p-4 bg-gray-900/50 rounded-lg">
+                    <div>
+                        <span className="text-sm font-medium text-gray-400">{t('attendeeDetail.currentSector')}</span>
+                        <p className="text-white">{currentSector?.label || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <span className="text-sm font-medium text-gray-400">{t('attendeeDetail.requestedSector')}</span>
+                        <p className="text-lg font-semibold text-purple-300">{requestedSector?.label || 'N/A'}</p>
+                    </div>
+                    {sectorChangeData.justification && (
+                        <div>
+                            <span className="text-sm font-medium text-gray-400">{t('attendeeDetail.justification')}</span>
+                            <p className="text-white italic bg-gray-700/50 p-2 rounded-md">{sectorChangeData.justification}</p>
+                        </div>
+                    )}
+                </div>
+                <div className="flex gap-4 mt-4">
+                     <button onClick={handleRejectSectorChange} disabled={isSubmitting} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50">
+                        {isSubmitting && <SpinnerIcon className="w-5 h-5"/>}
+                        {t('attendeeDetail.rejectSectorChangeButton')}
+                    </button>
+                     <button onClick={handleApproveSectorChange} disabled={isSubmitting} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50">
+                        {isSubmitting && <SpinnerIcon className="w-5 h-5"/>}
+                        {t('attendeeDetail.approveSectorChangeButton')}
                     </button>
                 </div>
             </div>
@@ -361,7 +428,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   };
   
   const renderCheckinSection = () => {
-    if (isEditing || attendee.status === CheckinStatus.SUBSTITUTION_REQUEST) return null;
+    if (isEditing || attendee.status === CheckinStatus.SUBSTITUTION_REQUEST || attendee.status === CheckinStatus.SECTOR_CHANGE_REQUEST) return null;
 
     if (attendee.status === CheckinStatus.PENDING) {
       return (
@@ -435,6 +502,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
         renderStatusButton(CheckinStatus.PENDING, t('statusUpdateModal.reactivateRegistration')),
       ],
        [CheckinStatus.SUBSTITUTION_REQUEST]: [],
+       [CheckinStatus.SECTOR_CHANGE_REQUEST]: [],
        [CheckinStatus.SUBSTITUTION]: [],
     }[attendee.status];
 
@@ -466,7 +534,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
               </div>
             </div>
             <div className="flex gap-2">
-              {!isEditing && attendee.status !== CheckinStatus.SUBSTITUTION_REQUEST && (
+              {!isEditing && attendee.status !== CheckinStatus.SUBSTITUTION_REQUEST && attendee.status !== CheckinStatus.SECTOR_CHANGE_REQUEST && (
                 <button onClick={() => setIsEditing(true)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700">
                   <PencilIcon className="w-5 h-5" />
                 </button>

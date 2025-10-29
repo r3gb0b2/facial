@@ -32,6 +32,8 @@ interface AdminViewProps {
     onDeleteAttendee: (attendeeId: string) => Promise<void>;
     onApproveSubstitution: (attendeeId: string) => Promise<void>;
     onRejectSubstitution: (attendeeId: string) => Promise<void>;
+    onApproveSectorChange: (attendeeId: string) => Promise<void>;
+    onRejectSectorChange: (attendeeId: string) => Promise<void>;
     onUpdateSectorsForSelectedAttendees: (attendeeIds: string[], sectorIds: string[]) => Promise<void>;
     onBack: () => void;
     setError: (message: string) => void;
@@ -78,6 +80,8 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                     onDeleteAttendee={props.onDeleteAttendee}
                     onApproveSubstitution={props.onApproveSubstitution}
                     onRejectSubstitution={props.onRejectSubstitution}
+                    onApproveSectorChange={props.onApproveSectorChange}
+                    onRejectSectorChange={props.onRejectSectorChange}
                     setError={props.setError}
                 />;
             case 'register':
