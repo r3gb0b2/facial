@@ -38,7 +38,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
   const isSupplierWithMultipleSectors = Array.isArray(predefinedSector);
   const isSupplierWithSingleSector = typeof predefinedSector === 'string';
   const isAdminView = !predefinedSector; // True if it's the main admin view, not a supplier link
-  const hasSubCompanies = !!(supplierInfo?.data.subCompanies && supplierInfo.data.subCompanies.length > 0);
+  const hasSubCompanies = Array.isArray(supplierInfo?.data.subCompanies);
 
   useEffect(() => {
     if (hasSubCompanies) {
