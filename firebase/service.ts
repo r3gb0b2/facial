@@ -262,20 +262,25 @@ export const subscribeToSupplierForRegistration = (
             // 1. Create a set of all valid, existing sector IDs for this event.
             const validSectorIds = new Set(allSectors.map(s => s.id));
 
-            // 2. Create a clean copy of the supplier data, removing any references to deleted sectors.
+            // 2. Sanitize supplier data by removing references to deleted sectors.
             const cleanedSupplier = { ...supplier };
             cleanedSupplier.sectors = (supplier.sectors || []).filter(sectorId => validSectorIds.has(sectorId));
             if (supplier.subCompanies) {
                 cleanedSupplier.subCompanies = supplier.subCompanies.filter(sc => validSectorIds.has(sc.sector));
             }
 
-            // 3. Create the list of sector *objects* to send to the client. This should only
-            //    contain sectors that are both valid AND assigned to this supplier for the main dropdown.
-            const supplierAllowedSectorIds = new Set(cleanedSupplier.sectors || []);
-            const filteredSectors = allSectors.filter(sector => supplierAllowedSectorIds.has(sector.id));
+            // 3. Determine the complete list of sectors this supplier can access,
+            // combining their main sector list and any sectors from their sub-companies.
+            const allowedSectorIds = new Set(cleanedSupplier.sectors);
+            if (cleanedSupplier.subCompanies) {
+                cleanedSupplier.subCompanies.forEach(sc => allowedSectorIds.add(sc.sector));
+            }
             
-            // Pass the cleaned supplier data (with valid sub-companies) and the filtered list of usable sector objects.
-            callback({ data: cleanedSupplier, name: eventName, sectors: filteredSectors });
+            // 4. Create the final list of sector objects to send to the UI.
+            const registrationSectors = allSectors.filter(sector => allowedSectorIds.has(sector.id));
+            
+            // 5. Pass the cleaned supplier data and the correctly compiled list of sectors.
+            callback({ data: cleanedSupplier, name: eventName, sectors: registrationSectors });
         }
     };
 

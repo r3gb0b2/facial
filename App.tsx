@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Attendee, Event, Sector, Supplier, CheckinStatus, SubCompany } from './types.ts';
 import * as api from './firebase/service.ts';
@@ -206,8 +207,7 @@ const App: React.FC = () => {
       setEventToEdit(null);
     } catch (error) {
       console.error(error);
-      // Fix for error on line 301: Type 'unknown' is not assignable to type 'string'.
-      // Safely handle caught errors of type 'unknown' by checking if it's an instance of Error.
+      // FIX: Safely handle caught errors of type 'unknown' by checking if it's an instance of Error.
       setGlobalError(error instanceof Error ? error.message : t('errors.saveEvent'));
     }
   };
@@ -330,8 +330,7 @@ const App: React.FC = () => {
             successCount++;
 
         } catch (error) {
-            // Fix for error on line 324: Type 'unknown' is not assignable to type 'string'.
-            // Safely handle caught errors of type 'unknown' by checking if it's an instance of Error.
+            // FIX: Safely handle caught errors of type 'unknown' by checking if it's an instance of Error.
             const reason = error instanceof Error ? `Erro no servidor: ${error.message}` : 'Erro no servidor: desconhecido.';
             failedRows.push({ row, reason });
         }
