@@ -255,13 +255,17 @@ export const subscribeToSupplierForRegistration = (
 ) => {
     let eventName: string | null = null;
     let supplier: (Supplier & { eventId: string }) | null = null;
-    let sectors: Sector[] | null = null;
+    let allSectors: Sector[] | null = null;
     
     // This function will be called by each listener.
-    // It sends the complete, merged state to the App component only when all data is ready.
+    // It filters the sectors and sends the complete, merged state.
     const updateCallback = () => {
-        if (eventName !== null && supplier !== null && sectors !== null) {
-            callback({ data: supplier, name: eventName, sectors: sectors });
+        if (eventName !== null && supplier !== null && allSectors !== null) {
+            // Filter the sectors based on the supplier's allowed list
+            const supplierSectorIds = new Set(supplier.sectors || []);
+            const filteredSectors = allSectors.filter(sector => supplierSectorIds.has(sector.id));
+            
+            callback({ data: supplier, name: eventName, sectors: filteredSectors });
         }
     };
 
@@ -284,7 +288,7 @@ export const subscribeToSupplierForRegistration = (
     }, onError);
 
     const sectorsUnsub = db.collection('events').doc(eventId).collection('sectors').onSnapshot(sectorsSnap => {
-        sectors = getCollectionData<Sector>(sectorsSnap);
+        allSectors = getCollectionData<Sector>(sectorsSnap);
         updateCallback();
     }, onError);
 

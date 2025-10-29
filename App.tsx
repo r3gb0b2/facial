@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { Attendee, Event, Sector, Supplier, CheckinStatus, SubCompany } from './types.ts';
 import * as api from './firebase/service.ts';
