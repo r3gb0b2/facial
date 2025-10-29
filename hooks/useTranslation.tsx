@@ -191,10 +191,15 @@ const translations: { [lang: string]: Translations } = {
     'companies.attendeeCount': (count: number) => `${count} participante(s)`,
     'companies.noCompanies': 'Nenhuma empresa/unidade encontrada.',
     'companies.noCompaniesSubtitle': 'Cadastre participantes com uma empresa para gerenciá-los aqui.',
-    'companies.modal.title': (name: string) => `Editar Setores para ${name}`,
-    'companies.modal.description': 'Selecione os novos setores. Esta ação atualizará todos os participantes associados a esta empresa.',
+    'companies.modal.bulkTitle': (count: number) => `Editar Setores para ${count} Colaborador(es)`,
+    'companies.modal.description': 'Selecione os novos setores. Esta ação atualizará todos os participantes selecionados.',
     'companies.modal.saveButton': 'Salvar Alterações',
     'companies.editButton': 'Editar Setores',
+    'companies.selected': (count: number) => `${count} selecionado(s)`,
+    'companies.editSelectedButton': 'Editar Setores',
+    'companies.selectAll': 'Selecionar Todos',
+    'companies.attendeesHeader': 'Colaboradores',
+    'companies.currentSectors': 'Setores Atuais',
   },
 };
 

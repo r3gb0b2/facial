@@ -217,6 +217,23 @@ export const updateSectorsForCompany = async (eventId: string, companyName: stri
     await batch.commit();
 };
 
+export const updateSectorsForAttendees = async (eventId: string, attendeeIds: string[], sectorIds: string[]) => {
+    if (attendeeIds.length === 0) {
+        console.warn("No attendee IDs provided for sector update.");
+        return;
+    }
+
+    const batch = db.batch();
+    const attendeesRef = db.collection('events').doc(eventId).collection('attendees');
+    
+    attendeeIds.forEach(attendeeId => {
+        const docRef = attendeesRef.doc(attendeeId);
+        batch.update(docRef, { sectors: sectorIds });
+    });
+
+    await batch.commit();
+};
+
 
 // Supplier Management
 export const addSupplier = (eventId: string, name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[]) => {
@@ -267,13 +284,11 @@ export const subscribeToSupplierForRegistration = (
             // 1. Sanitize the supplier's main sector list.
             dataForUI.sectors = (supplier.sectors || []).filter(sectorId => validSectorIds.has(sectorId));
             
-            // 2. Sanitize the sub-companies list, removing any that reference a deleted sector.
-            if (supplier.subCompanies) {
-                dataForUI.subCompanies = supplier.subCompanies.filter(sc => validSectorIds.has(sc.sector));
-            }
+            // 2. Sanitize sub-companies, ensuring the property is always an array.
+            // This prevents the company dropdown from disappearing if the field is missing from Firestore.
+            dataForUI.subCompanies = (supplier.subCompanies || []).filter(sc => validSectorIds.has(sc.sector));
             
-            // 3. The UI is smart enough to switch between sector/company inputs.
-            // Give it ALL sectors so it can look up details for any valid sector ID it encounters.
+            // 3. Give the UI ALL sectors so it can look up details for any valid sector ID it encounters.
             callback({ data: dataForUI, name: eventName, sectors: allSectors });
         }
     };

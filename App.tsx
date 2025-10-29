@@ -1,9 +1,3 @@
-
-
-
-
-
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { Attendee, Event, Sector, Supplier, CheckinStatus, SubCompany } from './types.ts';
 import * as api from './firebase/service.ts';
@@ -210,7 +204,7 @@ const App: React.FC = () => {
       setEventToEdit(null);
     } catch (error) {
       console.error(error);
-      // Fix: Type 'unknown' is not assignable to type 'string'. Safely handle error before passing to state.
+      // Fix for error on line 308: Type 'unknown' is not assignable to type 'string'.
       if (error instanceof Error) {
         setGlobalError(error.message);
       } else {
@@ -226,7 +220,7 @@ const App: React.FC = () => {
         await loadEvents();
       } catch (error) {
         console.error(error);
-        // Fix: Type 'unknown' is not assignable to type 'string'. Safely handle error before passing to state.
+        // Fix for error on line 331: Type 'unknown' is not assignable to type 'string'.
         if (error instanceof Error) {
           setGlobalError(error.message);
         } else {
@@ -399,14 +393,14 @@ const App: React.FC = () => {
     await api.deleteSector(currentEvent.id, sector.id);
   };
 
-  // Company Handlers
-  const handleUpdateCompanySectors = async (companyName: string, sectorIds: string[]) => {
+  // Company / Bulk Handlers
+  const handleUpdateSectorsForSelectedAttendees = async (attendeeIds: string[], sectorIds: string[]) => {
     if (!currentEvent) return;
     try {
-        await api.updateSectorsForCompany(currentEvent.id, companyName, sectorIds);
+        await api.updateSectorsForAttendees(currentEvent.id, attendeeIds, sectorIds);
     } catch (error) {
         console.error(error);
-        setGlobalError("Falha ao atualizar setores da empresa.");
+        setGlobalError("Falha ao atualizar setores dos colaboradores selecionados.");
     }
   };
   
@@ -443,7 +437,7 @@ const App: React.FC = () => {
             onDeleteAttendee={handleDeleteAttendee}
             onApproveSubstitution={handleApproveSubstitution}
             onRejectSubstitution={handleRejectSubstitution}
-            onUpdateCompanySectors={handleUpdateCompanySectors}
+            onUpdateSectorsForSelectedAttendees={handleUpdateSectorsForSelectedAttendees}
             onBack={handleBackToEvents}
             setError={setGlobalError}
           />;

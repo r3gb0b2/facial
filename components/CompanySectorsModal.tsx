@@ -3,25 +3,26 @@ import { Sector } from '../types.ts';
 import { useTranslation } from '../hooks/useTranslation.tsx';
 import { XMarkIcon } from './icons.tsx';
 
-interface CompanySectorsModalProps {
+interface BulkUpdateSectorsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (companyName: string, sectorIds: string[]) => void;
-  company: { name: string; sectorIds: string[] } | null;
+  onSave: (sectorIds: string[]) => void;
+  selectionCount: number;
   allSectors: Sector[];
 }
 
-const CompanySectorsModal: React.FC<CompanySectorsModalProps> = ({ isOpen, onClose, onSave, company, allSectors }) => {
+const BulkUpdateSectorsModal: React.FC<BulkUpdateSectorsModalProps> = ({ isOpen, onClose, onSave, selectionCount, allSectors }) => {
   const { t } = useTranslation();
   const [selectedSectorIds, setSelectedSectorIds] = useState<string[]>([]);
   
   useEffect(() => {
-    if (company) {
-      setSelectedSectorIds(company.sectorIds);
+    // Reset selections when modal opens
+    if (isOpen) {
+      setSelectedSectorIds([]);
     }
-  }, [company]);
+  }, [isOpen]);
 
-  if (!isOpen || !company) return null;
+  if (!isOpen) return null;
 
   const handleSectorChange = (sectorId: string) => {
     setSelectedSectorIds(prev =>
@@ -32,8 +33,7 @@ const CompanySectorsModal: React.FC<CompanySectorsModalProps> = ({ isOpen, onClo
   };
 
   const handleSave = () => {
-    onSave(company.name, selectedSectorIds);
-    onClose();
+    onSave(selectedSectorIds);
   };
 
   return (
@@ -41,7 +41,7 @@ const CompanySectorsModal: React.FC<CompanySectorsModalProps> = ({ isOpen, onClo
       <div className="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg border border-gray-700 flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="p-6 border-b border-gray-700 flex justify-between items-center">
           <h2 className="text-2xl font-bold text-white">
-            {t('companies.modal.title', company.name)}
+            {t('companies.modal.bulkTitle', selectionCount)}
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
             <XMarkIcon className="w-6 h-6" />
@@ -80,4 +80,4 @@ const CompanySectorsModal: React.FC<CompanySectorsModalProps> = ({ isOpen, onClo
   );
 };
 
-export default CompanySectorsModal;
+export default BulkUpdateSectorsModal;
