@@ -26,9 +26,10 @@ const SectorChangeRequestModal: React.FC<SectorChangeRequestModalProps> = ({ att
   }, [attendee, allSectors]);
 
   const availableSectorsForChange = useMemo(() => {
-    const currentSectorIds = new Set(attendee.sectors);
-    return allowedSectors.filter(sector => !currentSectorIds.has(sector.id));
-  }, [allowedSectors, attendee.sectors]);
+    // Show all sectors the supplier is allowed to manage.
+    // This allows "correcting" sectors by re-selecting an existing one to remove others.
+    return allowedSectors;
+  }, [allowedSectors]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
