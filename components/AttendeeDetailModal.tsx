@@ -325,6 +325,8 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
 
     if (attendee.status === CheckinStatus.SUBSTITUTION_REQUEST && attendee.substitutionData) {
         const { substitutionData } = attendee;
+        const requestedSector = substitutionData.newSectorId ? sectors.find(s => s.id === substitutionData.newSectorId) : null;
+
         return (
             <div>
                 <h3 className="text-xl font-bold text-center text-yellow-300 mb-4">{t('attendeeDetail.substitutionRequestTitle')}</h3>
@@ -342,6 +344,12 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                         <p className="text-sm text-gray-300">{formatCPF(substitutionData.cpf)}</p>
                     </div>
                 </div>
+                 {requestedSector && (
+                    <div className="mt-4 p-3 bg-gray-900/50 rounded-lg">
+                        <span className="text-sm font-medium text-gray-400">{t('attendeeDetail.requestedSector')}</span>
+                        <p className="text-lg font-semibold text-purple-300">{requestedSector.label}</p>
+                    </div>
+                )}
                 <div className="flex gap-4 mt-4">
                      <button onClick={handleReject} disabled={isSubmitting} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50">
                         {isSubmitting && <SpinnerIcon className="w-5 h-5"/>}

@@ -1,9 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Attendee, CheckinStatus, Sector, Supplier } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { EyeIcon, RefreshIcon, SearchIcon } from '../icons.tsx';
-import SubstitutionRequestModal from '../SubstitutionRequestModal.tsx';
-import SectorChangeRequestModal from '../SectorChangeRequestModal.tsx';
+import { EyeIcon, PencilIcon, SearchIcon } from '../icons.tsx';
+import EditRequestModal from '../SubstitutionRequestModal.tsx';
 
 interface SupplierAdminViewProps {
   eventName: string;
@@ -26,20 +25,15 @@ const normalizeString = (str: string) => {
 
 const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attendees, eventId, supplier, sectors }) => {
   const { t } = useTranslation();
-  const [substitutingAttendee, setSubstitutingAttendee] = useState<Attendee | null>(null);
-  const [changingSectorAttendee, setChangingSectorAttendee] = useState<Attendee | null>(null);
-  const [submittedSubstitutions, setSubmittedSubstitutions] = useState<Set<string>>(new Set());
-  const [submittedSectorChanges, setSubmittedSectorChanges] = useState<Set<string>>(new Set());
+  const [editingAttendee, setEditingAttendee] = useState<Attendee | null>(null);
+  const [submittedEdits, setSubmittedEdits] = useState<Set<string>>(new Set());
   
   // State for filters
   const [searchTerm, setSearchTerm] = useState('');
   const [companyFilter, setCompanyFilter] = useState('ALL');
 
-  const handleSubstitutionSuccess = (attendeeId: string) => {
-    setSubmittedSubstitutions(prev => new Set(prev).add(attendeeId));
-  };
-  const handleSectorChangeSuccess = (attendeeId: string) => {
-    setSubmittedSectorChanges(prev => new Set(prev).add(attendeeId));
+  const handleEditSuccess = (attendeeId: string) => {
+    setSubmittedEdits(prev => new Set(prev).add(attendeeId));
   };
   
   const uniqueCompanies = useMemo(() => {
@@ -120,28 +114,8 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
                         {filteredAttendees.map((attendee) => {
                           const isPending = attendee.status === CheckinStatus.PENDING;
-                          const isSubstRequested = submittedSubstitutions.has(attendee.id) || attendee.status === CheckinStatus.SUBSTITUTION_REQUEST;
-                          const isSectorChangeRequested = submittedSectorChanges.has(attendee.id) || attendee.status === CheckinStatus.SECTOR_CHANGE_REQUEST;
+                          const isEditRequested = submittedEdits.has(attendee.id) || attendee.status === CheckinStatus.SUBSTITUTION_REQUEST;
                           
-                          const attendeeSectorIds = new Set(Array.isArray(attendee.sectors) ? attendee.sectors : []);
-                          const validSupplierSectors = allowedSectorsForSupplier;
-                          const validSupplierSectorIds = new Set(validSupplierSectors.map(s => s.id));
-
-                          // A change is possible if there's a valid sector the supplier manages that the attendee isn't in.
-                          const canAddNewSector = validSupplierSectors.some(
-                              (sector) => !attendeeSectorIds.has(sector.id)
-                          );
-
-                          // A change is also needed if the attendee has sectors that are NOT valid for this supplier.
-                          // This is the "correction" case.
-                          const needsCorrection = [...attendeeSectorIds].some(
-                              (attendeeSectorId) => !validSupplierSectorIds.has(attendeeSectorId)
-                          );
-
-                          // The button should be enabled in either case.
-                          const canChangeSector = canAddNewSector || needsCorrection;
-
-
                           return (
                             <div key={attendee.id} className="bg-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-700 flex flex-col">
                                 <img 
@@ -158,21 +132,12 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                                       {isPending && (
                                         <>
                                           <button
-                                            onClick={() => setSubstitutingAttendee(attendee)}
-                                            disabled={isSubstRequested}
+                                            onClick={() => setEditingAttendee(attendee)}
+                                            disabled={isEditRequested}
                                             className="w-full text-sm font-semibold py-2 px-2 rounded-md transition-colors flex items-center justify-center gap-1.5 disabled:bg-gray-600 disabled:cursor-not-allowed bg-indigo-600 hover:bg-indigo-700 text-white whitespace-nowrap"
                                           >
-                                            <RefreshIcon className="w-4 h-4" />
-                                            {isSubstRequested ? t('supplierAdmin.substitutionRequested') : t('supplierAdmin.requestSubstitution')}
-                                          </button>
-                                          <button
-                                            onClick={() => setChangingSectorAttendee(attendee)}
-                                            disabled={isSectorChangeRequested || !canChangeSector}
-                                            title={!canChangeSector ? "Não há outros setores disponíveis para troca." : ""}
-                                            className="w-full text-sm font-semibold py-2 px-2 rounded-md transition-colors flex items-center justify-center gap-1.5 disabled:bg-gray-600 disabled:cursor-not-allowed bg-purple-600 hover:bg-purple-700 text-white whitespace-nowrap"
-                                          >
-                                            <RefreshIcon className="w-4 h-4" />
-                                            {isSectorChangeRequested ? t('supplierAdmin.sectorChangeRequested') : t('supplierAdmin.requestSectorChange')}
+                                            <PencilIcon className="w-4 h-4" />
+                                            {isEditRequested ? t('supplierAdmin.editRequested') : t('supplierAdmin.requestEdit')}
                                           </button>
                                         </>
                                       )}
@@ -194,22 +159,13 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
             )}
         </main>
       </div>
-      {substitutingAttendee && (
-        <SubstitutionRequestModal 
-            attendee={substitutingAttendee}
+      {editingAttendee && (
+        <EditRequestModal 
+            attendee={editingAttendee}
             eventId={eventId}
-            onClose={() => setSubstitutingAttendee(null)}
-            onSuccess={handleSubstitutionSuccess}
-        />
-      )}
-      {changingSectorAttendee && (
-        <SectorChangeRequestModal 
-            attendee={changingSectorAttendee}
-            eventId={eventId}
+            onClose={() => setEditingAttendee(null)}
+            onSuccess={handleEditSuccess}
             allowedSectors={allowedSectorsForSupplier}
-            allSectors={sectors}
-            onClose={() => setChangingSectorAttendee(null)}
-            onSuccess={handleSectorChangeSuccess}
         />
       )}
     </div>
