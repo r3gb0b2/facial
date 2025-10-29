@@ -12,7 +12,7 @@ interface CheckinViewProps {
   suppliers: Supplier[];
   sectors: Sector[];
   currentEventId: string;
-  onUpdateAttendeeDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'wristbands' | 'subCompany'>>) => Promise<void>;
+  onUpdateAttendeeDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'wristbands' | 'subCompany' | 'supplierId'>>) => Promise<void>;
   onDeleteAttendee: (attendeeId: string) => Promise<void>;
   onApproveSubstitution: (attendeeId: string) => Promise<void>;
   onRejectSubstitution: (attendeeId: string) => Promise<void>;
@@ -204,9 +204,10 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
       {filteredAttendees.length === 0 && (
           <div className="text-center col-span-full py-16">
               <p className="text-gray-400">
+                {/* FIX: Cast result of t() to string to resolve type error. */}
                 {searchTerm.trim()
-                  ? t('checkin.search.noResultsForTerm', searchTerm)
-                  : t('checkin.search.noResultsForFilter')
+                  ? t('checkin.search.noResultsForTerm', searchTerm) as string
+                  : t('checkin.search.noResultsForFilter') as string
                 }
               </p>
           </div>
@@ -219,6 +220,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
             <AttendeeDetailModal
               attendee={selectedAttendee}
               sectors={sectors}
+              suppliers={suppliers}
               allAttendees={attendees}
               onClose={() => setSelectedAttendee(null)}
               onUpdateStatus={handleUpdateStatus}

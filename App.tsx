@@ -181,21 +181,24 @@ const App: React.FC = () => {
   };
   
   // Attendee Handlers
-  const handleRegister = async (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => {
+  const handleRegister = async (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>, supplierIdFromForm?: string) => {
     const eventId = currentEvent?.id || supplierInfo?.data.eventId;
     if (!eventId) {
       setGlobalError("ID do evento não encontrado.");
       return;
     }
 
-    const supplierId = supplierInfo?.data.id || undefined;
+    const supplierId = supplierInfo?.data.id || supplierIdFromForm;
     
     // Supplier registration limit check
-    if (supplierId && supplierInfo) {
-      const currentCount = await api.getRegistrationsCountForSupplier(eventId, supplierId);
-      if (currentCount >= supplierInfo.data.registrationLimit) {
-          setGlobalError(t('errors.registrationLimitReached'));
-          throw new Error('Limit reached');
+    if (supplierId) {
+      const currentSupplier = supplierInfo ? supplierInfo.data : suppliers.find(s => s.id === supplierId);
+      if (currentSupplier) {
+        const currentCount = await api.getRegistrationsCountForSupplier(eventId, supplierId);
+        if (currentCount >= currentSupplier.registrationLimit) {
+            setGlobalError(t('errors.registrationLimitReached'));
+            throw new Error('Limit reached');
+        }
       }
     }
     

@@ -16,7 +16,7 @@ interface AdminViewProps {
     attendees: Attendee[];
     suppliers: Supplier[];
     sectors: Sector[];
-    onRegister: (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => Promise<void>;
+    onRegister: (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>, supplierId?: string) => Promise<void>;
     onAddSupplier: (name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[]) => Promise<void>;
     onUpdateSupplier: (supplierId: string, data: Partial<Supplier>) => Promise<void>;
     onDeleteSupplier: (supplier: Supplier) => Promise<void>;
@@ -25,7 +25,7 @@ interface AdminViewProps {
     onAddSector: (label: string, color: string) => Promise<void>;
     onUpdateSector: (sectorId: string, data: { label: string; color: string; }) => Promise<void>;
     onDeleteSector: (sector: Sector) => Promise<void>;
-    onAttendeeDetailsUpdate: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'wristbands' | 'subCompany'>>) => Promise<void>;
+    onAttendeeDetailsUpdate: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'wristbands' | 'subCompany' | 'supplierId'>>) => Promise<void>;
     onDeleteAttendee: (attendeeId: string) => Promise<void>;
     onApproveSubstitution: (attendeeId: string) => Promise<void>;
     onRejectSubstitution: (attendeeId: string) => Promise<void>;
@@ -68,7 +68,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                     setError={props.setError}
                 />;
             case 'register':
-                return <RegisterView onRegister={props.onRegister} setError={props.setError} sectors={props.sectors} eventName={props.currentEvent.name} />;
+                return <RegisterView onRegister={props.onRegister} setError={props.setError} sectors={props.sectors} suppliers={props.suppliers} eventName={props.currentEvent.name} />;
             case 'suppliers':
                 return <SupplierManagementView 
                     currentEventId={props.currentEvent.id} 

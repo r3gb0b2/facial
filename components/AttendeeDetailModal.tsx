@@ -6,10 +6,11 @@ import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon } from './icons.tsx';
 interface AttendeeDetailModalProps {
   attendee: Attendee;
   sectors: Sector[];
+  suppliers: Supplier[];
   allAttendees: Attendee[];
   onClose: () => void;
   onUpdateStatus: (status: CheckinStatus, wristbands?: { [sectorId: string]: string }) => void;
-  onUpdateDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'subCompany' | 'wristbands'>>) => Promise<void>;
+  onUpdateDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'subCompany' | 'wristbands' | 'supplierId'>>) => Promise<void>;
   onDelete: (attendeeId: string) => Promise<void>;
   onApproveSubstitution: (attendeeId: string) => Promise<void>;
   onRejectSubstitution: (attendeeId: string) => Promise<void>;
@@ -21,6 +22,7 @@ interface AttendeeDetailModalProps {
 export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   attendee,
   sectors,
+  suppliers,
   allAttendees,
   onClose,
   onUpdateStatus,
@@ -41,9 +43,8 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     cpf: attendee.cpf,
     sectors: attendee.sectors,
     subCompany: attendee.subCompany || '',
+    supplierId: attendee.supplierId || '',
   });
-  
-  const hasSubCompanies = !!(supplier?.subCompanies && supplier.subCompanies.length > 0);
   
   const attendeeSectors = useMemo(() => {
     return (attendee.sectors || []).map(id => sectors.find(s => s.id === id)).filter(Boolean) as Sector[];
@@ -59,6 +60,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
       cpf: formatCPF(attendee.cpf),
       sectors: validAttendeeSectors,
       subCompany: attendee.subCompany || '',
+      supplierId: attendee.supplierId || '',
     });
     setWristbands(attendee.wristbands || {});
     setIsEditing(false); // Reset editing state when attendee changes
@@ -86,10 +88,16 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   const handleSave = async () => {
     const rawCpf = editData.cpf.replace(/\D/g, '');
     if (!editData.name.trim() || !rawCpf.trim()) {
-      setError(t('attendeeDetail.formError'));
+      setError(t('attendeeDetail.formError') as string);
       return;
     }
-    await onUpdateDetails(attendee.id, { ...editData, cpf: rawCpf });
+    await onUpdateDetails(attendee.id, { 
+        name: editData.name,
+        cpf: rawCpf,
+        sectors: editData.sectors,
+        subCompany: editData.subCompany,
+        supplierId: editData.supplierId || undefined
+    });
     setIsEditing(false);
   };
 
@@ -165,7 +173,19 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   // --- Edit Form Handlers ---
 
   const handleEditDataChange = (field: keyof typeof editData, value: any) => {
-    setEditData(prev => ({ ...prev, [field]: value }));
+    setEditData(prev => {
+        const newState = { ...prev, [field]: value };
+        // Reset sub-company and sectors if the supplier is changed, to ensure data consistency
+        if (field === 'supplierId') {
+            newState.subCompany = '';
+            const newSupplier = suppliers.find(s => s.id === value);
+            // If new supplier doesn't have sub-companies, clear sectors for re-selection
+            if (!newSupplier || !newSupplier.subCompanies || newSupplier.subCompanies.length === 0) {
+                newState.sectors = [];
+            }
+        }
+        return newState;
+    });
   };
 
   const handleSectorSelection = (sectorId: string) => {
@@ -178,13 +198,15 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   };
   
   const handleSubCompanyChange = (subCompanyName: string) => {
-    if (!supplier || !supplier.subCompanies) return;
-    const selected = supplier.subCompanies.find(sc => sc.name === subCompanyName);
-    if (selected) {
+    const selectedSupplier = suppliers.find(s => s.id === editData.supplierId);
+    if (!selectedSupplier || !selectedSupplier.subCompanies) return;
+    
+    const selectedSubCompany = selectedSupplier.subCompanies.find(sc => sc.name === subCompanyName);
+    if (selectedSubCompany) {
         setEditData(prev => ({
             ...prev,
             subCompany: subCompanyName,
-            sectors: [selected.sector] // Set sector based on sub-company
+            sectors: [selectedSubCompany.sector] // Set sector based on sub-company
         }));
     } else {
         setEditData(prev => ({...prev, subCompany: ''}));
@@ -225,55 +247,59 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     }
   };
   
-  const renderEditForm = () => (
-    <>
-      <div>
-        <label className="block text-sm font-medium text-gray-400">Nome</label>
-        <input type="text" value={editData.name} onChange={(e) => handleEditDataChange('name', e.target.value)} className="mt-1 w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"/>
-      </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-400">CPF</label>
-        <input type="text" value={editData.cpf} onChange={(e) => handleEditDataChange('cpf', formatCPF(e.target.value))} className="mt-1 w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"/>
-      </div>
-       {hasSubCompanies && supplier ? (
-        <div>
-            <label className="block text-sm font-medium text-gray-400">Empresa/Unidade</label>
-            <select
-                value={editData.subCompany}
-                onChange={(e) => handleSubCompanyChange(e.target.value)}
-                className="mt-1 w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"
-            >
-                <option value="">Selecione...</option>
-                {supplier.subCompanies?.map(sc => <option key={sc.name} value={sc.name}>{sc.name}</option>)}
-            </select>
-        </div>
-        ) : (
+  const renderEditForm = () => {
+    const selectedSupplier = suppliers.find(s => s.id === editData.supplierId);
+    const supplierHasSubCompanies = !!(selectedSupplier?.subCompanies && selectedSupplier.subCompanies.length > 0);
+
+    return (
         <>
-          <div>
-            <label className="block text-sm font-medium text-gray-400">Empresa/Unidade (Opcional)</label>
-            <input type="text" value={editData.subCompany} onChange={(e) => handleEditDataChange('subCompany', e.target.value)} className="mt-1 w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"/>
-          </div>
-          <div>
-              <label className="block text-sm font-medium text-gray-400 mb-2">Setores</label>
-              <div className="space-y-2">
-                  {sectors.map(sector => (
-                      <div key={sector.id} className="flex items-center">
-                          <input
-                              type="checkbox"
-                              id={`edit-sector-${sector.id}`}
-                              checked={editData.sectors.includes(sector.id)}
-                              onChange={() => handleSectorSelection(sector.id)}
-                              className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
-                          />
-                          <label htmlFor={`edit-sector-${sector.id}`} className="ml-3 text-white">{sector.label}</label>
-                      </div>
-                  ))}
-              </div>
-          </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-400">Nome</label>
+                <input type="text" value={editData.name} onChange={(e) => handleEditDataChange('name', e.target.value)} className="mt-1 w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"/>
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-400">CPF</label>
+                <input type="text" value={editData.cpf} onChange={(e) => handleEditDataChange('cpf', formatCPF(e.target.value))} className="mt-1 w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"/>
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-400">Fornecedor (Opcional)</label>
+                <select value={editData.supplierId} onChange={(e) => handleEditDataChange('supplierId', e.target.value)} className="mt-1 w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white">
+                    <option value="">Nenhum / Manual</option>
+                    {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+            </div>
+
+            {supplierHasSubCompanies && selectedSupplier ? (
+                <div>
+                    <label className="block text-sm font-medium text-gray-400">Empresa/Unidade</label>
+                    <select value={editData.subCompany} onChange={(e) => handleSubCompanyChange(e.target.value)} className="mt-1 w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white">
+                        <option value="">Selecione...</option>
+                        {selectedSupplier.subCompanies?.map(sc => <option key={sc.name} value={sc.name}>{sc.name}</option>)}
+                    </select>
+                </div>
+            ) : (
+                <div>
+                    <label className="block text-sm font-medium text-gray-400">Empresa/Unidade (Opcional)</label>
+                    <input type="text" value={editData.subCompany} onChange={(e) => handleEditDataChange('subCompany', e.target.value)} className="mt-1 w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"/>
+                </div>
+            )}
+            
+            {!supplierHasSubCompanies && (
+                <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-2">Setores</label>
+                    <div className="space-y-2">
+                        {sectors.map(sector => (
+                            <div key={sector.id} className="flex items-center">
+                                <input type="checkbox" id={`edit-sector-${sector.id}`} checked={editData.sectors.includes(sector.id)} onChange={() => handleSectorSelection(sector.id)} className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500" />
+                                <label htmlFor={`edit-sector-${sector.id}`} className="ml-3 text-white">{sector.label}</label>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
         </>
-      )}
-    </>
-  );
+    );
+  };
 
   const renderSubstitutionView = () => (
     <div className="space-y-6">

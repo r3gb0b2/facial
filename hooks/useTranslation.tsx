@@ -83,6 +83,8 @@ const translations: { [lang: string]: Translations } = {
     'register.form.namePlaceholder': 'Digite o nome do participante',
     'register.form.sectorLabel': 'Setor',
     'register.form.sectorPlaceholder': 'Selecione um setor',
+    'register.form.supplierLabel': 'Fornecedor (Opcional)',
+    'register.form.supplierPlaceholder': 'Nenhum / Manual',
     'register.form.subCompanyLabel': 'Empresa / Unidade',
     'register.form.subCompanyLabelOptional': 'Empresa / Unidade (Opcional)',
     'register.form.subCompanyPlaceholder': 'Selecione a empresa/unidade',

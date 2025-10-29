@@ -11,20 +11,22 @@ import { UsersIcon, CheckCircleIcon, SpinnerIcon } from '../icons.tsx';
 import * as api from '../../firebase/service.ts';
 
 interface RegisterViewProps {
-  onRegister: (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>) => Promise<void>;
+  onRegister: (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>, supplierId?: string) => Promise<void>;
   setError: (message: string) => void;
   sectors: Sector[];
+  suppliers?: Supplier[];
   predefinedSector?: string | string[];
   eventName?: string;
   supplierName?: string;
   supplierInfo?: { data: Supplier };
 }
 
-const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, sectors, predefinedSector, eventName, supplierName, supplierInfo }) => {
+const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, sectors, suppliers = [], predefinedSector, eventName, supplierName, supplierInfo }) => {
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [cpf, setCpf] = useState('');
   const [sector, setSector] = useState('');
+  const [selectedSupplierId, setSelectedSupplierId] = useState('');
   const [subCompany, setSubCompany] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -74,6 +76,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
     setPhoto(null);
     setCpfCheckMessage('');
     setExistingAttendeeFound(false);
+    setSelectedSupplierId('');
     if (hasSubCompanies) {
       setSubCompany('');
       setSector('');
@@ -165,7 +168,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
           sectors: [sector],
           ...(subCompany && { subCompany })
       };
-      await onRegister(attendeeData);
+      await onRegister(attendeeData, isAdminView ? selectedSupplierId : undefined);
       clearForm();
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 4000);
@@ -287,8 +290,26 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
                 disabled={isSubmitting || isCheckingCpf || existingAttendeeFound}
               />
             </div>
+
+            {isAdminView && (
+              <div>
+                <label htmlFor="supplier" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.supplierLabel')}</label>
+                <select
+                  id="supplier"
+                  value={selectedSupplierId}
+                  onChange={(e) => setSelectedSupplierId(e.target.value)}
+                  className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                  disabled={isSubmitting || isCheckingCpf || existingAttendeeFound}
+                >
+                  <option value="">{t('register.form.supplierPlaceholder')}</option>
+                  {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+            )}
+            
             {renderSubCompanyInput()}
             {renderSectorInput()}
+
             <div className="space-y-4">
                 <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={!name || !cpf || !photo || !sector || isSubmitting || isCheckingCpf || existingAttendeeFound}>
                   {isSubmitting ? (
