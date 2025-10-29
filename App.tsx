@@ -374,10 +374,10 @@ const App: React.FC = () => {
 
   const handleDeleteSupplier = async (supplier: Supplier) => {
     if (!currentEvent) return;
-    // FIX: Safely handle caught errors of type 'unknown' by checking if the error is an instance of Error before accessing its properties.
     try {
       await api.deleteSupplier(currentEvent.id, supplier.id);
     } catch (error) {
+      // FIX: Safely handle caught errors of type 'unknown' by checking if the error is an instance of Error before accessing its properties.
       if (error instanceof Error) {
         setGlobalError(error.message);
       } else {
