@@ -158,7 +158,7 @@ const CompanyManagementView: React.FC<CompanyManagementViewProps> = ({
                                 )}
                             </div>
                         ))}
-                    </ul>
+                    </div>
                 )}
             </div>
             

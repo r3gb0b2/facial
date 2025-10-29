@@ -204,7 +204,7 @@ const App: React.FC = () => {
       setEventToEdit(null);
     } catch (error) {
       console.error(error);
-      // Fix for error on line 308: Type 'unknown' is not assignable to type 'string'.
+      // FIX: The error object in a catch block is of type 'unknown'. Check if it's an instance of Error before accessing properties.
       if (error instanceof Error) {
         setGlobalError(error.message);
       } else {
@@ -220,7 +220,7 @@ const App: React.FC = () => {
         await loadEvents();
       } catch (error) {
         console.error(error);
-        // Fix for error on line 331: Type 'unknown' is not assignable to type 'string'.
+        // FIX: The error object in a catch block is of type 'unknown'. Check if it's an instance of Error before accessing properties.
         if (error instanceof Error) {
           setGlobalError(error.message);
         } else {
