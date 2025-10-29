@@ -257,15 +257,25 @@ export const subscribeToSupplierForRegistration = (
     let supplier: (Supplier & { eventId: string }) | null = null;
     let allSectors: Sector[] | null = null;
     
-    // This function will be called by each listener.
-    // It filters the sectors and sends the complete, merged state.
     const updateCallback = () => {
         if (eventName !== null && supplier !== null && allSectors !== null) {
-            // Filter the sectors based on the supplier's allowed list
-            const supplierSectorIds = new Set(supplier.sectors || []);
-            const filteredSectors = allSectors.filter(sector => supplierSectorIds.has(sector.id));
+            // 1. Create a set of all valid, existing sector IDs for this event.
+            const validSectorIds = new Set(allSectors.map(s => s.id));
+
+            // 2. Create a clean copy of the supplier data, removing any references to deleted sectors.
+            const cleanedSupplier = { ...supplier };
+            cleanedSupplier.sectors = (supplier.sectors || []).filter(sectorId => validSectorIds.has(sectorId));
+            if (supplier.subCompanies) {
+                cleanedSupplier.subCompanies = supplier.subCompanies.filter(sc => validSectorIds.has(sc.sector));
+            }
+
+            // 3. Create the list of sector *objects* to send to the client. This should only
+            //    contain sectors that are both valid AND assigned to this supplier for the main dropdown.
+            const supplierAllowedSectorIds = new Set(cleanedSupplier.sectors || []);
+            const filteredSectors = allSectors.filter(sector => supplierAllowedSectorIds.has(sector.id));
             
-            callback({ data: supplier, name: eventName, sectors: filteredSectors });
+            // Pass the cleaned supplier data (with valid sub-companies) and the filtered list of usable sector objects.
+            callback({ data: cleanedSupplier, name: eventName, sectors: filteredSectors });
         }
     };
 
