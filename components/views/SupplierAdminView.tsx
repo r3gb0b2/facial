@@ -28,14 +28,18 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
   const { t } = useTranslation();
   const [substitutingAttendee, setSubstitutingAttendee] = useState<Attendee | null>(null);
   const [changingSectorAttendee, setChangingSectorAttendee] = useState<Attendee | null>(null);
-  const [submittedRequests, setSubmittedRequests] = useState<Set<string>>(new Set());
+  const [submittedSubstitutions, setSubmittedSubstitutions] = useState<Set<string>>(new Set());
+  const [submittedSectorChanges, setSubmittedSectorChanges] = useState<Set<string>>(new Set());
   
   // State for filters
   const [searchTerm, setSearchTerm] = useState('');
   const [companyFilter, setCompanyFilter] = useState('ALL');
 
-  const handleSuccess = (attendeeId: string) => {
-    setSubmittedRequests(prev => new Set(prev).add(attendeeId));
+  const handleSubstitutionSuccess = (attendeeId: string) => {
+    setSubmittedSubstitutions(prev => new Set(prev).add(attendeeId));
+  };
+  const handleSectorChangeSuccess = (attendeeId: string) => {
+    setSubmittedSectorChanges(prev => new Set(prev).add(attendeeId));
   };
   
   const uniqueCompanies = useMemo(() => {
@@ -116,8 +120,8 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
                         {filteredAttendees.map((attendee) => {
                           const isPending = attendee.status === CheckinStatus.PENDING;
-                          const isSubstRequested = submittedRequests.has(attendee.id) || attendee.status === CheckinStatus.SUBSTITUTION_REQUEST;
-                          const isSectorChangeRequested = submittedRequests.has(attendee.id) || attendee.status === CheckinStatus.SECTOR_CHANGE_REQUEST;
+                          const isSubstRequested = submittedSubstitutions.has(attendee.id) || attendee.status === CheckinStatus.SUBSTITUTION_REQUEST;
+                          const isSectorChangeRequested = submittedSectorChanges.has(attendee.id) || attendee.status === CheckinStatus.SECTOR_CHANGE_REQUEST;
                           
                           // FIX: Refactored logic to be more robust and explicit.
                           // It defensively ensures attendee.sectors is an array and then checks if there's any sector
@@ -184,7 +188,7 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
             attendee={substitutingAttendee}
             eventId={eventId}
             onClose={() => setSubstitutingAttendee(null)}
-            onSuccess={handleSuccess}
+            onSuccess={handleSubstitutionSuccess}
         />
       )}
       {changingSectorAttendee && (
@@ -194,7 +198,7 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
             allowedSectors={allowedSectorsForSupplier}
             allSectors={sectors}
             onClose={() => setChangingSectorAttendee(null)}
-            onSuccess={handleSuccess}
+            onSuccess={handleSectorChangeSuccess}
         />
       )}
     </div>
