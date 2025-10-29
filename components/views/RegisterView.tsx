@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 // FIX: Add .ts extension
-import { Attendee, Sector, Supplier } from '../../types.ts';
+import { Attendee, Sector, Supplier, SubCompany } from '../../types.ts';
 // FIX: Add .tsx extension
 import WebcamCapture from '../WebcamCapture.tsx';
 // FIX: Added .tsx extension to module import.
@@ -38,7 +38,13 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
   const isSupplierWithMultipleSectors = Array.isArray(predefinedSector);
   const isSupplierWithSingleSector = typeof predefinedSector === 'string';
   const isAdminView = !predefinedSector; // True if it's the main admin view, not a supplier link
-  const hasSubCompanies = Array.isArray(supplierInfo?.data.subCompanies);
+  const hasSubCompanies = Array.isArray(supplierInfo?.data.subCompanies) && supplierInfo!.data.subCompanies!.length > 0;
+
+  const selectedSupplier = useMemo(() => {
+    if (!isAdminView || !selectedSupplierId) return null;
+    return suppliers.find(s => s.id === selectedSupplierId);
+  }, [isAdminView, selectedSupplierId, suppliers]);
+
 
   useEffect(() => {
     if (hasSubCompanies) {
@@ -61,14 +67,34 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
 
   // Effect to auto-select sector when a sub-company is chosen
   useEffect(() => {
-      if (hasSubCompanies && subCompany) {
-          const selected = supplierInfo?.data.subCompanies?.find(sc => sc.name === subCompany);
-          if (selected) {
-              setSector(selected.sector);
+    if (subCompany) {
+      let selectedSubCompanyConfig: SubCompany | undefined;
+      // Supplier link view logic
+      if (hasSubCompanies) {
+          selectedSubCompanyConfig = supplierInfo?.data.subCompanies?.find(sc => sc.name === subCompany);
+      } 
+      // Admin view logic
+      else if (isAdminView) {
+          const supplierHasSubCompanies = selectedSupplier?.subCompanies && selectedSupplier.subCompanies.length > 0;
+          if (supplierHasSubCompanies) {
+            selectedSubCompanyConfig = selectedSupplier?.subCompanies?.find(sc => sc.name === subCompany);
           }
       }
-  }, [subCompany, hasSubCompanies, supplierInfo]);
+      
+      if (selectedSubCompanyConfig) {
+        setSector(selectedSubCompanyConfig.sector);
+      }
+    }
+  }, [subCompany, hasSubCompanies, supplierInfo, isAdminView, selectedSupplier]);
   
+  // Effect to reset sub-company and sector when the supplier is changed in the admin view
+  useEffect(() => {
+    if (isAdminView) {
+      setSubCompany('');
+      setSector('');
+    }
+  }, [selectedSupplierId, isAdminView]);
+
 
   const clearForm = () => {
     setName('');
@@ -153,7 +179,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
       setError(t('register.errors.invalidCpf'));
       return;
     }
-    if (hasSubCompanies && !subCompany) {
+    if ((hasSubCompanies || (selectedSupplier?.subCompanies && selectedSupplier.subCompanies.length > 0)) && !subCompany) {
       setError(t('register.errors.subCompanyRequired'));
       return;
     }
@@ -181,8 +207,10 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
   };
   
   const renderSectorInput = () => {
-    // If supplier has sub-companies, the sector is derived, so don't show this input.
-    if (hasSubCompanies) return null;
+    const adminHasSubCompanies = isAdminView && selectedSupplier?.subCompanies && selectedSupplier.subCompanies.length > 0;
+    
+    // If supplier has sub-companies (either from supplier link or admin selection), sector is derived, so hide this input.
+    if (hasSubCompanies || adminHasSubCompanies) return null;
     
     if (isSupplierWithSingleSector) {
       return null; // Sector is predefined and hidden
@@ -209,6 +237,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
   };
   
   const renderSubCompanyInput = () => {
+    // For supplier-specific registration pages
     if (hasSubCompanies) {
       return (
           <div>
@@ -230,21 +259,47 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
       );
     }
 
+    // For the main admin registration tab
     if (isAdminView) {
-      return (
-        <div>
-          <label htmlFor="subCompany" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.subCompanyLabelOptional')}</label>
-          <input
-            type="text"
-            id="subCompany"
-            value={subCompany}
-            onChange={(e) => setSubCompany(e.target.value)}
-            className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
-            placeholder={t('register.form.subCompanyInputPlaceholder')}
-            disabled={isSubmitting || isCheckingCpf || existingAttendeeFound}
-          />
-        </div>
-      );
+      const adminHasSubCompanies = selectedSupplier?.subCompanies && selectedSupplier.subCompanies.length > 0;
+
+      if (adminHasSubCompanies) {
+        // Admin selected a supplier WITH sub-companies -> show dropdown
+        return (
+          <div>
+            <label htmlFor="subCompany-admin" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.subCompanyLabel')}</label>
+            <select
+              id="subCompany-admin" value={subCompany} onChange={(e) => setSubCompany(e.target.value)}
+              className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+              disabled={isSubmitting || isCheckingCpf || existingAttendeeFound}
+              required
+            >
+              <option value="">{t('register.form.subCompanyPlaceholder')}</option>
+              {selectedSupplier?.subCompanies?.map(sc => 
+                  <option key={sc.name} value={sc.name}>
+                      {sc.name}
+                  </option>
+              )}
+            </select>
+          </div>
+        );
+      } else {
+        // Admin selected a supplier WITHOUT sub-companies (or no supplier) -> show text input
+        return (
+          <div>
+            <label htmlFor="subCompany-admin-input" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.subCompanyLabelOptional')}</label>
+            <input
+              type="text"
+              id="subCompany-admin-input"
+              value={subCompany}
+              onChange={(e) => setSubCompany(e.target.value)}
+              className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+              placeholder={t('register.form.subCompanyInputPlaceholder')}
+              disabled={isSubmitting || isCheckingCpf || existingAttendeeFound}
+            />
+          </div>
+        );
+      }
     }
     
     return null;
