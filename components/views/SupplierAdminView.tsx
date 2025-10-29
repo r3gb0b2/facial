@@ -137,7 +137,7 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                                           <button
                                             onClick={() => setSubstitutingAttendee(attendee)}
                                             disabled={isSubstRequested}
-                                            className="w-full text-sm font-semibold py-2 px-2 rounded-md transition-colors flex items-center justify-center gap-1.5 disabled:bg-gray-600 disabled:cursor-not-allowed bg-indigo-600 hover:bg-indigo-700 text-white"
+                                            className="w-full text-sm font-semibold py-2 px-2 rounded-md transition-colors flex items-center justify-center gap-1.5 disabled:bg-gray-600 disabled:cursor-not-allowed bg-indigo-600 hover:bg-indigo-700 text-white whitespace-nowrap"
                                           >
                                             <RefreshIcon className="w-4 h-4" />
                                             {isSubstRequested ? t('supplierAdmin.substitutionRequested') : t('supplierAdmin.requestSubstitution')}
@@ -145,7 +145,7 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                                           <button
                                             onClick={() => setChangingSectorAttendee(attendee)}
                                             disabled={isSectorChangeRequested}
-                                            className="w-full text-sm font-semibold py-2 px-2 rounded-md transition-colors flex items-center justify-center gap-1.5 disabled:bg-gray-600 disabled:cursor-not-allowed bg-purple-600 hover:bg-purple-700 text-white"
+                                            className="w-full text-sm font-semibold py-2 px-2 rounded-md transition-colors flex items-center justify-center gap-1.5 disabled:bg-gray-600 disabled:cursor-not-allowed bg-purple-600 hover:bg-purple-700 text-white whitespace-nowrap"
                                           >
                                             <RefreshIcon className="w-4 h-4" />
                                             {isSectorChangeRequested ? t('supplierAdmin.sectorChangeRequested') : t('supplierAdmin.requestSectorChange')}

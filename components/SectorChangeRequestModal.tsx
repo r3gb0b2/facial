@@ -25,6 +25,11 @@ const SectorChangeRequestModal: React.FC<SectorChangeRequestModalProps> = ({ att
     return sector ? sector.label : 'N/A';
   }, [attendee, allSectors]);
 
+  const availableSectorsForChange = useMemo(() => {
+    const currentSectorIds = new Set(attendee.sectors);
+    return allowedSectors.filter(sector => !currentSectorIds.has(sector.id));
+  }, [allowedSectors, attendee.sectors]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSectorId) {
@@ -71,7 +76,7 @@ const SectorChangeRequestModal: React.FC<SectorChangeRequestModalProps> = ({ att
                 disabled={isSubmitting}
               >
                 <option value="" disabled>{t('sectorChangeModal.selectSector')}</option>
-                {allowedSectors.map(sector => (
+                {availableSectorsForChange.map(sector => (
                     <option key={sector.id} value={sector.id}>{sector.label}</option>
                 ))}
               </select>
