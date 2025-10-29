@@ -118,6 +118,8 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                           const isPending = attendee.status === CheckinStatus.PENDING;
                           const isSubstRequested = submittedRequests.has(attendee.id) || attendee.status === CheckinStatus.SUBSTITUTION_REQUEST;
                           const isSectorChangeRequested = submittedRequests.has(attendee.id) || attendee.status === CheckinStatus.SECTOR_CHANGE_REQUEST;
+                          
+                          const canChangeSector = allowedSectorsForSupplier.some(sector => !attendee.sectors.includes(sector.id));
 
                           return (
                             <div key={attendee.id} className="bg-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-700 flex flex-col">
@@ -131,7 +133,7 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                                         <h3 className="font-semibold text-base text-white truncate" title={attendee.name}>{attendee.name}</h3>
                                         {attendee.subCompany && <p className="text-xs text-gray-400 truncate" title={attendee.subCompany}>{attendee.subCompany}</p>}
                                     </div>
-                                    <div className='space-y-1'>
+                                    <div className='space-y-1 mt-2'>
                                       {isPending && (
                                         <>
                                           <button
@@ -144,7 +146,8 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                                           </button>
                                           <button
                                             onClick={() => setChangingSectorAttendee(attendee)}
-                                            disabled={isSectorChangeRequested}
+                                            disabled={isSectorChangeRequested || !canChangeSector}
+                                            title={!canChangeSector ? "Não há outros setores disponíveis para troca." : ""}
                                             className="w-full text-sm font-semibold py-2 px-2 rounded-md transition-colors flex items-center justify-center gap-1.5 disabled:bg-gray-600 disabled:cursor-not-allowed bg-purple-600 hover:bg-purple-700 text-white whitespace-nowrap"
                                           >
                                             <RefreshIcon className="w-4 h-4" />
