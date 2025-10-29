@@ -250,6 +250,82 @@ const App: React.FC = () => {
     await api.rejectSubstitution(currentEvent.id, attendeeId);
   };
 
+  const handleImportAttendees = async (data: any[]) => {
+    if (!currentEvent) {
+      throw new Error("Nenhum evento selecionado para importação.");
+    }
+    
+    const sectorMap = new Map(sectors.map(s => [s.label.toLowerCase(), s.id]));
+    const supplierMap = new Map(suppliers.map(s => [s.name.toLowerCase(), s.id]));
+
+    const failedRows: { row: any, reason: string }[] = [];
+    let successCount = 0;
+
+    const currentAttendees = await api.getAttendees(currentEvent.id);
+
+    for (const row of data) {
+        try {
+            const { name, cpf, sector, photoUrl, fornecedor, empresa } = row;
+
+            if (!name || !cpf || !sector || !photoUrl) {
+                failedRows.push({ row, reason: "Colunas obrigatórias (name, cpf, sector, photoUrl) faltando." });
+                continue;
+            }
+
+            const sectorId = sectorMap.get(String(sector).toLowerCase());
+            if (!sectorId) {
+                failedRows.push({ row, reason: `Setor "${sector}" não encontrado.` });
+                continue;
+            }
+
+            let supplierId: string | undefined = undefined;
+            if (fornecedor) {
+                supplierId = supplierMap.get(String(fornecedor).toLowerCase());
+                if (!supplierId) {
+                    failedRows.push({ row, reason: `Fornecedor "${fornecedor}" não encontrado.` });
+                    continue;
+                }
+            }
+            
+            const rawCpf = String(cpf).replace(/\D/g, '');
+            if (rawCpf.length !== 11) {
+                failedRows.push({ row, reason: `CPF inválido: "${cpf}"` });
+                continue;
+            }
+            
+            const existing = currentAttendees.some(a => a.cpf === rawCpf);
+            if(existing) {
+                 failedRows.push({ row, reason: `CPF "${cpf}" já cadastrado neste evento.` });
+                continue;
+            }
+
+            const newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'> = {
+                name,
+                cpf: rawCpf,
+                photo: photoUrl,
+                sectors: [sectorId],
+                subCompany: empresa || undefined,
+            };
+
+            await api.addAttendee(currentEvent.id, newAttendee, supplierId);
+            successCount++;
+
+        } catch (error) {
+            // FIX: Safely handle caught errors of type 'unknown' by checking if it's an instance of Error.
+            const reason = error instanceof Error ? `Erro no servidor: ${error.message}` : 'Erro no servidor: desconhecido.';
+            failedRows.push({ row, reason });
+        }
+    }
+
+    let summaryMessage = `${successCount} participantes importados com sucesso.`;
+    if (failedRows.length > 0) {
+        summaryMessage += ` ${failedRows.length} falharam. Verifique o console para detalhes.`;
+        console.error("Falhas na importação:", failedRows);
+    }
+    alert(summaryMessage);
+    return;
+  };
+
   // Supplier Handlers
   const handleAddSupplier = async (name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[]) => {
     if (!currentEvent) return;
@@ -312,6 +388,7 @@ const App: React.FC = () => {
             suppliers={suppliers}
             sectors={sectors}
             onRegister={handleRegister}
+            onImportAttendees={handleImportAttendees}
             onAddSupplier={handleAddSupplier}
             onUpdateSupplier={handleUpdateSupplier}
             onDeleteSupplier={handleDeleteSupplier}

@@ -6,6 +6,7 @@ import RegisterView from './RegisterView.tsx';
 import SupplierManagementView from './SupplierManagementView.tsx';
 import SectorManagementView from './SectorManagementView.tsx';
 import WristbandReportView from './WristbandReportView.tsx';
+import SpreadsheetUploadView from './SpreadsheetUploadView.tsx';
 import { ArrowLeftOnRectangleIcon, SpinnerIcon } from '../icons.tsx';
 
 type AdminTab = 'checkin' | 'register' | 'suppliers' | 'sectors' | 'wristbands';
@@ -17,6 +18,7 @@ interface AdminViewProps {
     suppliers: Supplier[];
     sectors: Sector[];
     onRegister: (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>, supplierId?: string) => Promise<void>;
+    onImportAttendees: (data: any[]) => Promise<void>;
     onAddSupplier: (name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[]) => Promise<void>;
     onUpdateSupplier: (supplierId: string, data: Partial<Supplier>) => Promise<void>;
     onDeleteSupplier: (supplier: Supplier) => Promise<void>;
@@ -76,7 +78,21 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                     setError={props.setError}
                 />;
             case 'register':
-                return <RegisterView onRegister={props.onRegister} setError={props.setError} sectors={props.sectors} suppliers={props.suppliers} eventName={props.currentEvent.name} />;
+                return (
+                    <div className="space-y-8">
+                        <RegisterView 
+                            onRegister={props.onRegister} 
+                            setError={props.setError} 
+                            sectors={props.sectors} 
+                            suppliers={props.suppliers} 
+                            eventName={props.currentEvent.name} 
+                        />
+                        <SpreadsheetUploadView 
+                            onImport={props.onImportAttendees} 
+                            setError={props.setError} 
+                        />
+                    </div>
+                );
             case 'suppliers':
                 return <SupplierManagementView 
                     currentEventId={props.currentEvent.id} 

@@ -80,6 +80,11 @@ export const subscribeToEventData = (
 };
 
 // Attendee Management
+export const getAttendees = async (eventId: string): Promise<Attendee[]> => {
+    const snapshot = await db.collection('events').doc(eventId).collection('attendees').get();
+    return getCollectionData<Attendee>(snapshot);
+};
+
 export const findAttendeeByCpf = async (cpf: string, eventId?: string): Promise<(Attendee & { eventId?: string }) | null> => {
     let query: firebase.firestore.Query = db.collectionGroup('attendees').where('cpf', '==', cpf).limit(1);
     
@@ -104,6 +109,11 @@ export const findAttendeeByCpf = async (cpf: string, eventId?: string): Promise<
 };
 
 const uploadPhoto = async (photoDataUrl: string, cpf: string): Promise<string> => {
+    // If the provided string is already a downloadable URL (from spreadsheet), just return it.
+    if (photoDataUrl.startsWith('http://') || photoDataUrl.startsWith('https://')) {
+        return photoDataUrl;
+    }
+    // Otherwise, assume it's a base64 Data URL and upload it.
     const blob = await (await fetch(photoDataUrl)).blob();
     const ref = storage.ref(`photos/${cpf}-${Date.now()}.png`);
     const snapshot = await ref.put(blob);
@@ -114,7 +124,7 @@ const uploadPhoto = async (photoDataUrl: string, cpf: string): Promise<string> =
 export const addAttendee = async (eventId: string, attendeeData: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>, supplierId?: string) => {
     // Check if photo is a data URL that needs uploading
     let photoUrl = attendeeData.photo;
-    if (attendeeData.photo.startsWith('data:image')) {
+    if (attendeeData.photo.startsWith('data:image') || !attendeeData.photo.startsWith('http')) {
         photoUrl = await uploadPhoto(attendeeData.photo, attendeeData.cpf);
     }
 
