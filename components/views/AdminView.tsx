@@ -107,6 +107,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                     onDeleteSupplier={props.onDeleteSupplier} 
                     onSupplierStatusUpdate={props.onSupplierStatusUpdate}
                     onRegenerateAdminToken={props.onRegenerateAdminToken}
+                    onUpdateSectorsForSelectedAttendees={props.onUpdateSectorsForSelectedAttendees}
                     setError={props.setError} 
                 />;
             case 'companies':

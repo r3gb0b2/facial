@@ -4,6 +4,8 @@ import { Supplier, Sector, Attendee, SubCompany } from '../../types.ts';
 // FIX: Added .tsx extension to module import.
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { LinkIcon, ClipboardDocumentIcon, NoSymbolIcon, CheckCircleIcon, PencilIcon, TrashIcon, XMarkIcon, EyeIcon, KeyIcon } from '../icons.tsx';
+import BulkUpdateSectorsModal from '../CompanySectorsModal.tsx';
+
 
 interface SupplierManagementViewProps {
     currentEventId: string;
@@ -15,11 +17,12 @@ interface SupplierManagementViewProps {
     onDeleteSupplier: (supplier: Supplier) => Promise<void>;
     onSupplierStatusUpdate: (supplierId: string, active: boolean) => Promise<void>;
     onRegenerateAdminToken: (supplierId: string) => Promise<string>;
+    onUpdateSectorsForSelectedAttendees: (attendeeIds: string[], sectorIds: string[]) => Promise<void>;
     setError: (message: string) => void;
 }
 
 
-const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ currentEventId, suppliers, attendees, sectors, onAddSupplier, onUpdateSupplier, onDeleteSupplier, onSupplierStatusUpdate, onRegenerateAdminToken, setError }) => {
+const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ currentEventId, suppliers, attendees, sectors, onAddSupplier, onUpdateSupplier, onDeleteSupplier, onSupplierStatusUpdate, onRegenerateAdminToken, onUpdateSectorsForSelectedAttendees, setError }) => {
     const { t } = useTranslation();
     
     // State for the creation form
@@ -36,9 +39,12 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
     const [editSubCompanyName, setEditSubCompanyName] = useState('');
     const [editSubCompanySector, setEditSubCompanySector] = useState('');
 
-    // State for UI feedback
+    // State for UI feedback & new selection logic
     const [copiedLink, setCopiedLink] = useState<string | null>(null);
     const [copiedAdminLink, setCopiedAdminLink] = useState<string | null>(null);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [selectedAttendeeIds, setSelectedAttendeeIds] = useState<Set<string>>(new Set());
+    const [expandedSupplierId, setExpandedSupplierId] = useState<string | null>(null);
 
     
     const registrationCounts = useMemo(() => {
@@ -134,9 +140,11 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
         }
     };
     
-    const handleEditClick = (supplier: Supplier) => {
+    const handleEditClick = (supplier: Supplier, e: React.MouseEvent) => {
+        e.stopPropagation();
         setEditingSupplier({...supplier});
         setEditSubCompanySector(sectors.length > 0 ? sectors[0].id : '');
+        setExpandedSupplierId(null);
     };
 
     const handleCancelEdit = () => {
@@ -164,38 +172,83 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
         setEditingSupplier(null);
     };
 
-    const handleCopyLink = (supplierId: string) => {
+    const handleCopyLink = (supplierId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
         const url = `${window.location.origin}?eventId=${currentEventId}&supplierId=${supplierId}`;
         navigator.clipboard.writeText(url);
         setCopiedLink(supplierId);
         setTimeout(() => setCopiedLink(null), 2000);
     };
 
-    const handleCopyAdminLink = (token: string, supplierId: string) => {
+    const handleCopyAdminLink = (token: string, supplierId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
         const url = `${window.location.origin}?verify=${token}`;
         navigator.clipboard.writeText(url);
         setCopiedAdminLink(supplierId);
         setTimeout(() => setCopiedAdminLink(null), 2000);
     };
 
-    const handleRegenerateToken = async (supplier: Supplier) => {
+    const handleRegenerateToken = async (supplier: Supplier, e: React.MouseEvent) => {
+        e.stopPropagation();
         if (window.confirm(`Tem certeza que deseja gerar um novo link de administrador para "${supplier.name}"? O link antigo deixará de funcionar.`)) {
             const newToken = await onRegenerateAdminToken(supplier.id);
-            handleCopyAdminLink(newToken, supplier.id);
+            handleCopyAdminLink(newToken, supplier.id, e);
         }
     };
 
-    const handleDelete = async (supplier: Supplier) => {
+    const handleDelete = async (supplier: Supplier, e: React.MouseEvent) => {
+        e.stopPropagation();
         if (window.confirm(t('suppliers.deleteConfirm', supplier.name))) {
             try {
                 await onDeleteSupplier(supplier);
-            } catch (e: any) {
-                 if (e.message.includes("cannot be deleted")) {
+            } catch (err: any) {
+                 if (err.message.includes("cannot be deleted")) {
                     setError(t('suppliers.deleteErrorInUse', supplier.name));
                 } else {
-                    setError(e.message || 'Falha ao deletar o fornecedor.');
+                    setError(err.message || 'Falha ao deletar o fornecedor.');
                 }
             }
+        }
+    };
+
+     const handleToggleSupplier = (supplierId: string) => {
+        setExpandedSupplierId(prev => (prev === supplierId ? null : supplierId));
+    };
+
+    const handleToggleAttendee = (attendeeId: string) => {
+        setSelectedAttendeeIds(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(attendeeId)) {
+                newSet.delete(attendeeId);
+            } else {
+                newSet.add(attendeeId);
+            }
+            return newSet;
+        });
+    };
+
+    const handleSelectAllInSupplier = (supplierAttendees: Attendee[]) => {
+        const supplierAttendeeIds = supplierAttendees.map(a => a.id);
+        const allSelectedInSupplier = supplierAttendeeIds.every(id => selectedAttendeeIds.has(id));
+
+        setSelectedAttendeeIds(prev => {
+            const newSet = new Set(prev);
+            if (allSelectedInSupplier) {
+                supplierAttendeeIds.forEach(id => newSet.delete(id));
+            } else {
+                supplierAttendeeIds.forEach(id => newSet.add(id));
+            }
+            return newSet;
+        });
+    };
+
+    const handleSaveSectors = async (sectorIds: string[]) => {
+        try {
+            await onUpdateSectorsForSelectedAttendees(Array.from(selectedAttendeeIds), sectorIds);
+            setSelectedAttendeeIds(new Set());
+        } catch (error) {
+            console.error("Failed to update sectors:", error);
+            setError("Falha ao atualizar setores.");
         }
     };
     
@@ -308,13 +361,15 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                     <div className="space-y-4">
                         {suppliers.map(supplier => {
                             const isEditing = editingSupplier?.id === supplier.id;
+                            const isExpanded = expandedSupplierId === supplier.id;
                             const currentCount = registrationCounts.get(supplier.id) || 0;
-                            
+                            const supplierAttendees = attendees.filter(a => a.supplierId === supplier.id);
+                            const allInSupplierSelected = supplierAttendees.length > 0 && supplierAttendees.every(a => selectedAttendeeIds.has(a.id));
+
                             return (
-                                <div key={supplier.id} className="bg-gray-900/70 p-4 rounded-lg space-y-4 transition-all">
+                                <div key={supplier.id} className="bg-gray-900/70 rounded-lg overflow-hidden transition-all">
                                     {isEditing && editingSupplier ? (
-                                        // EDITING VIEW
-                                        <div className="space-y-4">
+                                        <div className="p-4 space-y-4">
                                             <input type="text" value={editingSupplier.name} onChange={(e) => setEditingSupplier({ ...editingSupplier, name: e.target.value })} className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-white"/>
                                             <input type="number" value={editingSupplier.registrationLimit} onChange={(e) => setEditingSupplier({ ...editingSupplier, registrationLimit: parseInt(e.target.value, 10) || 0 })} className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-white"/>
                                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2 bg-gray-800/50 rounded-lg">{renderSectorCheckboxes(true)}</div>
@@ -325,8 +380,8 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                             </div>
                                         </div>
                                     ) : (
-                                        // DISPLAY VIEW
-                                        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                                        <>
+                                        <div onClick={() => handleToggleSupplier(supplier.id)} className="p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 cursor-pointer hover:bg-gray-800/50">
                                             <div className="flex-grow">
                                                 <h4 className="font-bold text-lg text-white">{supplier.name}</h4>
                                                 <div className="flex items-center gap-2 text-sm text-gray-400 mt-1">
@@ -343,31 +398,70 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                                     })}
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                                <button onClick={() => onSupplierStatusUpdate(supplier.id, !supplier.active)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700" title={supplier.active ? t('suppliers.disableButton') : t('suppliers.enableButton')}>
+                                            <div className="flex items-center gap-2 flex-wrap" onClick={e => e.stopPropagation()}>
+                                                <button onClick={(e) => onSupplierStatusUpdate(supplier.id, !supplier.active)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700" title={supplier.active ? t('suppliers.disableButton') : t('suppliers.enableButton')}>
                                                     {supplier.active ? <NoSymbolIcon className="w-5 h-5"/> : <CheckCircleIcon className="w-5 h-5"/>}
                                                 </button>
-                                                <button onClick={() => handleCopyLink(supplier.id)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700" title={t('suppliers.copyButton')}>
+                                                <button onClick={(e) => handleCopyLink(supplier.id, e)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700" title={t('suppliers.copyButton')}>
                                                     {copiedLink === supplier.id ? <CheckCircleIcon className="w-5 h-5 text-green-400"/> : <LinkIcon className="w-5 h-5"/>}
                                                 </button>
                                                 {supplier.adminToken && (
                                                     <>
-                                                        <button onClick={() => handleCopyAdminLink(supplier.adminToken!, supplier.id)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700" title={t('suppliers.adminLink.copyTooltip')}>
+                                                        <button onClick={(e) => handleCopyAdminLink(supplier.adminToken!, supplier.id, e)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700" title={t('suppliers.adminLink.copyTooltip')}>
                                                           {copiedAdminLink === supplier.id ? <CheckCircleIcon className="w-5 h-5 text-green-400"/> : <EyeIcon className="w-5 h-5"/>}
                                                         </button>
-                                                        <button onClick={() => handleRegenerateToken(supplier)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700" title={t('suppliers.adminLink.regenerateTooltip')}>
+                                                        <button onClick={(e) => handleRegenerateToken(supplier, e)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700" title={t('suppliers.adminLink.regenerateTooltip')}>
                                                           <KeyIcon className="w-5 h-5"/>
                                                         </button>
                                                     </>
                                                 )}
-                                                <button onClick={() => handleEditClick(supplier)} className="p-2 text-gray-400 hover:text-yellow-400 transition-colors rounded-full hover:bg-gray-700" title={t('suppliers.editButton')}>
+                                                <button onClick={(e) => handleEditClick(supplier, e)} className="p-2 text-gray-400 hover:text-yellow-400 transition-colors rounded-full hover:bg-gray-700" title={t('suppliers.editButton')}>
                                                     <PencilIcon className="w-5 h-5"/>
                                                 </button>
-                                                <button onClick={() => handleDelete(supplier)} className="p-2 text-gray-400 hover:text-red-400 transition-colors rounded-full hover:bg-gray-700" title={t('suppliers.deleteButton')}>
+                                                <button onClick={(e) => handleDelete(supplier, e)} className="p-2 text-gray-400 hover:text-red-400 transition-colors rounded-full hover:bg-gray-700" title={t('suppliers.deleteButton')}>
                                                     <TrashIcon className="w-5 h-5"/>
                                                 </button>
+                                                 <svg className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                </svg>
                                             </div>
                                         </div>
+                                         {isExpanded && (
+                                            <div className="p-4 border-t border-gray-700 bg-black/20">
+                                                {supplierAttendees.length > 0 ? (
+                                                    <>
+                                                        <div className="flex items-center mb-2 p-2">
+                                                            <input
+                                                                type="checkbox"
+                                                                id={`select-all-${supplier.id}`}
+                                                                checked={allInSupplierSelected}
+                                                                onChange={() => handleSelectAllInSupplier(supplierAttendees)}
+                                                                className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
+                                                            />
+                                                            <label htmlFor={`select-all-${supplier.id}`} className="ml-3 text-sm font-medium text-gray-300 cursor-pointer">{t('companies.selectAll')}</label>
+                                                        </div>
+                                                        <ul className="space-y-1 max-h-60 overflow-y-auto">
+                                                            {supplierAttendees.map(attendee => (
+                                                                <li key={attendee.id} className="p-2 rounded-md hover:bg-gray-700/50">
+                                                                    <label className="flex items-center cursor-pointer">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={selectedAttendeeIds.has(attendee.id)}
+                                                                            onChange={() => handleToggleAttendee(attendee.id)}
+                                                                            className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
+                                                                        />
+                                                                        <span className="ml-3 text-white">{attendee.name}</span>
+                                                                    </label>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </>
+                                                ) : (
+                                                    <p className="text-sm text-gray-500 text-center py-4">Nenhum colaborador cadastrado para este fornecedor.</p>
+                                                )}
+                                            </div>
+                                         )}
+                                        </>
                                     )}
                                 </div>
                             );
@@ -377,6 +471,25 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                      <p className="text-center text-gray-500">{t('suppliers.noLinks')}</p>
                 )}
             </div>
+             {selectedAttendeeIds.size > 0 && (
+                <div className="fixed bottom-5 right-5 z-20 bg-gray-800 border border-gray-600 shadow-2xl rounded-lg p-3 flex items-center gap-4 animate-fade-in-up">
+                    <p className="text-white font-semibold">{t('companies.selectedCount', selectedAttendeeIds.size)}</p>
+                    <button 
+                        onClick={() => setIsModalOpen(true)}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2"
+                    >
+                       <PencilIcon className="w-4 h-4" />
+                       {t('companies.editSelectedButton')}
+                    </button>
+                </div>
+            )}
+             <BulkUpdateSectorsModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+                onSave={handleSaveSectors}
+                selectedCount={selectedAttendeeIds.size}
+                allSectors={sectors}
+            />
         </div>
     );
 };
