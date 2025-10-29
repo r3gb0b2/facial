@@ -123,11 +123,18 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                           const isSubstRequested = submittedSubstitutions.has(attendee.id) || attendee.status === CheckinStatus.SUBSTITUTION_REQUEST;
                           const isSectorChangeRequested = submittedSectorChanges.has(attendee.id) || attendee.status === CheckinStatus.SECTOR_CHANGE_REQUEST;
                           
-                          // A sector change is possible if there is at least one sector the supplier
-                          // can manage that the attendee is not currently assigned to.
-                          const manageableSectors = sectors.filter(s => (supplier.sectors || []).includes(s.id));
-                          const currentAttendeeSectors = new Set(Array.isArray(attendee.sectors) ? attendee.sectors : []);
-                          const canChangeSector = manageableSectors.some(s => !currentAttendeeSectors.has(s.id));
+                          // Get all valid sector IDs for the event
+                          const validEventSectorIds = new Set(sectors.map(s => s.id));
+                          // Get the sectors the attendee is currently in
+                          const attendeeSectorIds = new Set(Array.isArray(attendee.sectors) ? attendee.sectors : []);
+
+                          // A change is possible if there is any sector that the supplier is configured to manage,
+                          // which is also a valid event sector, and which the attendee is not currently in.
+                          const canChangeSector = (supplier.sectors || []).some(
+                              (supplierSectorId) =>
+                              !attendeeSectorIds.has(supplierSectorId) &&
+                              validEventSectorIds.has(supplierSectorId)
+                          );
 
                           return (
                             <div key={attendee.id} className="bg-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-700 flex flex-col">
