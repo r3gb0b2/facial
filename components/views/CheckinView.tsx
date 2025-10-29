@@ -153,8 +153,8 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
           >
             <option value="ALL">{t('checkin.filter.allStatuses')}</option>
             {Object.values(CheckinStatus).map(status => (
-              // FIX: Removed unnecessary cast. The t() function is already typed to return a string.
-              <option key={status} value={status}>{t(`status.${status.toLowerCase()}`)}</option>
+              // FIX: Cast enum value to string before calling .toLowerCase() to resolve type error.
+              <option key={status} value={status}>{t(`status.${(status as string).toLowerCase()}`)}</option>
             ))}
           </select>
           <select

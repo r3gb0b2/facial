@@ -78,8 +78,9 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
       setSubCompany('');
       setSector('');
     }
-    else if (!predefinedSector) {
+    else if (!predefinedSector) { // Admin View
       setSector('');
+      setSubCompany('');
     } else if (isSupplierWithMultipleSectors) {
       const availableSectors = sectors.filter(s => (predefinedSector as string[]).includes(s.id));
       setSector(availableSectors.length > 0 ? availableSectors[0].id : '');
@@ -162,7 +163,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
           cpf: rawCpf, 
           photo, 
           sectors: [sector],
-          ...(hasSubCompanies && { subCompany })
+          ...(subCompany && { subCompany })
       };
       await onRegister(attendeeData);
       clearForm();
@@ -205,26 +206,45 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
   };
   
   const renderSubCompanyInput = () => {
-    if (!hasSubCompanies) return null;
-    
-    return (
+    if (hasSubCompanies) {
+      return (
+          <div>
+            <label htmlFor="subCompany" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.subCompanyLabel')}</label>
+            <select
+              id="subCompany" value={subCompany} onChange={(e) => setSubCompany(e.target.value)}
+              className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+              disabled={isSubmitting || isCheckingCpf || existingAttendeeFound}
+              required
+            >
+              <option value="" disabled>{t('register.form.subCompanyPlaceholder')}</option>
+              {supplierInfo?.data.subCompanies?.map(sc => 
+                  <option key={sc.name} value={sc.name}>
+                      {sc.name}
+                  </option>
+              )}
+            </select>
+          </div>
+      );
+    }
+
+    if (isAdminView) {
+      return (
         <div>
-          <label htmlFor="subCompany" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.subCompanyLabel')}</label>
-          <select
-            id="subCompany" value={subCompany} onChange={(e) => setSubCompany(e.target.value)}
+          <label htmlFor="subCompany" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.subCompanyLabelOptional')}</label>
+          <input
+            type="text"
+            id="subCompany"
+            value={subCompany}
+            onChange={(e) => setSubCompany(e.target.value)}
             className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+            placeholder={t('register.form.subCompanyInputPlaceholder')}
             disabled={isSubmitting || isCheckingCpf || existingAttendeeFound}
-            required
-          >
-            <option value="" disabled>{t('register.form.subCompanyPlaceholder')}</option>
-            {supplierInfo?.data.subCompanies?.map(sc => 
-                <option key={sc.name} value={sc.name}>
-                    {sc.name}
-                </option>
-            )}
-          </select>
+          />
         </div>
-    );
+      );
+    }
+    
+    return null;
   };
 
 

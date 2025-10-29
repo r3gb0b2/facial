@@ -94,8 +94,8 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   };
 
   const handleDelete = () => {
-    // FIX: Removed unnecessary cast. The t() function is already typed to return a string.
-    if (window.confirm(t('attendeeDetail.deleteConfirm', attendee.name))) {
+    // FIX: Cast result of t() to string to satisfy window.confirm which expects a string.
+    if (window.confirm(t('attendeeDetail.deleteConfirm', attendee.name) as string)) {
       onDelete(attendee.id);
     }
   };
@@ -136,8 +136,8 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     setWristbandErrorSectors(errorSectors);
 
     if (duplicates.size > 0) {
-        // FIX: Removed unnecessary cast. The t() function is already typed to return a string.
-        setError(t('attendeeDetail.wristbandsDuplicateError', Array.from(duplicates).join(', ')));
+        // FIX: Cast result of t() to string to satisfy setError which expects a string.
+        setError(t('attendeeDetail.wristbandsDuplicateError', Array.from(duplicates).join(', ')) as string);
         return false;
     }
     
@@ -248,23 +248,29 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
             </select>
         </div>
         ) : (
-        <div>
-            <label className="block text-sm font-medium text-gray-400 mb-2">Setores</label>
-            <div className="space-y-2">
-                {sectors.map(sector => (
-                    <div key={sector.id} className="flex items-center">
-                        <input
-                            type="checkbox"
-                            id={`edit-sector-${sector.id}`}
-                            checked={editData.sectors.includes(sector.id)}
-                            onChange={() => handleSectorSelection(sector.id)}
-                            className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
-                        />
-                        <label htmlFor={`edit-sector-${sector.id}`} className="ml-3 text-white">{sector.label}</label>
-                    </div>
-                ))}
-            </div>
-        </div>
+        <>
+          <div>
+            <label className="block text-sm font-medium text-gray-400">Empresa/Unidade (Opcional)</label>
+            <input type="text" value={editData.subCompany} onChange={(e) => handleEditDataChange('subCompany', e.target.value)} className="mt-1 w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"/>
+          </div>
+          <div>
+              <label className="block text-sm font-medium text-gray-400 mb-2">Setores</label>
+              <div className="space-y-2">
+                  {sectors.map(sector => (
+                      <div key={sector.id} className="flex items-center">
+                          <input
+                              type="checkbox"
+                              id={`edit-sector-${sector.id}`}
+                              checked={editData.sectors.includes(sector.id)}
+                              onChange={() => handleSectorSelection(sector.id)}
+                              className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
+                          />
+                          <label htmlFor={`edit-sector-${sector.id}`} className="ml-3 text-white">{sector.label}</label>
+                      </div>
+                  ))}
+              </div>
+          </div>
+        </>
       )}
     </>
   );
