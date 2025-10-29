@@ -261,6 +261,46 @@ export const getSupplierAdminData = async (token: string): Promise<{ eventName: 
     return { eventName: eventName, attendees, eventId: eventRef.id, supplierId: supplier.id };
 };
 
+export const subscribeToSupplierAdminData = (
+    token: string,
+    callback: (data: { eventName: string, attendees: Attendee[], eventId: string, supplierId: string }) => void,
+    onError: (error: Error) => void
+) => {
+    let unsubscribe = () => {};
+
+    const findAndSubscribe = async () => {
+        const suppliersSnap = await db.collectionGroup('suppliers').where('adminToken', '==', token).limit(1).get();
+        if (suppliersSnap.empty) {
+            onError(new Error("Invalid token"));
+            return;
+        }
+
+        const supplierDoc = suppliersSnap.docs[0];
+        const supplier = getData<Supplier>(supplierDoc);
+        const eventRef = supplierDoc.ref.parent.parent;
+
+        if (!eventRef) {
+            onError(new Error("Event not found for supplier"));
+            return;
+        }
+
+        const eventSnap = await eventRef.get();
+        const eventName = eventSnap.data()?.name || 'Evento';
+        const eventId = eventRef.id;
+        const supplierId = supplier.id;
+
+        unsubscribe = eventRef.collection('attendees').where('supplierId', '==', supplierId).onSnapshot(attendeesSnap => {
+            const attendees = getCollectionData<Attendee>(attendeesSnap);
+            callback({ eventName, attendees, eventId, supplierId });
+        }, onError);
+    };
+
+    findAndSubscribe().catch(onError);
+
+    return () => unsubscribe();
+};
+
+
 export const regenerateSupplierAdminToken = async (eventId: string, supplierId: string): Promise<string> => {
     const newToken = uuidv4();
     await updateSupplier(eventId, supplierId, { adminToken: newToken });

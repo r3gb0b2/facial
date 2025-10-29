@@ -75,6 +75,7 @@ const App: React.FC = () => {
   }, [isLoggedIn, loadEvents]);
 
   useEffect(() => {
+    let unsubscribe: (() => void) | null = null;
     const checkUrlParams = async () => {
         const params = new URLSearchParams(window.location.search);
         const eventId = params.get('eventId');
@@ -83,15 +84,20 @@ const App: React.FC = () => {
 
         if (verifyToken) {
             setIsLoading(true);
-            const data = await api.getSupplierAdminData(verifyToken);
-            if (data) {
-                setSupplierAdminData(data);
-                setView('supplier-admin');
-            } else {
-                setGlobalError('Link de administrador inválido ou expirado.');
-                setView('closed');
-            }
-            setIsLoading(false);
+            unsubscribe = api.subscribeToSupplierAdminData(
+                verifyToken,
+                (data) => {
+                    setSupplierAdminData(data);
+                    setView('supplier-admin');
+                    setIsLoading(false); // Set loading to false once data arrives
+                },
+                (error) => {
+                    console.error(error);
+                    setGlobalError('Link de administrador inválido ou expirado.');
+                    setView('closed');
+                    setIsLoading(false);
+                }
+            );
         } else if (eventId && supplierId) {
             setIsLoading(true);
             const registrationData = await api.getSupplierForRegistration(eventId, supplierId);
@@ -118,6 +124,12 @@ const App: React.FC = () => {
         }
     };
     checkUrlParams();
+
+    return () => {
+        if (unsubscribe) {
+            unsubscribe();
+        }
+    };
   }, [t, isLoggedIn]);
   
   useEffect(() => {

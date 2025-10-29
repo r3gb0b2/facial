@@ -35,7 +35,7 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
                     {attendees.map((attendee) => {
                       const isRequested = submittedRequests.has(attendee.id) || attendee.status === CheckinStatus.SUBSTITUTION_REQUEST;
-                      const canSubstitute = attendee.status === CheckinStatus.PENDING;
+                      const canRequestSubstitution = attendee.status === CheckinStatus.PENDING;
 
                       return (
                         <div key={attendee.id} className="bg-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-700 flex flex-col">
@@ -46,7 +46,7 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                             />
                             <div className="p-3 text-center flex-grow flex flex-col justify-between">
                                 <h3 className="font-semibold text-base text-white truncate" title={attendee.name}>{attendee.name}</h3>
-                                {canSubstitute && (
+                                {canRequestSubstitution && (
                                   <button
                                     onClick={() => setSubstitutingAttendee(attendee)}
                                     disabled={isRequested}

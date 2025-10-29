@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Attendee, CheckinStatus, Sector, Supplier } from '../types.ts';
 import { useTranslation } from '../hooks/useTranslation.tsx';
-import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon } from './icons.tsx';
+import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon, SpinnerIcon } from './icons.tsx';
 
 interface AttendeeDetailModalProps {
   attendee: Attendee;
@@ -34,6 +34,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
 }) => {
   const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
+  const [isSubmittingSubstitution, setIsSubmittingSubstitution] = useState(false);
   const [wristbands, setWristbands] = useState(attendee.wristbands || {});
   const [wristbandErrorSectors, setWristbandErrorSectors] = useState<Set<string>>(new Set());
   const [showWristbandSuccess, setShowWristbandSuccess] = useState(false);
@@ -86,7 +87,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
 
   const handleSave = async () => {
     const rawCpf = editData.cpf.replace(/\D/g, '');
-    if (!editData.name.trim() || !rawCpf.trim()) {
+    if (!editData.name.trim() || !rawCpf.trim() || editData.sectors.length === 0) {
       setError(t('attendeeDetail.formError'));
       return;
     }
@@ -98,6 +99,15 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
         supplierId: editData.supplierId || undefined
     });
     setIsEditing(false);
+  };
+  
+  const handleEditSectorChange = (sectorId: string) => {
+    setEditData(prev => {
+        const newSectors = prev.sectors.includes(sectorId)
+            ? prev.sectors.filter(id => id !== sectorId)
+            : [...prev.sectors, sectorId];
+        return { ...prev, sectors: newSectors };
+    });
   };
 
   const handleDelete = () => {
@@ -150,6 +160,30 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
             return newErrors;
         });
     }
+  };
+  
+  const handleApprove = async () => {
+    setIsSubmittingSubstitution(true);
+    try {
+        await onApproveSubstitution(attendee.id);
+        onClose();
+    } catch (e) {
+        setError("Falha ao aprovar substituição.");
+    } finally {
+        setIsSubmittingSubstitution(false);
+    }
+  };
+
+  const handleReject = async () => {
+      setIsSubmittingSubstitution(true);
+      try {
+          await onRejectSubstitution(attendee.id);
+          onClose();
+      } catch (e) {
+          setError("Falha ao rejeitar substituição.");
+      } finally {
+          setIsSubmittingSubstitution(false);
+      }
   };
 
   const selectedSupplierData = useMemo(() => {
@@ -236,15 +270,22 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
             </div>
           )}
           <div>
-            <label className="text-sm font-medium text-gray-400">Setor</label>
-            <select
-              value={editData.sectors[0] || ''}
-              onChange={e => setEditData({ ...editData, sectors: [e.target.value] })}
-              className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"
-              disabled={!!(selectedSupplierData?.subCompanies && selectedSupplierData.subCompanies.length > 0)}
-            >
-              {sectors.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
-            </select>
+            <label className="text-sm font-medium text-gray-400">Setores</label>
+            <div className="mt-2 grid grid-cols-2 gap-2 p-2 bg-gray-900 rounded-md max-h-32 overflow-y-auto border border-gray-600">
+                {sectors.map(sector => (
+                    <div key={sector.id} className="flex items-center">
+                        <input
+                            type="checkbox"
+                            id={`edit-sector-${sector.id}`}
+                            checked={editData.sectors.includes(sector.id)}
+                            onChange={() => handleEditSectorChange(sector.id)}
+                            className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
+                            disabled={!!(selectedSupplierData?.subCompanies && selectedSupplierData.subCompanies.length > 0)}
+                        />
+                        <label htmlFor={`edit-sector-${sector.id}`} className="ml-2 text-white cursor-pointer">{sector.label}</label>
+                    </div>
+                ))}
+            </div>
              {!!(selectedSupplierData?.subCompanies && selectedSupplierData.subCompanies.length > 0) &&
                 <p className="text-xs text-gray-500 mt-1">O setor é definido pela Empresa/Unidade selecionada.</p>
              }
@@ -273,8 +314,14 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                     </div>
                 </div>
                 <div className="flex gap-4 mt-4">
-                     <button onClick={() => onRejectSubstitution(attendee.id)} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg">{t('attendeeDetail.rejectButton')}</button>
-                     <button onClick={() => onApproveSubstitution(attendee.id)} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">{t('attendeeDetail.approveButton')}</button>
+                     <button onClick={handleReject} disabled={isSubmittingSubstitution} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50">
+                        {isSubmittingSubstitution && <SpinnerIcon className="w-5 h-5"/>}
+                        {t('attendeeDetail.rejectButton')}
+                    </button>
+                     <button onClick={handleApprove} disabled={isSubmittingSubstitution} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50">
+                        {isSubmittingSubstitution && <SpinnerIcon className="w-5 h-5"/>}
+                        {t('attendeeDetail.approveButton')}
+                    </button>
                 </div>
             </div>
         );

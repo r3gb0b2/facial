@@ -47,7 +47,7 @@ const translations: { [lang: string]: Translations } = {
     'attendeeCard.supplierLabel': 'Fornecedor',
     'attendeeCard.wristbandNumber': 'Pulseira',
     'attendeeDetail.title': 'Detalhes do Participante',
-    'attendeeDetail.formError': 'Nome e CPF são obrigatórios.',
+    'attendeeDetail.formError': 'Nome, CPF e ao menos um setor são obrigatórios.',
     'attendeeDetail.deleteConfirm': (name: string) => `Tem certeza que deseja remover "${name}"?`,
     'attendeeDetail.wristbandsDuplicateError': (numbers: string) => `Os números de pulseira a seguir já estão em uso: ${numbers}.`,
     'attendeeDetail.updateWristbandButton': 'Atualizar',
