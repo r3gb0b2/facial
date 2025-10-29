@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Attendee, Sector } from '../types.ts';
 import { useTranslation } from '../hooks/useTranslation.tsx';
 import * as api from '../firebase/service.ts';
@@ -15,25 +15,25 @@ interface EditRequestModalProps {
 const EditRequestModal: React.FC<EditRequestModalProps> = ({ attendee, eventId, onClose, onSuccess, allowedSectors }) => {
   const { t } = useTranslation();
   const [name, setName] = useState(attendee.name);
+  // Initialize state and then set it based on props in an effect for robustness.
+  const [newSectorId, setNewSectorId] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
-  // Determine the initial sector. It should be the attendee's current sector if it's in the allowed list.
-  // Otherwise, it should be the first sector from the allowed list.
-  const getInitialSector = () => {
-    const currentSector = attendee.sectors && attendee.sectors[0];
+  useEffect(() => {
+    // This effect ensures the initial sector is set correctly when the modal opens.
+    const currentSector = attendee.sectors?.[0];
     const isCurrentSectorInList = allowedSectors.some(s => s.id === currentSector);
 
     if (isCurrentSectorInList) {
-      return currentSector;
+      setNewSectorId(currentSector);
+    } else if (allowedSectors.length > 0) {
+      setNewSectorId(allowedSectors[0].id);
+    } else {
+      setNewSectorId('');
     }
-    if (allowedSectors.length > 0) {
-      return allowedSectors[0].id;
-    }
-    return '';
-  };
-  
-  const [newSectorId, setNewSectorId] = useState(getInitialSector);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState('');
+  }, [attendee, allowedSectors]);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
