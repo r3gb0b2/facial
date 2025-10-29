@@ -179,16 +179,25 @@ export const approveSubstitution = async (eventId: string, attendeeId: string) =
     if (!attendee || !attendee.substitutionData) {
         throw new Error("Substitution data not found for this attendee.");
     }
-    
+
     const { name, cpf, photo: photoDataUrl, newSectorIds } = attendee.substitutionData;
 
+    // VALIDATION: Ensure critical data exists before creating the update object.
+    // This prevents accidental deletion of fields if substitutionData is malformed.
+    if (typeof name !== 'string' || name.trim() === '') {
+        throw new Error("Invalid substitution data: name is missing or invalid.");
+    }
+    if (typeof cpf !== 'string' || cpf.trim() === '') {
+        throw new Error("Invalid substitution data: CPF is missing or invalid.");
+    }
+
     const dataToUpdate: any = {
-        name: name,
-        cpf: cpf,
+        name: name.trim(),
+        cpf: cpf.trim(),
         status: CheckinStatus.PENDING,
         substitutionData: FieldValue.delete(),
     };
-    
+
     // Only upload and update photo if a new base64 photo is provided
     if (photoDataUrl && photoDataUrl.startsWith('data:image')) {
         const photoUrl = await uploadPhoto(photoDataUrl, cpf);
