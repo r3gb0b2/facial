@@ -217,23 +217,6 @@ export const updateSectorsForCompany = async (eventId: string, companyName: stri
     await batch.commit();
 };
 
-export const updateSectorsForAttendees = async (eventId: string, attendeeIds: string[], sectorIds: string[]) => {
-    if (attendeeIds.length === 0) {
-        console.warn("No attendee IDs provided for sector update.");
-        return;
-    }
-
-    const batch = db.batch();
-    const attendeesRef = db.collection('events').doc(eventId).collection('attendees');
-    
-    attendeeIds.forEach(attendeeId => {
-        const docRef = attendeesRef.doc(attendeeId);
-        batch.update(docRef, { sectors: sectorIds });
-    });
-
-    await batch.commit();
-};
-
 
 // Supplier Management
 export const addSupplier = (eventId: string, name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[]) => {

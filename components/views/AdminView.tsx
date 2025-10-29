@@ -32,7 +32,7 @@ interface AdminViewProps {
     onDeleteAttendee: (attendeeId: string) => Promise<void>;
     onApproveSubstitution: (attendeeId: string) => Promise<void>;
     onRejectSubstitution: (attendeeId: string) => Promise<void>;
-    onUpdateSectorsForSelectedAttendees: (attendeeIds: string[], sectorIds: string[]) => Promise<void>;
+    onUpdateCompanySectors: (companyName: string, sectorIds: string[]) => Promise<void>;
     onBack: () => void;
     setError: (message: string) => void;
 }
@@ -113,7 +113,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                 return <CompanyManagementView 
                     attendees={props.attendees} 
                     sectors={props.sectors} 
-                    onUpdateSectorsForSelectedAttendees={props.onUpdateSectorsForSelectedAttendees}
+                    onUpdateCompanySectors={props.onUpdateCompanySectors}
                     setError={props.setError}
                 />;
             case 'sectors':
