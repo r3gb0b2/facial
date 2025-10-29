@@ -15,30 +15,30 @@ interface EditRequestModalProps {
 const EditRequestModal: React.FC<EditRequestModalProps> = ({ attendee, eventId, onClose, onSuccess, allowedSectors }) => {
   const { t } = useTranslation();
   const [name, setName] = useState(attendee.name);
-  // Initialize state and then set it based on props in an effect for robustness.
-  const [newSectorId, setNewSectorId] = useState('');
+  const [newSectorIds, setNewSectorIds] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    // This effect ensures the initial sector is set correctly when the modal opens.
-    const currentSector = attendee.sectors?.[0];
-    const isCurrentSectorInList = allowedSectors.some(s => s.id === currentSector);
-
-    if (isCurrentSectorInList) {
-      setNewSectorId(currentSector);
-    } else if (allowedSectors.length > 0) {
-      setNewSectorId(allowedSectors[0].id);
-    } else {
-      setNewSectorId('');
-    }
+    const validCurrentSectors = (attendee.sectors || []).filter(sectorId =>
+        allowedSectors.some(s => s.id === sectorId)
+    );
+    setNewSectorIds(validCurrentSectors);
   }, [attendee, allowedSectors]);
 
+
+  const handleSectorChange = (sectorId: string) => {
+    setNewSectorIds(prev =>
+      prev.includes(sectorId)
+        ? prev.filter(id => id !== sectorId)
+        : [...prev, sectorId]
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!name || !newSectorId) {
+    if (!name || newSectorIds.length === 0) {
       setError(t('attendeeDetail.formError'));
       return;
     }
@@ -50,11 +50,9 @@ const EditRequestModal: React.FC<EditRequestModalProps> = ({ attendee, eventId, 
       const substitutionData = {
         name,
         cpf: attendee.cpf, // Pass original CPF
-        newSectorId,
+        newSectorIds,
       };
-      // FIX: The type signature of `requestSubstitution` expects `photo`, but we are intentionally omitting it.
-      // Casting to `any` bypasses the type check for this specific case where the backend handles the missing property.
-      await api.requestSubstitution(eventId, attendee.id, substitutionData as any);
+      await api.requestSubstitution(eventId, attendee.id, substitutionData);
       onSuccess(attendee.id);
       onClose();
     } catch (err) {
@@ -88,25 +86,31 @@ const EditRequestModal: React.FC<EditRequestModalProps> = ({ attendee, eventId, 
               />
             </div>
              <div>
-              <label htmlFor="newSector" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.sectorLabel')}</label>
-              <select
-                id="newSector"
-                value={newSectorId}
-                onChange={(e) => setNewSectorId(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                disabled={isSubmitting}
-              >
-                <option value="" disabled>{t('register.form.sectorPlaceholder')}</option>
+              <label className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.sectorLabel')}</label>
+              <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 p-2 bg-gray-900 rounded-md max-h-48 overflow-y-auto border border-gray-600">
                 {allowedSectors.map(sector => (
-                    <option key={sector.id} value={sector.id}>{sector.label}</option>
+                    <div key={sector.id} className="flex items-center p-1 rounded-md hover:bg-gray-700/50">
+                        <input
+                            type="checkbox"
+                            id={`edit-sector-${sector.id}`}
+                            checked={newSectorIds.includes(sector.id)}
+                            onChange={() => handleSectorChange(sector.id)}
+                            className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
+                            disabled={isSubmitting}
+                        />
+                        <label htmlFor={`edit-sector-${sector.id}`} className="ml-2 text-white cursor-pointer flex items-center gap-2">
+                            <span className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: sector.color || '#4B5563' }}></span>
+                            {sector.label}
+                        </label>
+                    </div>
                 ))}
-              </select>
+              </div>
             </div>
             
             {error && <p className="text-red-400 text-sm">{error}</p>}
              <button
                 type="submit"
-                disabled={isSubmitting || !name || !newSectorId}
+                disabled={isSubmitting || !name || newSectorIds.length === 0}
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? <SpinnerIcon className="w-5 h-5" /> : <CheckCircleIcon className="w-6 h-6" />}

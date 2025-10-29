@@ -66,7 +66,7 @@ const translations: { [lang: string]: Translations } = {
     'attendeeDetail.rejectButton': 'Rejeitar Alteração',
     'attendeeDetail.sectorChangeRequestTitle': 'Solicitação de Troca de Setor Pendente',
     'attendeeDetail.currentSector': 'Setor Atual',
-    'attendeeDetail.requestedSector': 'Setor Solicitado',
+    'attendeeDetail.requestedSector': 'Setores Solicitados',
     'attendeeDetail.justification': 'Justificativa',
     'attendeeDetail.approveSectorChangeButton': 'Aprovar Troca de Setor',
     'attendeeDetail.rejectSectorChangeButton': 'Rejeitar Troca',

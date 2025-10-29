@@ -27,7 +27,7 @@ export interface Attendee {
     name: string;
     cpf: string;
     photo?: string; // Base64 data URL
-    newSectorId?: string;
+    newSectorIds?: string[];
   };
   sectorChangeData?: {
     newSectorId: string;

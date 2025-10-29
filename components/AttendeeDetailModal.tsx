@@ -325,7 +325,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
 
     if (attendee.status === CheckinStatus.SUBSTITUTION_REQUEST && attendee.substitutionData) {
         const { substitutionData } = attendee;
-        const requestedSector = substitutionData.newSectorId ? sectors.find(s => s.id === substitutionData.newSectorId) : null;
+        const requestedSectors = (substitutionData.newSectorIds || []).map(id => sectors.find(s => s.id === id)).filter(Boolean) as Sector[];
 
         return (
             <div>
@@ -344,10 +344,16 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                         <p className="text-sm text-gray-300">{formatCPF(substitutionData.cpf)}</p>
                     </div>
                 </div>
-                 {requestedSector && (
+                 {requestedSectors.length > 0 && (
                     <div className="mt-4 p-3 bg-gray-900/50 rounded-lg">
                         <span className="text-sm font-medium text-gray-400">{t('attendeeDetail.requestedSector')}</span>
-                        <p className="text-lg font-semibold text-purple-300">{requestedSector.label}</p>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                            {requestedSectors.map(sector => (
+                                <span key={sector.id} className="text-xs font-medium px-2 py-1 rounded-full" style={{ backgroundColor: `${sector.color}33`, color: sector.color }}>
+                                    {sector.label}
+                                </span>
+                            ))}
+                        </div>
                     </div>
                 )}
                 <div className="flex gap-4 mt-4">

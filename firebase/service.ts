@@ -180,7 +180,7 @@ export const approveSubstitution = async (eventId: string, attendeeId: string) =
         throw new Error("Substitution data not found for this attendee.");
     }
     
-    const { name, cpf, photo: photoDataUrl, newSectorId } = attendee.substitutionData;
+    const { name, cpf, photo: photoDataUrl, newSectorIds } = attendee.substitutionData;
 
     const dataToUpdate: any = {
         name: name,
@@ -195,8 +195,8 @@ export const approveSubstitution = async (eventId: string, attendeeId: string) =
         dataToUpdate.photo = photoUrl;
     }
 
-    if (newSectorId) {
-        dataToUpdate.sectors = [newSectorId];
+    if (newSectorIds && Array.isArray(newSectorIds) && newSectorIds.length > 0) {
+        dataToUpdate.sectors = newSectorIds;
     }
 
     return attendeeRef.update(dataToUpdate);
