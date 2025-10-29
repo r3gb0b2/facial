@@ -23,7 +23,10 @@ const App: React.FC = () => {
 
   // Data state
   const [events, setEvents] = useState<Event[]>([]);
-  const [currentEvent, setCurrentEvent] = useState<Event | null>(null);
+  const [currentEvent, setCurrentEvent] = useState<Event | null>(() => {
+    const savedEvent = sessionStorage.getItem('currentEvent');
+    return savedEvent ? JSON.parse(savedEvent) : null;
+  });
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [sectors, setSectors] = useState<Sector[]>([]);
@@ -89,7 +92,7 @@ const App: React.FC = () => {
                 (data) => {
                     setSupplierAdminData(data);
                     setView('supplier-admin');
-                    setIsLoading(false); // Set loading to false once data arrives
+                    setIsLoading(false);
                 },
                 (error) => {
                     console.error(error);
@@ -116,7 +119,11 @@ const App: React.FC = () => {
             setIsLoading(false);
         } else {
             if (isLoggedIn) {
-                setView('event-selection');
+                if (currentEvent) {
+                    setView('admin');
+                } else {
+                    setView('event-selection');
+                }
             } else {
                 setView('login');
             }
@@ -130,7 +137,7 @@ const App: React.FC = () => {
             unsubscribe();
         }
     };
-  }, [t, isLoggedIn]);
+  }, [t, isLoggedIn, currentEvent]);
   
   useEffect(() => {
     let unsubscribe: () => void = () => {};
@@ -151,11 +158,17 @@ const App: React.FC = () => {
   }, [currentEvent, t]);
 
   const handleSelectEvent = (event: Event) => {
+    sessionStorage.setItem('currentEvent', JSON.stringify(event));
     setCurrentEvent(event);
     setView('admin');
   };
   
   const handleBackToEvents = () => {
+    sessionStorage.removeItem('currentEvent');
+    if (currentEvent) {
+        sessionStorage.removeItem(`activeTab_${currentEvent.id}`);
+        sessionStorage.removeItem(`filters_${currentEvent.id}`);
+    }
     setCurrentEvent(null);
     setAttendees([]);
     setSuppliers([]);

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Attendee, CheckinStatus, Supplier, Sector } from '../../types.ts';
 import AttendeeCard from '../AttendeeCard.tsx';
 // FIX: Changed to a named import to resolve module error.
@@ -31,10 +31,31 @@ const normalizeString = (str: string) => {
 
 const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors, currentEventId, onUpdateAttendeeDetails, onDeleteAttendee, onApproveSubstitution, onRejectSubstitution, setError }) => {
   const { t } = useTranslation();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<CheckinStatus | 'ALL'>(CheckinStatus.PENDING);
-  const [supplierFilter, setSupplierFilter] = useState<string | 'ALL'>('ALL');
+  const sessionKey = `filters_${currentEventId}`;
+
+  const [filters, setFilters] = useState(() => {
+    const savedFilters = sessionStorage.getItem(sessionKey);
+    if (savedFilters) {
+      return JSON.parse(savedFilters);
+    }
+    return {
+      searchTerm: '',
+      statusFilter: CheckinStatus.PENDING,
+      supplierFilter: 'ALL',
+    };
+  });
+  
+  const { searchTerm, statusFilter, supplierFilter } = filters;
+
+  useEffect(() => {
+    sessionStorage.setItem(sessionKey, JSON.stringify(filters));
+  }, [filters, sessionKey]);
+
   const [selectedAttendee, setSelectedAttendee] = useState<Attendee | null>(null);
+
+  const handleFilterChange = (key: keyof typeof filters, value: any) => {
+    setFilters((prev: any) => ({ ...prev, [key]: value }));
+  };
 
   const handleSelectAttendee = (attendee: Attendee) => {
     setSelectedAttendee(attendee);
@@ -127,7 +148,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
               type="text"
               placeholder={t('checkin.searchPlaceholder')}
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
               className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 pl-10 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
@@ -149,7 +170,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
         <div className="flex flex-col md:flex-row gap-4">
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as CheckinStatus | 'ALL')}
+            onChange={(e) => handleFilterChange('statusFilter', e.target.value as CheckinStatus | 'ALL')}
             className="w-full md:w-1/2 bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="ALL">{t('checkin.filter.allStatuses')}</option>
@@ -159,7 +180,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
           </select>
           <select
             value={supplierFilter}
-            onChange={(e) => setSupplierFilter(e.target.value)}
+            onChange={(e) => handleFilterChange('supplierFilter', e.target.value)}
             className="w-full md:w-1/2 bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="ALL">{t('checkin.filter.allSuppliers')}</option>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Attendee, Sector, Supplier, Event, SubCompany } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import CheckinView from './CheckinView.tsx';
@@ -35,7 +35,15 @@ interface AdminViewProps {
 
 const AdminView: React.FC<AdminViewProps> = (props) => {
     const { t } = useTranslation();
-    const [activeTab, setActiveTab] = useState<AdminTab>('checkin');
+    const sessionKey = `activeTab_${props.currentEvent.id}`;
+    const [activeTab, setActiveTab] = useState<AdminTab>(() => {
+        const savedTab = sessionStorage.getItem(sessionKey);
+        return (savedTab as AdminTab) || 'checkin';
+    });
+
+    useEffect(() => {
+        sessionStorage.setItem(sessionKey, activeTab);
+    }, [activeTab, sessionKey]);
 
     const tabs: { id: AdminTab; label: string }[] = [
         { id: 'checkin', label: t('admin.tabs.checkin') },
@@ -108,7 +116,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
             </header>
 
             <nav className="mb-8">
-                <ul className="flex items-center justify-center gap-2 md:gap-4 p-2 bg-gray-900/50 rounded-lg">
+                <ul className="flex flex-wrap items-center justify-center gap-2 md:gap-4 p-2 bg-gray-900/50 rounded-lg">
                     {tabs.map(tab => (
                         <li key={tab.id} className="flex-1">
                             <button
