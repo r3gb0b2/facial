@@ -3,8 +3,9 @@ import { Attendee, Sector } from '../types.ts';
 import { useTranslation } from '../hooks/useTranslation.tsx';
 import * as api from '../firebase/service.ts';
 import { XMarkIcon, SpinnerIcon, CheckCircleIcon } from './icons.tsx';
+import WebcamCapture from './WebcamCapture.tsx';
 
-interface EditRequestModalProps {
+interface SubstitutionRequestModalProps {
   attendee: Attendee;
   eventId: string;
   onClose: () => void;
@@ -12,18 +13,34 @@ interface EditRequestModalProps {
   allowedSectors: Sector[];
 }
 
-const EditRequestModal: React.FC<EditRequestModalProps> = ({ attendee, eventId, onClose, onSuccess, allowedSectors }) => {
+const formatCPF = (value: string) => {
+    return value
+      .replace(/\D/g, '') // Remove all non-digit characters
+      .slice(0, 11) // Limit to 11 digits
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+};
+
+const SubstitutionRequestModal: React.FC<SubstitutionRequestModalProps> = ({ attendee, eventId, onClose, onSuccess, allowedSectors }) => {
   const { t } = useTranslation();
-  const [name, setName] = useState(attendee.name);
+  const [name, setName] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [photo, setPhoto] = useState<string | null>(null);
   const [newSectorIds, setNewSectorIds] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    // Keep the sectors from the original attendee as a default
     const validCurrentSectors = (attendee.sectors || []).filter(sectorId =>
         allowedSectors.some(s => s.id === sectorId)
     );
     setNewSectorIds(validCurrentSectors);
+    // Reset personal info for the new person
+    setName('');
+    setCpf('');
+    setPhoto(null);
   }, [attendee, allowedSectors]);
 
 
@@ -37,9 +54,10 @@ const EditRequestModal: React.FC<EditRequestModalProps> = ({ attendee, eventId, 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const rawCpf = cpf.replace(/\D/g, '');
 
-    if (!name || newSectorIds.length === 0) {
-      setError(t('attendeeDetail.formError'));
+    if (!name.trim() || rawCpf.length !== 11 || !photo || newSectorIds.length === 0) {
+      setError(t('substitutionModal.formError'));
       return;
     }
 
@@ -48,8 +66,9 @@ const EditRequestModal: React.FC<EditRequestModalProps> = ({ attendee, eventId, 
 
     try {
       const substitutionData = {
-        name,
-        cpf: attendee.cpf, // Pass original CPF
+        name: name.trim(),
+        cpf: rawCpf,
+        photo,
         newSectorIds,
       };
       await api.requestSubstitution(eventId, attendee.id, substitutionData);
@@ -86,6 +105,15 @@ const EditRequestModal: React.FC<EditRequestModalProps> = ({ attendee, eventId, 
               />
             </div>
              <div>
+              <label htmlFor="cpf" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.cpfLabel')}</label>
+              <input
+                type="text" id="cpf" value={cpf} onChange={(e) => setCpf(formatCPF(e.target.value))}
+                className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                placeholder={t('register.form.cpfPlaceholder')}
+                disabled={isSubmitting}
+              />
+            </div>
+             <div>
               <label className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.sectorLabel')}</label>
               <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 p-2 bg-gray-900 rounded-md max-h-48 overflow-y-auto border border-gray-600">
                 {allowedSectors.map(sector => (
@@ -110,7 +138,7 @@ const EditRequestModal: React.FC<EditRequestModalProps> = ({ attendee, eventId, 
             {error && <p className="text-red-400 text-sm">{error}</p>}
              <button
                 type="submit"
-                disabled={isSubmitting || !name || newSectorIds.length === 0}
+                disabled={isSubmitting || !name || !cpf || !photo || newSectorIds.length === 0}
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? <SpinnerIcon className="w-5 h-5" /> : <CheckCircleIcon className="w-6 h-6" />}
@@ -118,10 +146,7 @@ const EditRequestModal: React.FC<EditRequestModalProps> = ({ attendee, eventId, 
               </button>
           </form>
           <div className="flex flex-col items-center">
-            <div className="text-center">
-                <h3 className="text-lg font-semibold text-gray-300 mb-2">{t('verificationModal.registeredPhoto')}</h3>
-                <img src={attendee.photo} alt="Registered" className="rounded-lg w-full max-w-sm mx-auto aspect-square object-contain bg-black border-2 border-gray-600" />
-            </div>
+            <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting} allowUpload={true} />
           </div>
         </div>
       </div>
@@ -129,4 +154,4 @@ const EditRequestModal: React.FC<EditRequestModalProps> = ({ attendee, eventId, 
   );
 };
 
-export default EditRequestModal;
+export default SubstitutionRequestModal;

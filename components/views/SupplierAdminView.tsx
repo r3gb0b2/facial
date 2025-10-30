@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Attendee, CheckinStatus, Sector, Supplier } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { EyeIcon, PencilIcon, SearchIcon } from '../icons.tsx';
-import EditRequestModal from '../SubstitutionRequestModal.tsx';
+import SubstitutionRequestModal from '../SubstitutionRequestModal.tsx';
 
 interface SupplierAdminViewProps {
   eventName: string;
@@ -160,7 +160,7 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
         </main>
       </div>
       {editingAttendee && (
-        <EditRequestModal 
+        <SubstitutionRequestModal 
             attendee={editingAttendee}
             eventId={eventId}
             onClose={() => setEditingAttendee(null)}
