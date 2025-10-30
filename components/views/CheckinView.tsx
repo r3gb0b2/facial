@@ -101,7 +101,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
   const filteredAttendees = useMemo(() => {
     const normalizedTerm = normalizeString(searchTerm);
 
-    return attendees.filter((attendee) => {
+    const filtered = attendees.filter((attendee) => {
       // Status filter
       if (statusFilter !== 'ALL' && attendee.status !== statusFilter) {
         return false;
@@ -129,6 +129,8 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
       }
       return true; // if it passes all filters, include it
     });
+
+    return filtered.sort((a, b) => a.name.localeCompare(b.name));
   }, [attendees, searchTerm, statusFilter, supplierFilter]);
 
 

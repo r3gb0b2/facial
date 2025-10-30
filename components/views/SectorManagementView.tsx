@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Sector } from '../../types';
 // FIX: Added .tsx extension to module import.
 import { useTranslation } from '../../hooks/useTranslation.tsx';
@@ -23,6 +23,10 @@ const SectorManagementView: React.FC<SectorManagementViewProps> = ({
     const { t } = useTranslation();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [sectorToEdit, setSectorToEdit] = useState<Sector | null>(null);
+
+    const sortedSectors = useMemo(() => 
+        [...sectors].sort((a, b) => a.label.localeCompare(b.label)), 
+    [sectors]);
 
     const handleOpenModal = (sector: Sector | null) => {
         setSectorToEdit(sector);
@@ -69,14 +73,14 @@ const SectorManagementView: React.FC<SectorManagementViewProps> = ({
                     <TagIcon className="w-8 h-8"/>
                     {t('sectors.title')}
                 </h2>
-                {sectors.length === 0 ? (
+                {sortedSectors.length === 0 ? (
                     <div className="text-center text-gray-400 py-8">
                         <p className="text-lg mb-2">{t('sectors.noSectors')}</p>
                         <p className="text-sm">{t('sectors.noSectorsSubtitle')}</p>
                     </div>
                 ) : (
                     <ul className="space-y-3">
-                        {sectors.map((sector) => (
+                        {sortedSectors.map((sector) => (
                             <li key={sector.id} className="bg-gray-900/70 p-4 rounded-lg flex items-center justify-between transition-all hover:bg-gray-800">
                                 <div className="flex items-center gap-3">
                                     <span className="w-5 h-5 rounded-full border border-gray-600 flex-shrink-0" style={{ backgroundColor: sector.color || '#4B5563' }}></span>

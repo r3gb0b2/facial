@@ -11,7 +11,7 @@ const getCollectionData = <T>(querySnapshot: firebase.firestore.QuerySnapshot): 
 
 // Event Management
 export const getEvents = async (): Promise<Event[]> => {
-    const snapshot = await db.collection('events').orderBy('createdAt', 'desc').get();
+    const snapshot = await db.collection('events').orderBy('name', 'asc').get();
     return getCollectionData<Event>(snapshot);
 };
 

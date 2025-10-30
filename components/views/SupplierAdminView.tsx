@@ -49,7 +49,7 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
   const filteredAttendees = useMemo(() => {
     const normalizedTerm = normalizeString(searchTerm);
 
-    return attendees.filter((attendee) => {
+    const filtered = attendees.filter((attendee) => {
       // Company filter
       if (companyFilter !== 'ALL' && attendee.subCompany !== companyFilter) {
         return false;
@@ -64,6 +64,8 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
       }
       return true;
     });
+
+    return filtered.sort((a, b) => a.name.localeCompare(b.name));
   }, [attendees, searchTerm, companyFilter]);
 
   const allowedSectorsForSupplier = useMemo(() => {

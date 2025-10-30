@@ -59,6 +59,10 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
 
     const sectorMap = useMemo(() => new Map(sectors.map(s => [s.id, s])), [sectors]);
 
+    const sortedSuppliers = useMemo(() => 
+        [...suppliers].sort((a, b) => a.name.localeCompare(b.name)), 
+    [suppliers]);
+
     const handleSectorChange = (sectorId: string, isEditing: boolean) => {
         if (isEditing) {
             if (!editingSupplier) return;
@@ -357,13 +361,15 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
 
             <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
                 <h3 className="text-2xl font-bold text-white text-center mb-6">{t('suppliers.existingLinks')}</h3>
-                {suppliers.length > 0 ? (
+                {sortedSuppliers.length > 0 ? (
                     <div className="space-y-4">
-                        {suppliers.map(supplier => {
+                        {sortedSuppliers.map(supplier => {
                             const isEditing = editingSupplier?.id === supplier.id;
                             const isExpanded = expandedSupplierId === supplier.id;
                             const currentCount = registrationCounts.get(supplier.id) || 0;
-                            const supplierAttendees = attendees.filter(a => a.supplierId === supplier.id);
+                            const supplierAttendees = attendees
+                                .filter(a => a.supplierId === supplier.id)
+                                .sort((a, b) => a.name.localeCompare(b.name));
                             const allInSupplierSelected = supplierAttendees.length > 0 && supplierAttendees.every(a => selectedAttendeeIds.has(a.id));
 
                             return (
