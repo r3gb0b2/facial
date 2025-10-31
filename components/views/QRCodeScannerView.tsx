@@ -46,8 +46,8 @@ const QRCodeScannerView: React.FC<QRCodeScannerViewProps> = ({ currentEvent, att
     }, []);
 
     const startScanning = async () => {
-        if(isScanning) return;
-        
+        if (isScanning) return;
+
         setScannedAttendee(null);
         setScanResult(null);
 
@@ -56,17 +56,26 @@ const QRCodeScannerView: React.FC<QRCodeScannerViewProps> = ({ currentEvent, att
                 html5QrCodeRef.current = new Html5Qrcode(readerId);
             }
             setIsScanning(true);
-            await html5QrCodeRef.current.start(
-                { facingMode: "environment" },
-                { fps: 10, qrbox: { width: 250, height: 250 } },
-                (decodedText, decodedResult) => {
-                    handleScanSuccess(decodedText);
-                    stopScanning();
-                },
-                (errorMessage) => {
-                    // console.warn(`QR Code no match: ${errorMessage}`);
-                }
-            );
+
+            const cameras = await Html5Qrcode.getCameras();
+            if (cameras && cameras.length) {
+                const cameraId = cameras.find(camera => camera.label.toLowerCase().includes('back'))?.id || cameras[0].id;
+                
+                await html5QrCodeRef.current.start(
+                    cameraId,
+                    { fps: 10, qrbox: { width: 250, height: 250 } },
+                    (decodedText, decodedResult) => {
+                        handleScanSuccess(decodedText);
+                        stopScanning();
+                    },
+                    (errorMessage) => {
+                        // console.warn(`QR Code no match: ${errorMessage}`);
+                    }
+                );
+            } else {
+                setError(t('qrScanner.noCameraFound'));
+                setIsScanning(false);
+            }
         } catch (err: any) {
             console.error("Error starting scanner:", err);
             setError(t('qrScanner.permissionError'));
@@ -75,16 +84,18 @@ const QRCodeScannerView: React.FC<QRCodeScannerViewProps> = ({ currentEvent, att
     };
     
     const handleScanSuccess = (decodedText: string) => {
-        const [eventId, attendeeId] = decodedText.split(':');
-
-        if (eventId !== currentEvent.id) {
+        const scannedWristband = decodedText.trim();
+        if (!scannedWristband) {
             setScanResult({ type: 'error', message: t('qrScanner.invalidCode')});
             return;
         }
 
-        const attendee = attendeesMap.get(attendeeId);
-        if (attendee) {
-            setScannedAttendee(attendee);
+        const foundAttendee = attendees.find(a => 
+            a.wristbands && Object.values(a.wristbands).includes(scannedWristband)
+        );
+
+        if (foundAttendee) {
+            setScannedAttendee(foundAttendee);
             setScanResult({ type: 'success', message: t('qrScanner.attendeeFound') });
         } else {
             setScanResult({ type: 'error', message: t('qrScanner.noAttendee') });

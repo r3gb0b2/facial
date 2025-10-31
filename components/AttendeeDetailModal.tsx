@@ -574,6 +574,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     }
     
     if (attendee.status === CheckinStatus.CHECKED_IN || attendee.status === CheckinStatus.CHECKED_OUT) {
+      const wristbandForQr = attendee.wristbands ? Object.values(attendee.wristbands).find(num => num) : undefined;
       return (
         <div className="space-y-3">
           <div>
@@ -585,10 +586,12 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                   </div>
              ))}
           </div>
-          <div className="pt-3 border-t border-gray-700/50">
-              <h4 className="text-sm font-medium text-center text-gray-400 mb-2">{t('attendeeDetail.qrCodeTitle')}</h4>
-              <QRCodeDisplay data={`${currentEventId}:${attendee.id}`} />
-          </div>
+          {wristbandForQr && (
+            <div className="pt-3 border-t border-gray-700/50">
+                <h4 className="text-sm font-medium text-center text-gray-400 mb-2">{t('attendeeDetail.qrCodeTitle')}</h4>
+                <QRCodeDisplay data={wristbandForQr} />
+            </div>
+          )}
         </div>
       );
     }
@@ -641,8 +644,9 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg border border-gray-700" onClick={(e) => e.stopPropagation()}>
-        <div className="p-6">
+      <div className="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg border border-gray-700 flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="p-6 border-b border-gray-700 flex-shrink-0">
           <div className="flex justify-between items-start">
             <div className="flex items-start gap-4">
               <img src={attendee.photo} alt={attendee.name} className="w-24 h-24 object-contain rounded-lg bg-black border-2 border-gray-600" />
@@ -664,13 +668,18 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
               </button>
             </div>
           </div>
-          <div className="mt-6">
-            {renderContent()}
-          </div>
         </div>
 
-        <div className="p-6 bg-gray-900/50 rounded-b-2xl space-y-4">
-          {renderCheckinSection()}
+        {/* Scrollable Body */}
+        <div className="p-6 overflow-y-auto">
+            <div className="space-y-6">
+                {renderContent()}
+                {renderCheckinSection()}
+            </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-6 bg-gray-900/50 rounded-b-2xl flex-shrink-0 border-t border-gray-700">
           {renderFooter()}
         </div>
       </div>

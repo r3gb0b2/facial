@@ -230,6 +230,7 @@ const translations: { [lang: string]: Translations } = {
     'qrScanner.noAttendee': 'Colaborador não encontrado no sistema.',
     'qrScanner.scanNext': 'Escanear Próximo',
     'qrScanner.reentry': 'Reentrada (Check-in)',
+    'qrScanner.noCameraFound': 'Nenhuma câmera encontrada.',
   },
 };
 

@@ -222,5 +222,6 @@
   "qrScanner.invalidCode": "QR Code inválido ou de outro evento.",
   "qrScanner.noAttendee": "Colaborador não encontrado no sistema.",
   "qrScanner.scanNext": "Escanear Próximo",
-  "qrScanner.reentry": "Reentrada (Check-in)"
+  "qrScanner.reentry": "Reentrada (Check-in)",
+  "qrScanner.noCameraFound": "Nenhuma câmera encontrada."
 }
