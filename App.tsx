@@ -204,6 +204,7 @@ const App: React.FC = () => {
       setEventToEdit(null);
     } catch (error) {
       console.error(error);
+      // FIX: The error object is of an unknown type. We need to check if it's an instance of Error before accessing .message.
       if (error instanceof Error) {
         setGlobalError(error.message);
       } else {
@@ -219,6 +220,7 @@ const App: React.FC = () => {
         await loadEvents();
       } catch (error) {
         console.error(error);
+        // FIX: The error object is of an unknown type. We need to check if it's an instance of Error before accessing .message.
         if (error instanceof Error) {
           setGlobalError(error.message);
         } else {

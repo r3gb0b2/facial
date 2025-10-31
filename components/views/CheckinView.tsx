@@ -6,8 +6,7 @@ import { AttendeeDetailModal } from '../AttendeeDetailModal.tsx';
 import * as api from '../../firebase/service.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { SearchIcon, CheckCircleIcon, UsersIcon, ArrowDownTrayIcon } from '../icons.tsx';
-
-declare const Papa: any;
+import Papa from 'papaparse';
 
 interface CheckinViewProps {
   attendees: Attendee[];
