@@ -17,30 +17,43 @@ interface SectorScannerViewProps {
 const SectorScannerView: React.FC<SectorScannerViewProps> = ({ eventId, eventName, validationPoint, sectors, attendees, onRecordAccess, setError }) => {
     const { t } = useTranslation();
     const [lastScanned, setLastScanned] = useState<{ attendee: Attendee, status: 'success' | 'error', message: string } | null>(null);
-    const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
     const readerId = "sector-qr-reader";
-    const [isScanning, setIsScanning] = useState(false);
 
-    // Create a ref to hold the latest version of the attendees array.
-    // This prevents the QR code callback from using a stale list of attendees.
+    // Refs to hold the latest version of props that change frequently.
+    // This prevents the camera's useEffect from re-running unnecessarily.
     const attendeesRef = useRef(attendees);
     useEffect(() => {
         attendeesRef.current = attendees;
     }, [attendees]);
+    
+    const onRecordAccessRef = useRef(onRecordAccess);
+    useEffect(() => {
+        onRecordAccessRef.current = onRecordAccess;
+    }, [onRecordAccess]);
+
 
     const sector = sectors.find(s => s.id === validationPoint.sectorId);
 
+    // This effect manages the camera lifecycle. It should only run once on mount and clean up on unmount.
     useEffect(() => {
+        const qrScanner = new Html5Qrcode(readerId, false);
+        let isStopped = false;
+
         const handleScanSuccess = async (decodedText: string) => {
+            if (isStopped) return; // Don't process scans after cleanup has started
+
+            // Always use the latest data from refs inside the callback
+            const currentAttendees = attendeesRef.current;
+            const recordAccess = onRecordAccessRef.current;
+            
             const scannedWristband = decodedText.trim();
-            // Use the ref here to ensure we are searching the most up-to-date list.
-            const foundAttendee = attendeesRef.current.find(a =>
+            const foundAttendee = currentAttendees.find(a =>
                 a.status === CheckinStatus.CHECKED_IN && a.wristbands && Object.values(a.wristbands).includes(scannedWristband)
             );
     
             if (foundAttendee) {
                 try {
-                    await onRecordAccess(eventId, foundAttendee.id, validationPoint.sectorId);
+                    await recordAccess(eventId, foundAttendee.id, validationPoint.sectorId);
                     setLastScanned({
                         attendee: foundAttendee,
                         status: 'success',
@@ -54,47 +67,37 @@ const SectorScannerView: React.FC<SectorScannerViewProps> = ({ eventId, eventNam
                     });
                 }
             } else {
-                const alreadyScanned = attendeesRef.current.find(a => a.wristbands && Object.values(a.wristbands).includes(scannedWristband));
+                const anyAttendee = currentAttendees.find(a => a.wristbands && Object.values(a.wristbands).includes(scannedWristband));
                  setLastScanned({
-                    attendee: alreadyScanned || { name: 'Desconhecido', photo: '' } as Attendee,
+                    attendee: anyAttendee || { name: 'Desconhecido', photo: '' } as Attendee,
                     status: 'error',
-                    message: alreadyScanned ? 'Colaborador não está com check-in ativo.' : t('qrScanner.noAttendee')
+                    message: anyAttendee ? 'Colaborador não está com check-in ativo.' : t('qrScanner.noAttendee')
                 });
             }
         };
 
-        if (!html5QrCodeRef.current) {
-            html5QrCodeRef.current = new Html5Qrcode(readerId, {
-                // verbose: true 
-            });
-        }
+        qrScanner.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            handleScanSuccess,
+            (errorMessage) => { /* ignore error message */ }
+        ).catch(err => {
+            console.error("Scanner start error:", err);
+            setError(t('qrScanner.permissionError'));
+        });
 
-        const startScanner = async () => {
-            try {
-                if (html5QrCodeRef.current && !html5QrCodeRef.current.isScanning) {
-                    setIsScanning(true);
-                    await html5QrCodeRef.current.start(
-                        { facingMode: "environment" },
-                        { fps: 10, qrbox: { width: 250, height: 250 } },
-                        handleScanSuccess,
-                        (errorMessage) => { /* ignore */ }
-                    );
-                }
-            } catch (err) {
-                console.error("Scanner start error:", err);
-                setError(t('qrScanner.permissionError'));
-                setIsScanning(false);
-            }
-        };
-
-        startScanner();
-
+        // Cleanup function for when the component unmounts
         return () => {
-            if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
-                html5QrCodeRef.current.stop().catch(err => console.error("Failed to stop scanner on cleanup.", err));
+            isStopped = true;
+            if (qrScanner && qrScanner.isScanning) {
+                qrScanner.stop()
+                    .then(() => qrScanner.clear())
+                    .catch(err => console.error("Failed to stop scanner on cleanup.", err));
             }
         };
-    }, [eventId, onRecordAccess, t, validationPoint.sectorId, setError]);
+    // This dependency array is intentionally minimal. It ensures the camera lifecycle logic
+    // does not re-run when props like 'attendees' or 'onRecordAccess' change.
+    }, [eventId, validationPoint.sectorId, t, setError]);
 
 
     return (
