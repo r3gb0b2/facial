@@ -51,17 +51,19 @@ const SpreadsheetUploadView: React.FC<SpreadsheetUploadViewProps> = ({ onImport,
 
   const handleDownloadTemplate = () => {
     const csv = 'name,cpf,sector,fornecedor,empresa';
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    // Add BOM for better Excel compatibility
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
-    if (link.download !== undefined) {
-      const url = URL.createObjectURL(blob);
-      link.setAttribute('href', url);
-      link.setAttribute('download', 'template_importacao.csv');
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'template_importacao.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    
+    // Clean up
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
