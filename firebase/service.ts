@@ -345,58 +345,58 @@ export const subscribeToSupplierForRegistration = (
     callback: (data: { data: Supplier & { eventId: string }, name: string, sectors: Sector[] } | null) => void,
     onError: (error: Error) => void
 ) => {
-    let eventName: string | null = null;
-    let supplier: (Supplier & { eventId: string }) | null = null;
-    let allSectors: Sector[] | null = null;
-    
+    const data = {
+        eventName: null as string | null,
+        supplier: null as (Supplier & { eventId: string }) | null,
+        allSectors: null as Sector[] | null,
+    };
+
     const updateCallback = () => {
-        if (eventName !== null && supplier !== null && allSectors !== null) {
+        if (data.eventName !== null && data.supplier !== null && data.allSectors !== null) {
+            const { eventName, supplier, allSectors } = data;
             const validSectorIds = new Set(allSectors.map(s => s.id));
-
-            // Create a copy to avoid mutating the listener's cached object
             const dataForUI = { ...supplier };
-
-            // 1. Sanitize the supplier's main sector list.
             dataForUI.sectors = (supplier.sectors || []).filter(sectorId => validSectorIds.has(sectorId));
-            
-            // 2. Sanitize sub-companies, ensuring the property is always an array.
-            // This prevents the company dropdown from disappearing if the field is missing from Firestore.
             dataForUI.subCompanies = (supplier.subCompanies || []).filter(sc => validSectorIds.has(sc.sector));
-            
-            // 3. Give the UI ALL sectors so it can look up details for any valid sector ID it encounters.
             callback({ data: dataForUI, name: eventName, sectors: allSectors });
         }
+    };
+    
+    let unsubscribes: (()=>void)[] = [];
+    const cleanup = () => unsubscribes.forEach(unsub => unsub());
+
+    const handleError = (error: Error) => {
+        cleanup();
+        onError(error);
     };
 
     const eventUnsub = db.collection('events').doc(eventId).onSnapshot(eventSnap => {
         if (!eventSnap.exists) {
-            onError(new Error("Event not found"));
+            handleError(new Error("Event not found"));
             return;
         }
-        eventName = eventSnap.data()?.name || 'Evento';
+        data.eventName = eventSnap.data()?.name || 'Evento';
         updateCallback();
-    }, onError);
+    }, handleError);
+    unsubscribes.push(eventUnsub);
 
     const supplierUnsub = db.collection('events').doc(eventId).collection('suppliers').doc(supplierId).onSnapshot(supplierSnap => {
         if (!supplierSnap.exists) {
-            onError(new Error("Supplier not found"));
+            handleError(new Error("Supplier not found"));
             return;
         }
-        supplier = { ...getData<Supplier>(supplierSnap), eventId };
+        data.supplier = { ...getData<Supplier>(supplierSnap), eventId };
         updateCallback();
-    }, onError);
+    }, handleError);
+    unsubscribes.push(supplierUnsub);
 
     const sectorsUnsub = db.collection('events').doc(eventId).collection('sectors').onSnapshot(sectorsSnap => {
-        allSectors = getCollectionData<Sector>(sectorsSnap);
+        data.allSectors = getCollectionData<Sector>(sectorsSnap);
         updateCallback();
-    }, onError);
+    }, handleError);
+    unsubscribes.push(sectorsUnsub);
 
-    // Return a function that unsubscribes from all listeners
-    return () => {
-        eventUnsub();
-        supplierUnsub();
-        sectorsUnsub();
-    };
+    return cleanup;
 };
 
 export const getRegistrationsCountForSupplier = async (eventId: string, supplierId: string): Promise<number> => {

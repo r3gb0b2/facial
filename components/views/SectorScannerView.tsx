@@ -40,38 +40,56 @@ const SectorScannerView: React.FC<SectorScannerViewProps> = ({ eventId, eventNam
         let isStopped = false;
 
         const handleScanSuccess = async (decodedText: string) => {
-            if (isStopped) return; // Don't process scans after cleanup has started
+            if (isStopped) return;
 
-            // Always use the latest data from refs inside the callback
             const currentAttendees = attendeesRef.current;
             const recordAccess = onRecordAccessRef.current;
             
             const scannedWristband = decodedText.trim();
-            const foundAttendee = currentAttendees.find(a =>
-                a.status === CheckinStatus.CHECKED_IN && a.wristbands && Object.values(a.wristbands).includes(scannedWristband)
+            const foundAttendee = currentAttendees.find(a => 
+                a.wristbands && Object.values(a.wristbands).includes(scannedWristband)
             );
-    
-            if (foundAttendee) {
-                try {
-                    await recordAccess(eventId, foundAttendee.id, validationPoint.sectorId);
-                    setLastScanned({
-                        attendee: foundAttendee,
-                        status: 'success',
-                        message: t('sectorScanner.scanSuccess')
-                    });
-                } catch (err) {
-                    setLastScanned({
-                        attendee: foundAttendee,
-                        status: 'error',
-                        message: t('sectorScanner.scanError')
-                    });
-                }
-            } else {
-                const anyAttendee = currentAttendees.find(a => a.wristbands && Object.values(a.wristbands).includes(scannedWristband));
-                 setLastScanned({
-                    attendee: anyAttendee || { name: 'Desconhecido', photo: '' } as Attendee,
+
+            if (!foundAttendee) {
+                setLastScanned({
+                    attendee: { name: 'Desconhecido', photo: '' } as Attendee,
                     status: 'error',
-                    message: anyAttendee ? 'Colaborador não está com check-in ativo.' : t('qrScanner.noAttendee')
+                    message: t('qrScanner.noAttendee')
+                });
+                return;
+            }
+
+            if (foundAttendee.status !== CheckinStatus.CHECKED_IN) {
+                setLastScanned({
+                    attendee: foundAttendee,
+                    status: 'error',
+                    message: 'Colaborador não está com check-in ativo.'
+                });
+                return;
+            }
+
+            const hasPermission = (foundAttendee.sectors || []).includes(validationPoint.sectorId);
+            if (!hasPermission) {
+                setLastScanned({
+                    attendee: foundAttendee,
+                    status: 'error',
+                    message: t('sectorScanner.sectorNotAllowed')
+                });
+                return;
+            }
+    
+            try {
+                await recordAccess(eventId, foundAttendee.id, validationPoint.sectorId);
+                setLastScanned({
+                    attendee: foundAttendee,
+                    status: 'success',
+                    message: t('sectorScanner.scanSuccess')
+                });
+            } catch (err) {
+                setLastScanned({
+                    attendee: foundAttendee,
+                    status: 'error',
+                    message: t('sectorScanner.scanError')
                 });
             }
         };

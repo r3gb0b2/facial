@@ -398,7 +398,7 @@ const App: React.FC = () => {
             successCount++;
 
         } catch (error) {
-            // FIX: Safely handle the error object, which is of type 'unknown', to get a reason string.
+            // FIX: The error object is of type 'unknown' and cannot be assigned to a string type directly. This now safely checks if the error is an instance of Error to access its message, otherwise converts the error to a string, preventing a type error.
             const reason = error instanceof Error ? `Erro no servidor: ${error.message}` : `Erro no servidor: ${String(error)}`;
             failedRows.push({ row, reason });
         }
@@ -429,7 +429,7 @@ const App: React.FC = () => {
     try {
       await api.deleteSupplier(currentEvent.id, supplier.id);
     } catch (error) {
-      // FIX: Safely handle the error object, which is of type 'unknown', before setting the global error message.
+      // FIX: The error object is of type 'unknown', which is not assignable to the string parameter of setGlobalError. This now safely checks if the error is an instance of Error to pass its message, or converts the whole error to a string for display.
       if (error instanceof Error) {
         setGlobalError(error.message);
       } else {

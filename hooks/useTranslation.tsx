@@ -259,6 +259,7 @@ const translations: { [lang: string]: Translations } = {
     'sectorScanner.validatingFor': 'Validando Entrada para:',
     'sectorScanner.scanSuccess': 'Entrada registrada!',
     'sectorScanner.scanError': 'Erro ao registrar entrada.',
+    'sectorScanner.sectorNotAllowed': 'Acesso não permitido para este setor.',
     'location.title': 'Localização Atual dos Colaboradores',
     'location.noSectors': 'Crie setores para visualizar a localização.',
     'location.inSector': (count: number, name: string) => `${count} em ${name}`,
