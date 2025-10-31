@@ -5,15 +5,16 @@ import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { QrCodeIcon, CheckCircleIcon, XMarkIcon } from '../icons.tsx';
 
 interface SectorScannerViewProps {
+    eventId: string;
     eventName: string;
     validationPoint: ValidationPoint;
     sectors: Sector[];
     attendees: Attendee[];
-    onRecordAccess: (attendeeId: string, sectorId: string) => Promise<void>;
+    onRecordAccess: (eventId: string, attendeeId: string, sectorId: string) => Promise<void>;
     setError: (message: string) => void;
 }
 
-const SectorScannerView: React.FC<SectorScannerViewProps> = ({ eventName, validationPoint, sectors, attendees, onRecordAccess, setError }) => {
+const SectorScannerView: React.FC<SectorScannerViewProps> = ({ eventId, eventName, validationPoint, sectors, attendees, onRecordAccess, setError }) => {
     const { t } = useTranslation();
     const [lastScanned, setLastScanned] = useState<{ attendee: Attendee, status: 'success' | 'error', message: string } | null>(null);
     const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
@@ -64,7 +65,7 @@ const SectorScannerView: React.FC<SectorScannerViewProps> = ({ eventName, valida
 
         if (foundAttendee) {
             try {
-                await onRecordAccess(foundAttendee.id, validationPoint.sectorId);
+                await onRecordAccess(eventId, foundAttendee.id, validationPoint.sectorId);
                 setLastScanned({
                     attendee: foundAttendee,
                     status: 'success',

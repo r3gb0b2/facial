@@ -40,7 +40,7 @@ const App: React.FC = () => {
   // Supplier view state
   const [supplierInfo, setSupplierInfo] = useState<{data: Supplier, name: string} | null>(null);
   const [supplierAdminData, setSupplierAdminData] = useState<{eventName: string, attendees: Attendee[], eventId: string, supplierId: string, supplier: Supplier, sectors: Sector[]} | null>(null);
-  const [scannerData, setScannerData] = useState<{validationPoint: ValidationPoint, eventName: string} | null>(null);
+  const [scannerData, setScannerData] = useState<{validationPoint: ValidationPoint, eventName: string, eventId: string} | null>(null);
 
 
   // Modal state
@@ -99,19 +99,19 @@ const App: React.FC = () => {
             try {
                 const [point, event] = await Promise.all([
                     api.getValidationPoint(eventId, scannerId),
-                    // A bit inefficient to fetch all events, but necessary to get event name for a simple URL
                     api.getEvents().then(events => events.find(e => e.id === eventId))
                 ]);
 
                 if (point && event) {
                     const eventUnsub = api.subscribeToEventData(eventId, (data) => {
                         setAttendees(data.attendees);
+                        setSectors(data.sectors);
                     }, (err) => {
                         console.error(err);
                         setGlobalError(t('errors.subscriptionError'));
                     });
                     unsubscribe = () => eventUnsub();
-                    setScannerData({ validationPoint: point, eventName: event.name });
+                    setScannerData({ validationPoint: point, eventName: event.name, eventId: eventId });
                     setView('sector-scanner');
                 } else {
                     setGlobalError(t('errors.invalidScannerLink'));
@@ -398,7 +398,7 @@ const App: React.FC = () => {
             successCount++;
 
         } catch (error) {
-            // FIX: Type 'unknown' is not assignable to type 'string'. Safely handle the error by checking its type before accessing properties.
+            // FIX: Safely handle the `unknown` type of the error object in a catch block.
             const reason = error instanceof Error ? `Erro no servidor: ${error.message}` : `Erro no servidor: ${String(error)}`;
             failedRows.push({ row, reason });
         }
@@ -429,7 +429,7 @@ const App: React.FC = () => {
     try {
       await api.deleteSupplier(currentEvent.id, supplier.id);
     } catch (error) {
-      // FIX: Type 'unknown' is not assignable to type 'string'. Safely handle the error by checking its type before passing it to setGlobalError.
+      // FIX: Safely handle the `unknown` type of the error object in a catch block before passing it to setGlobalError.
       if (error instanceof Error) {
         setGlobalError(error.message);
       } else {
@@ -487,9 +487,8 @@ const App: React.FC = () => {
   };
 
   // Access Log Handlers
-  const handleRecordSectorAccess = async (attendeeId: string, sectorId: string) => {
-    if (!currentEvent) return;
-    await api.recordSectorAccess(currentEvent.id, attendeeId, sectorId);
+  const handleRecordSectorAccess = async (eventId: string, attendeeId: string, sectorId: string) => {
+    await api.recordSectorAccess(eventId, attendeeId, sectorId);
   };
 
   
@@ -564,8 +563,9 @@ const App: React.FC = () => {
         }
         return null;
       case 'sector-scanner':
-          if(scannerData && currentEvent) {
+          if(scannerData) {
               return <SectorScannerView 
+                  eventId={scannerData.eventId}
                   eventName={scannerData.eventName}
                   validationPoint={scannerData.validationPoint}
                   sectors={sectors}
