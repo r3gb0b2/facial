@@ -398,7 +398,7 @@ const App: React.FC = () => {
             successCount++;
 
         } catch (error) {
-            // FIX: Safely handle the `unknown` type of the error object in a catch block.
+            // FIX: Type 'unknown' is not assignable to type 'string'. Safely handle the error object.
             const reason = error instanceof Error ? `Erro no servidor: ${error.message}` : `Erro no servidor: ${String(error)}`;
             failedRows.push({ row, reason });
         }
@@ -429,7 +429,7 @@ const App: React.FC = () => {
     try {
       await api.deleteSupplier(currentEvent.id, supplier.id);
     } catch (error) {
-      // FIX: Safely handle the `unknown` type of the error object in a catch block before passing it to setGlobalError.
+      // FIX: Type 'unknown' is not assignable to type 'string'. Safely handle the error object.
       if (error instanceof Error) {
         setGlobalError(error.message);
       } else {
