@@ -39,6 +39,7 @@ const translations: { [lang: string]: Translations } = {
     'checkin.filter.allSuppliers': 'Todos os Fornecedores',
     'checkin.search.noResultsForTerm': (term: string) => `Nenhum resultado encontrado para "${term}"`,
     'checkin.search.noResultsForFilter': 'Nenhum participante encontrado com os filtros atuais.',
+    'checkin.exportExcelButton': 'Exportar para Excel',
     'status.pending': 'Pendente',
     'status.checked_in': 'Checked-in',
     'status.cancelled': 'Cancelado',

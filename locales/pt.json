@@ -32,6 +32,7 @@
   "checkin.filter.allSuppliers": "Todos os Fornecedores",
   "checkin.search.noResultsForTerm": "Nenhum resultado encontrado para \"{0}\"",
   "checkin.search.noResultsForFilter": "Nenhum participante encontrado com os filtros atuais.",
+  "checkin.exportExcelButton": "Exportar para Excel",
   "status.pending": "Pendente",
   "status.checked_in": "Checked-in",
   "status.cancelled": "Cancelado",

@@ -76,6 +76,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                     suppliers={props.suppliers} 
                     sectors={props.sectors}
                     currentEventId={props.currentEvent.id}
+                    currentEventName={props.currentEvent.name}
                     onUpdateAttendeeDetails={props.onAttendeeDetailsUpdate}
                     onDeleteAttendee={props.onDeleteAttendee}
                     onApproveSubstitution={props.onApproveSubstitution}

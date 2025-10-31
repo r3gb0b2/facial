@@ -5,13 +5,16 @@ import AttendeeCard from '../AttendeeCard.tsx';
 import { AttendeeDetailModal } from '../AttendeeDetailModal.tsx';
 import * as api from '../../firebase/service.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { SearchIcon, CheckCircleIcon, UsersIcon } from '../icons.tsx';
+import { SearchIcon, CheckCircleIcon, UsersIcon, ArrowDownTrayIcon } from '../icons.tsx';
+
+declare const Papa: any;
 
 interface CheckinViewProps {
   attendees: Attendee[];
   suppliers: Supplier[];
   sectors: Sector[];
   currentEventId: string;
+  currentEventName: string;
   onUpdateAttendeeDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'wristbands' | 'subCompany' | 'supplierId'>>) => Promise<void>;
   onDeleteAttendee: (attendeeId: string) => Promise<void>;
   onApproveSubstitution: (attendeeId: string) => Promise<void>;
@@ -31,7 +34,7 @@ const normalizeString = (str: string) => {
     .trim();
 };
 
-const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors, currentEventId, onUpdateAttendeeDetails, onDeleteAttendee, onApproveSubstitution, onRejectSubstitution, onApproveSectorChange, onRejectSectorChange, setError }) => {
+const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors, currentEventId, currentEventName, onUpdateAttendeeDetails, onDeleteAttendee, onApproveSubstitution, onRejectSubstitution, onApproveSectorChange, onRejectSectorChange, setError }) => {
   const { t } = useTranslation();
   const sessionKey = `filters_${currentEventId}`;
 
@@ -54,6 +57,14 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
   }, [filters, sessionKey]);
 
   const [selectedAttendee, setSelectedAttendee] = useState<Attendee | null>(null);
+
+  const sectorMap = useMemo(() => {
+    return new Map(sectors.map(s => [s.id, s]));
+  }, [sectors]);
+
+  const supplierMap = useMemo(() => {
+    return new Map(suppliers.map(s => [s.id, s]));
+  }, [suppliers]);
 
   const handleFilterChange = (key: keyof typeof filters, value: any) => {
     setFilters((prev: any) => ({ ...prev, [key]: value }));
@@ -88,15 +99,51 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
       setSelectedAttendee(null); // Close modal on success
   };
 
+  const formatCPF = (cpf: string) => {
+    if (!cpf) return '';
+    return cpf
+      .replace(/\D/g, '')
+      .slice(0, 11)
+      .replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  };
 
-  const sectorMap = useMemo(() => {
-    return new Map(sectors.map(s => [s.id, s]));
-  }, [sectors]);
+  const handleExportToExcel = () => {
+    const dataToExport = attendees.map(attendee => {
+        const sectorLabels = (attendee.sectors || [])
+            .map(id => sectorMap.get(id)?.label)
+            .filter(Boolean)
+            .join(', ');
 
-  const supplierMap = useMemo(() => {
-    return new Map(suppliers.map(s => [s.id, s]));
-  }, [suppliers]);
+        const supplierName = attendee.supplierId ? supplierMap.get(attendee.supplierId)?.name : '';
+        const wristbandNumbers = attendee.wristbands ? Object.values(attendee.wristbands).filter(Boolean).join(', ') : '';
+        const statusLabel = t(`status.${attendee.status.toLowerCase()}`);
 
+        return {
+            'Nome': attendee.name,
+            'CPF': formatCPF(attendee.cpf),
+            'Status': statusLabel,
+            'Setor(es)': sectorLabels,
+            'Fornecedor': supplierName,
+            'Empresa': attendee.subCompany || '',
+            'Pulseira(s)': wristbandNumbers,
+        };
+    });
+
+    const csv = Papa.unparse(dataToExport);
+    
+    // BOM to handle UTF-8 characters in Excel
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    const fileName = `${currentEventName.replace(/\s/g, '_')}_colaboradores.csv`;
+    link.setAttribute('download', fileName);
+    
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const filteredAttendees = useMemo(() => {
     const normalizedTerm = normalizeString(searchTerm);
@@ -193,6 +240,15 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
             ))}
              <option value="">Sem fornecedor</option>
           </select>
+        </div>
+        <div className="pt-4 border-t border-gray-700/50 flex justify-end">
+          <button
+            onClick={handleExportToExcel}
+            className="bg-green-700 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center gap-2"
+          >
+            <ArrowDownTrayIcon className="w-5 h-5" />
+            {t('checkin.exportExcelButton')}
+          </button>
         </div>
       </div>
 
