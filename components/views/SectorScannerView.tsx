@@ -21,9 +21,48 @@ const SectorScannerView: React.FC<SectorScannerViewProps> = ({ eventId, eventNam
     const readerId = "sector-qr-reader";
     const [isScanning, setIsScanning] = useState(false);
 
+    // Create a ref to hold the latest version of the attendees array.
+    // This prevents the QR code callback from using a stale list of attendees.
+    const attendeesRef = useRef(attendees);
+    useEffect(() => {
+        attendeesRef.current = attendees;
+    }, [attendees]);
+
     const sector = sectors.find(s => s.id === validationPoint.sectorId);
 
     useEffect(() => {
+        const handleScanSuccess = async (decodedText: string) => {
+            const scannedWristband = decodedText.trim();
+            // Use the ref here to ensure we are searching the most up-to-date list.
+            const foundAttendee = attendeesRef.current.find(a =>
+                a.status === CheckinStatus.CHECKED_IN && a.wristbands && Object.values(a.wristbands).includes(scannedWristband)
+            );
+    
+            if (foundAttendee) {
+                try {
+                    await onRecordAccess(eventId, foundAttendee.id, validationPoint.sectorId);
+                    setLastScanned({
+                        attendee: foundAttendee,
+                        status: 'success',
+                        message: t('sectorScanner.scanSuccess')
+                    });
+                } catch (err) {
+                    setLastScanned({
+                        attendee: foundAttendee,
+                        status: 'error',
+                        message: t('sectorScanner.scanError')
+                    });
+                }
+            } else {
+                const alreadyScanned = attendeesRef.current.find(a => a.wristbands && Object.values(a.wristbands).includes(scannedWristband));
+                 setLastScanned({
+                    attendee: alreadyScanned || { name: 'Desconhecido', photo: '' } as Attendee,
+                    status: 'error',
+                    message: alreadyScanned ? 'Colaborador não está com check-in ativo.' : t('qrScanner.noAttendee')
+                });
+            }
+        };
+
         if (!html5QrCodeRef.current) {
             html5QrCodeRef.current = new Html5Qrcode(readerId, {
                 // verbose: true 
@@ -55,38 +94,8 @@ const SectorScannerView: React.FC<SectorScannerViewProps> = ({ eventId, eventNam
                 html5QrCodeRef.current.stop().catch(err => console.error("Failed to stop scanner on cleanup.", err));
             }
         };
-    }, []);
+    }, [eventId, onRecordAccess, t, validationPoint.sectorId, setError]);
 
-    const handleScanSuccess = async (decodedText: string) => {
-        const scannedWristband = decodedText.trim();
-        const foundAttendee = attendees.find(a =>
-            a.status === CheckinStatus.CHECKED_IN && a.wristbands && Object.values(a.wristbands).includes(scannedWristband)
-        );
-
-        if (foundAttendee) {
-            try {
-                await onRecordAccess(eventId, foundAttendee.id, validationPoint.sectorId);
-                setLastScanned({
-                    attendee: foundAttendee,
-                    status: 'success',
-                    message: t('sectorScanner.scanSuccess')
-                });
-            } catch (err) {
-                setLastScanned({
-                    attendee: foundAttendee,
-                    status: 'error',
-                    message: t('sectorScanner.scanError')
-                });
-            }
-        } else {
-            const alreadyScanned = attendees.find(a => a.wristbands && Object.values(a.wristbands).includes(scannedWristband));
-             setLastScanned({
-                attendee: alreadyScanned || { name: 'Desconhecido', photo: '' } as Attendee,
-                status: 'error',
-                message: alreadyScanned ? 'Colaborador não está com check-in ativo.' : t('qrScanner.noAttendee')
-            });
-        }
-    };
 
     return (
         <div className="min-h-screen flex items-center justify-center p-4">

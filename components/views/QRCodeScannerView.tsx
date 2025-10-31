@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { Attendee, CheckinStatus, Event } from '../../types';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
@@ -19,10 +19,16 @@ const QRCodeScannerView: React.FC<QRCodeScannerViewProps> = ({ currentEvent, att
     const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
     const readerId = "qr-reader";
 
-    const attendeesMap = useMemo(() => new Map(attendees.map(a => [a.id, a])), [attendees]);
+    // Create a ref to hold the latest version of the attendees array.
+    // This prevents the QR code callback from using a stale list of attendees.
+    const attendeesRef = useRef(attendees);
+    useEffect(() => {
+        attendeesRef.current = attendees;
+    }, [attendees]);
+
 
     const stopScanning = () => {
-        if (html5QrCodeRef.current && isScanning) {
+        if (html5QrCodeRef.current && html5QrCodeRef.current.isScanning) {
             html5QrCodeRef.current.stop().then(() => {
                 setIsScanning(false);
                 html5QrCodeRef.current?.clear();
@@ -51,6 +57,27 @@ const QRCodeScannerView: React.FC<QRCodeScannerViewProps> = ({ currentEvent, att
         setScannedAttendee(null);
         setScanResult(null);
 
+        // This function will be passed to the scanner. It needs to be stable or use a ref.
+        const onScanSuccess = (decodedText: string) => {
+            const scannedWristband = decodedText.trim();
+            if (!scannedWristband) {
+                setScanResult({ type: 'error', message: t('qrScanner.invalidCode')});
+                return;
+            }
+    
+            // Use the ref here to ensure we are searching the most up-to-date list
+            const foundAttendee = attendeesRef.current.find(a => 
+                a.wristbands && Object.values(a.wristbands).includes(scannedWristband)
+            );
+    
+            if (foundAttendee) {
+                setScannedAttendee(foundAttendee);
+                setScanResult({ type: 'success', message: t('qrScanner.attendeeFound') });
+            } else {
+                setScanResult({ type: 'error', message: t('qrScanner.noAttendee') });
+            }
+        };
+
         try {
             if (!html5QrCodeRef.current) {
                 html5QrCodeRef.current = new Html5Qrcode(readerId);
@@ -65,7 +92,7 @@ const QRCodeScannerView: React.FC<QRCodeScannerViewProps> = ({ currentEvent, att
                     aspectRatio: 1.0
                 },
                 (decodedText, decodedResult) => {
-                    handleScanSuccess(decodedText);
+                    onScanSuccess(decodedText);
                     stopScanning();
                 },
                 (errorMessage) => {
@@ -80,25 +107,6 @@ const QRCodeScannerView: React.FC<QRCodeScannerViewProps> = ({ currentEvent, att
         }
     };
     
-    const handleScanSuccess = (decodedText: string) => {
-        const scannedWristband = decodedText.trim();
-        if (!scannedWristband) {
-            setScanResult({ type: 'error', message: t('qrScanner.invalidCode')});
-            return;
-        }
-
-        const foundAttendee = attendees.find(a => 
-            a.wristbands && Object.values(a.wristbands).includes(scannedWristband)
-        );
-
-        if (foundAttendee) {
-            setScannedAttendee(foundAttendee);
-            setScanResult({ type: 'success', message: t('qrScanner.attendeeFound') });
-        } else {
-            setScanResult({ type: 'error', message: t('qrScanner.noAttendee') });
-        }
-    };
-
     const handleActionClick = async () => {
         if (!scannedAttendee) return;
         
