@@ -1,4 +1,3 @@
-// FIX: Import firebase to provide the namespace for firestore types.
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
 import { db, storage, FieldValue, Timestamp } from './config.ts';
@@ -38,46 +37,41 @@ export const subscribeToEventData = (
     callback: (data: { attendees: Attendee[], suppliers: Supplier[], sectors: Sector[], validationPoints: ValidationPoint[], accessLogs: AccessLogEntry[] }) => void,
     onError: (error: Error) => void
 ) => {
-    let attendees: Attendee[] = [];
-    let suppliers: Supplier[] = [];
-    let sectors: Sector[] = [];
-    let validationPoints: ValidationPoint[] = [];
-    let accessLogs: AccessLogEntry[] = [];
-    const loaded = { attendees: false, suppliers: false, sectors: false, validationPoints: false, accessLogs: false };
+    const data = {
+        attendees: [] as Attendee[],
+        suppliers: [] as Supplier[],
+        sectors: [] as Sector[],
+        validationPoints: [] as ValidationPoint[],
+        accessLogs: [] as AccessLogEntry[],
+    };
 
     const updateCallback = () => {
-        if (loaded.attendees && loaded.suppliers && loaded.sectors && loaded.validationPoints && loaded.accessLogs) {
-            callback({ attendees, suppliers, sectors, validationPoints, accessLogs });
-        }
+        // Create a shallow copy to ensure React detects the change
+        callback({ ...data });
     };
 
     const attendeesUnsub = db.collection('events').doc(eventId).collection('attendees').onSnapshot(snap => {
-        attendees = getCollectionData<Attendee>(snap);
-        if (!loaded.attendees) loaded.attendees = true;
+        data.attendees = getCollectionData<Attendee>(snap);
         updateCallback();
     }, onError);
 
     const suppliersUnsub = db.collection('events').doc(eventId).collection('suppliers').onSnapshot(snap => {
-        suppliers = getCollectionData<Supplier>(snap);
-        if (!loaded.suppliers) loaded.suppliers = true;
+        data.suppliers = getCollectionData<Supplier>(snap);
         updateCallback();
     }, onError);
     
     const sectorsUnsub = db.collection('events').doc(eventId).collection('sectors').onSnapshot(snap => {
-        sectors = getCollectionData<Sector>(snap);
-        if (!loaded.sectors) loaded.sectors = true;
+        data.sectors = getCollectionData<Sector>(snap);
         updateCallback();
     }, onError);
 
     const validationPointsUnsub = db.collection('events').doc(eventId).collection('validationPoints').onSnapshot(snap => {
-        validationPoints = getCollectionData<ValidationPoint>(snap);
-        if (!loaded.validationPoints) loaded.validationPoints = true;
+        data.validationPoints = getCollectionData<ValidationPoint>(snap);
         updateCallback();
     }, onError);
 
     const accessLogsUnsub = db.collection('events').doc(eventId).collection('accessLogs').orderBy('timestamp', 'desc').onSnapshot(snap => {
-        accessLogs = getCollectionData<AccessLogEntry>(snap);
-        if (!loaded.accessLogs) loaded.accessLogs = true;
+        data.accessLogs = getCollectionData<AccessLogEntry>(snap);
         updateCallback();
     }, onError);
 
