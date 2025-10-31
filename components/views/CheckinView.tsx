@@ -6,7 +6,7 @@ import { AttendeeDetailModal } from '../AttendeeDetailModal.tsx';
 import * as api from '../../firebase/service.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { SearchIcon, CheckCircleIcon, UsersIcon, ArrowDownTrayIcon } from '../icons.tsx';
-import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 
 interface CheckinViewProps {
   attendees: Attendee[];
@@ -128,16 +128,29 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
         };
     });
 
-    const csv = Papa.unparse(dataToExport);
+    // Create a new worksheet from the JSON data
+    const ws = XLSX.utils.json_to_sheet(dataToExport);
     
-    // BOM to handle UTF-8 characters in Excel
-    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    // Create a new workbook
+    const wb = XLSX.utils.book_new();
+    
+    // Append the worksheet to the workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Colaboradores');
+    
+    // Generate the XLSX file data
+    const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    
+    // Create a Blob from the data
+    const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
+    
+    // Create a download link
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
     link.setAttribute('href', url);
-    const fileName = `${currentEventName.replace(/\s/g, '_')}_colaboradores.csv`;
+    const fileName = `${currentEventName.replace(/\s/g, '_')}_colaboradores.xlsx`;
     link.setAttribute('download', fileName);
     
+    // Trigger the download
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();

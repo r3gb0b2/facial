@@ -204,7 +204,7 @@ const App: React.FC = () => {
       setEventToEdit(null);
     } catch (error) {
       console.error(error);
-      // FIX: The error object is of an unknown type. We need to check if it's an instance of Error before accessing .message.
+      // Fix: The error object is of an unknown type. We need to check if it's an instance of Error before accessing .message.
       if (error instanceof Error) {
         setGlobalError(error.message);
       } else {
@@ -220,7 +220,7 @@ const App: React.FC = () => {
         await loadEvents();
       } catch (error) {
         console.error(error);
-        // FIX: The error object is of an unknown type. We need to check if it's an instance of Error before accessing .message.
+        // Fix: The error object is of an unknown type. We need to check if it's an instance of Error before accessing .message.
         if (error instanceof Error) {
           setGlobalError(error.message);
         } else {
@@ -346,7 +346,7 @@ const App: React.FC = () => {
             successCount++;
 
         } catch (error) {
-            // FIX: Safely handle the unknown error object by checking its type.
+            // Fix: Safely handle the unknown error object by checking its type.
             const reason = error instanceof Error ? `Erro no servidor: ${error.message}` : 'Erro no servidor: desconhecido.';
             failedRows.push({ row, reason });
         }
@@ -377,7 +377,7 @@ const App: React.FC = () => {
     try {
       await api.deleteSupplier(currentEvent.id, supplier.id);
     } catch (error) {
-      // FIX: Safely handle the unknown error object by checking its type.
+      // Fix: Safely handle the unknown error object by checking its type.
       if (error instanceof Error) {
         setGlobalError(error.message);
       } else {
