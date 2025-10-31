@@ -67,7 +67,7 @@ const QRCodeScannerView: React.FC<QRCodeScannerViewProps> = ({ currentEvent, att
     
             // Use the ref here to ensure we are searching the most up-to-date list
             const foundAttendee = attendeesRef.current.find(a => 
-                a.wristbands && Object.values(a.wristbands).includes(scannedWristband)
+                a.wristbands && Object.values(a.wristbands).map(String).includes(scannedWristband)
             );
     
             if (foundAttendee) {

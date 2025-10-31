@@ -47,7 +47,7 @@ const SectorScannerView: React.FC<SectorScannerViewProps> = ({ eventId, eventNam
             
             const scannedWristband = decodedText.trim();
             const foundAttendee = currentAttendees.find(a => 
-                a.wristbands && Object.values(a.wristbands).includes(scannedWristband)
+                a.wristbands && Object.values(a.wristbands).map(String).includes(scannedWristband)
             );
 
             if (!foundAttendee) {
