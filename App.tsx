@@ -346,7 +346,7 @@ const App: React.FC = () => {
             successCount++;
 
         } catch (error) {
-            // Safely handle the unknown type of the caught error object.
+            // FIX: Safely handle the unknown error object by checking its type.
             const reason = error instanceof Error ? `Erro no servidor: ${error.message}` : 'Erro no servidor: desconhecido.';
             failedRows.push({ row, reason });
         }
@@ -377,7 +377,7 @@ const App: React.FC = () => {
     try {
       await api.deleteSupplier(currentEvent.id, supplier.id);
     } catch (error) {
-      // Safely handle the unknown type of the caught error object.
+      // FIX: Safely handle the unknown error object by checking its type.
       if (error instanceof Error) {
         setGlobalError(error.message);
       } else {

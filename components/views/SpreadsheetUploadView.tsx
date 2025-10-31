@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
 import { ArrowUpTrayIcon } from '../icons.tsx';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 
@@ -15,37 +16,70 @@ const SpreadsheetUploadView: React.FC<SpreadsheetUploadViewProps> = ({ onImport,
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      setFileName(file.name);
-      setIsUploading(true);
-      setError('');
-      
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: async (results) => {
-          try {
-            if (results.data.length === 0) {
-              setError(t('spreadsheet.error.emptyFile'));
-              return;
+    if (!file) return;
+
+    const cleanup = () => {
+        setIsUploading(false);
+        setFileName('');
+        if (event.target) event.target.value = '';
+    };
+
+    setFileName(file.name);
+    setIsUploading(true);
+    setError('');
+    
+    if (file.name.endsWith('.csv')) {
+        Papa.parse(file, {
+            header: true,
+            skipEmptyLines: true,
+            complete: async (results) => {
+              try {
+                if (results.data.length === 0) {
+                  setError(t('spreadsheet.error.emptyFile'));
+                  return;
+                }
+                await onImport(results.data);
+              } catch (error: any) {
+                console.error("Import failed:", error);
+                setError(`Erro na importação: ${error.message}`);
+              } finally {
+                cleanup();
+              }
+            },
+            error: (error: any) => {
+              setError(t('spreadsheet.error.readFile', error.message));
+              cleanup();
             }
-            await onImport(results.data);
-          } catch (error: any) {
-            console.error("Import failed:", error);
-            setError(`Erro na importação: ${error.message}`);
-          } finally {
-            setIsUploading(false);
-            setFileName('');
-            if (event.target) event.target.value = '';
-          }
-        },
-        error: (error: any) => {
-          setError(t('spreadsheet.error.readFile', error.message));
-          setIsUploading(false);
-          setFileName('');
-          if (event.target) event.target.value = '';
-        }
-      });
+        });
+    } else if (file.name.endsWith('.xls') || file.name.endsWith('.xlsx')) {
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                const data = e.target?.result;
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const json = XLSX.utils.sheet_to_json(worksheet);
+                
+                if (json.length === 0) {
+                    setError(t('spreadsheet.error.emptyFile'));
+                    return;
+                }
+                await onImport(json);
+            } catch (error: any) {
+                setError(t('spreadsheet.error.readFile', error.message));
+            } finally {
+                cleanup();
+            }
+        };
+        reader.onerror = () => {
+            setError(t('spreadsheet.error.readFile', 'Could not read file.'));
+            cleanup();
+        };
+        reader.readAsArrayBuffer(file);
+    } else {
+        setError(t('spreadsheet.error.unsupportedFile'));
+        cleanup();
     }
   };
 
@@ -82,7 +116,7 @@ const SpreadsheetUploadView: React.FC<SpreadsheetUploadViewProps> = ({ onImport,
         <input
           id="csv-upload"
           type="file"
-          accept=".csv"
+          accept=".csv,.xls,.xlsx"
           onChange={handleFileChange}
           className="hidden"
           disabled={isUploading}
