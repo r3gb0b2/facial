@@ -10,6 +10,7 @@ export enum CheckinStatus {
   SECTOR_CHANGE_REQUEST = 'SECTOR_CHANGE_REQUEST',
   MISSED = 'MISSED',
   PENDING_APPROVAL = 'PENDING_APPROVAL',
+  CHECKED_OUT = 'CHECKED_OUT',
 }
 
 export interface Attendee {
@@ -21,6 +22,8 @@ export interface Attendee {
   status: CheckinStatus;
   eventId: string;
   createdAt: FirebaseTimestamp;
+  checkinTime?: FirebaseTimestamp;
+  checkoutTime?: FirebaseTimestamp;
   supplierId?: string; // To track which supplier registered the attendee
   subCompany?: string; // The attendee's specific company under a supplier
   wristbands?: { [sectorId: string]: string }; // Maps sectorId to wristband number

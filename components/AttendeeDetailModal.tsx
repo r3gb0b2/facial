@@ -2,12 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Attendee, CheckinStatus, Sector, Supplier } from '../types.ts';
 import { useTranslation } from '../hooks/useTranslation.tsx';
 import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon, SpinnerIcon } from './icons.tsx';
+import QRCodeDisplay from './QRCodeDisplay.tsx';
 
 interface AttendeeDetailModalProps {
   attendee: Attendee;
   sectors: Sector[];
   suppliers: Supplier[];
   allAttendees: Attendee[];
+  currentEventId: string;
   onClose: () => void;
   onUpdateStatus: (status: CheckinStatus, wristbands?: { [sectorId: string]: string }) => void;
   onUpdateDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'subCompany' | 'wristbands' | 'supplierId'>>) => Promise<void>;
@@ -27,6 +29,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   sectors,
   suppliers,
   allAttendees,
+  currentEventId,
   onClose,
   onUpdateStatus,
   onUpdateDetails,
@@ -79,6 +82,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   const statusInfo = {
     [CheckinStatus.PENDING]: { bg: 'bg-gray-600', text: 'text-gray-200', label: t('status.pending') },
     [CheckinStatus.CHECKED_IN]: { bg: 'bg-green-600', text: 'text-white', label: t('status.checked_in') },
+    [CheckinStatus.CHECKED_OUT]: { bg: 'bg-slate-500', text: 'text-white', label: t('status.checked_out') },
     [CheckinStatus.CANCELLED]: { bg: 'bg-red-600', text: 'text-white', label: t('status.cancelled') },
     [CheckinStatus.SUBSTITUTION]: { bg: 'bg-yellow-500', text: 'text-black', label: t('status.substitution') },
     [CheckinStatus.SUBSTITUTION_REQUEST]: { bg: 'bg-blue-500', text: 'text-white', label: t('status.substitution_request') },
@@ -93,6 +97,14 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
       .replace(/\D/g, '')
       .slice(0, 11)
       .replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+  };
+
+  const formatTimestamp = (timestamp: any) => {
+    if (!timestamp || !timestamp.seconds) return 'N/A';
+    return new Date(timestamp.seconds * 1000).toLocaleString('pt-BR', {
+      dateStyle: 'short',
+      timeStyle: 'medium',
+    });
   };
 
   const handleSave = async () => {
@@ -262,13 +274,15 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     }
   }, [editData.subCompany, selectedSupplierData, isEditing]);
   
-  const renderStatusButton = (status: CheckinStatus, label: string) => (
+  const renderStatusButton = (status: CheckinStatus, label: string, style: string = 'bg-indigo-600 hover:bg-indigo-700') => (
     <button
       onClick={() => {
         onUpdateStatus(status);
-        onClose();
+        if(status !== CheckinStatus.CHECKED_OUT){
+          onClose();
+        }
       }}
-      className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors w-full"
+      className={`${style} text-white font-bold py-2 px-4 rounded-lg transition-colors w-full`}
     >
       {label}
     </button>
@@ -511,6 +525,18 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                 <p className="text-white">{attendee.subCompany}</p>
             </div>
         )}
+        {attendee.checkinTime && (
+            <div>
+                <span className="text-sm font-medium text-gray-400">{t('attendeeDetail.checkinTime')}</span>
+                <p className="text-white">{formatTimestamp(attendee.checkinTime)}</p>
+            </div>
+        )}
+         {attendee.checkoutTime && (
+            <div>
+                <span className="text-sm font-medium text-gray-400">{t('attendeeDetail.checkoutTime')}</span>
+                <p className="text-white">{formatTimestamp(attendee.checkoutTime)}</p>
+            </div>
+        )}
       </div>
     );
   };
@@ -547,16 +573,22 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
       );
     }
     
-    if (attendee.status === CheckinStatus.CHECKED_IN) {
+    if (attendee.status === CheckinStatus.CHECKED_IN || attendee.status === CheckinStatus.CHECKED_OUT) {
       return (
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-gray-400">Pulseiras Entregues:</p>
-           {attendeeSectors.map(sector => (
-                <div key={sector.id} className="flex justify-between items-center bg-gray-900/50 p-2 rounded-md">
-                    <span className="font-semibold" style={{ color: sector.color || 'inherit' }}>{sector.label}:</span>
-                    <span className="font-mono text-lg text-white">{attendee.wristbands?.[sector.id] || 'N/A'}</span>
-                </div>
-           ))}
+        <div className="space-y-3">
+          <div>
+            <p className="text-sm font-medium text-gray-400">Pulseiras Entregues:</p>
+             {attendeeSectors.map(sector => (
+                  <div key={sector.id} className="flex justify-between items-center bg-gray-900/50 p-2 rounded-md">
+                      <span className="font-semibold" style={{ color: sector.color || 'inherit' }}>{sector.label}:</span>
+                      <span className="font-mono text-lg text-white">{attendee.wristbands?.[sector.id] || 'N/A'}</span>
+                  </div>
+             ))}
+          </div>
+          <div className="pt-3 border-t border-gray-700/50">
+              <h4 className="text-sm font-medium text-center text-gray-400 mb-2">{t('attendeeDetail.qrCodeTitle')}</h4>
+              <QRCodeDisplay data={`${currentEventId}:${attendee.id}`} />
+          </div>
         </div>
       );
     }
@@ -575,25 +607,24 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     }
 
     // Buttons for different statuses
-    const statusActions = {
-      [CheckinStatus.PENDING]: [
-        renderStatusButton(CheckinStatus.CANCELLED, t('statusUpdateModal.cancelRegistration')),
-        renderStatusButton(CheckinStatus.MISSED, t('statusUpdateModal.markAsMissed')),
-      ],
-      [CheckinStatus.CHECKED_IN]: [
-        renderStatusButton(CheckinStatus.PENDING, t('statusUpdateModal.cancelCheckin')),
-      ],
-      [CheckinStatus.CANCELLED]: [
-        renderStatusButton(CheckinStatus.PENDING, t('statusUpdateModal.reactivateRegistration')),
-      ],
-      [CheckinStatus.MISSED]: [
-        renderStatusButton(CheckinStatus.PENDING, t('statusUpdateModal.reactivateRegistration')),
-      ],
-       [CheckinStatus.SUBSTITUTION_REQUEST]: [],
-       [CheckinStatus.SECTOR_CHANGE_REQUEST]: [],
-       [CheckinStatus.PENDING_APPROVAL]: [],
-       [CheckinStatus.SUBSTITUTION]: [],
-    }[attendee.status];
+    const statusActions = [];
+    switch (attendee.status) {
+        case CheckinStatus.PENDING:
+            statusActions.push(renderStatusButton(CheckinStatus.CANCELLED, t('statusUpdateModal.cancelRegistration')));
+            statusActions.push(renderStatusButton(CheckinStatus.MISSED, t('statusUpdateModal.markAsMissed')));
+            break;
+        case CheckinStatus.CHECKED_IN:
+            statusActions.push(renderStatusButton(CheckinStatus.CHECKED_OUT, t('attendeeDetail.confirmCheckout'), 'bg-yellow-600 hover:bg-yellow-700'));
+            statusActions.push(renderStatusButton(CheckinStatus.PENDING, t('statusUpdateModal.cancelCheckin')));
+            break;
+        case CheckinStatus.CHECKED_OUT:
+            statusActions.push(renderStatusButton(CheckinStatus.CHECKED_IN, t('attendeeDetail.reactivateCheckin')));
+            break;
+        case CheckinStatus.CANCELLED:
+        case CheckinStatus.MISSED:
+            statusActions.push(renderStatusButton(CheckinStatus.PENDING, t('statusUpdateModal.reactivateRegistration')));
+            break;
+    }
 
     return (
       <div className="space-y-2">

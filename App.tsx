@@ -252,6 +252,11 @@ const App: React.FC = () => {
     
     await api.addAttendee(eventId, newAttendee, supplierId);
   };
+
+  const handleUpdateAttendeeStatus = async (attendeeId: string, status: CheckinStatus, wristbands?: { [sectorId: string]: string }) => {
+    if (!currentEvent) return;
+    await api.updateAttendeeStatus(currentEvent.id, attendeeId, status, wristbands);
+  };
   
   const handleUpdateAttendeeDetails = async (attendeeId: string, data: Partial<Attendee>) => {
     if (!currentEvent) return;
@@ -354,7 +359,7 @@ const App: React.FC = () => {
             successCount++;
 
         } catch (error) {
-            // FIX: Safely handle the unknown error object by checking its type.
+            // FIX: Type 'unknown' is not assignable to type 'string'. Safely handle the error object.
             const reason = error instanceof Error ? `Erro no servidor: ${error.message}` : 'Erro no servidor: desconhecido.';
             failedRows.push({ row, reason });
         }
@@ -385,7 +390,7 @@ const App: React.FC = () => {
     try {
       await api.deleteSupplier(currentEvent.id, supplier.id);
     } catch (error) {
-      // FIX: Safely handle the unknown error object by checking its type.
+      // FIX: Type 'unknown' is not assignable to type 'string'. Safely handle the error object.
       if (error instanceof Error) {
         setGlobalError(error.message);
       } else {
@@ -461,6 +466,7 @@ const App: React.FC = () => {
             onUpdateSector={handleUpdateSector}
             onDeleteSector={handleDeleteSector}
             onAttendeeDetailsUpdate={handleUpdateAttendeeDetails}
+            onAttendeeStatusUpdate={handleUpdateAttendeeStatus}
             onDeleteAttendee={handleDeleteAttendee}
             onApproveSubstitution={handleApproveSubstitution}
             onRejectSubstitution={handleRejectSubstitution}

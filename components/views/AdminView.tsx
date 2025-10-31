@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Attendee, Sector, Supplier, Event, SubCompany } from '../../types.ts';
+import { Attendee, Sector, Supplier, Event, SubCompany, CheckinStatus } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import CheckinView from './CheckinView.tsx';
 import RegisterView from './RegisterView.tsx';
@@ -8,9 +8,10 @@ import SectorManagementView from './SectorManagementView.tsx';
 import WristbandReportView from './WristbandReportView.tsx';
 import SpreadsheetUploadView from './SpreadsheetUploadView.tsx';
 import CompanyManagementView from './CompanyManagementView.tsx';
+import QRCodeScannerView from './QRCodeScannerView.tsx';
 import { ArrowLeftOnRectangleIcon, SpinnerIcon } from '../icons.tsx';
 
-type AdminTab = 'checkin' | 'register' | 'suppliers' | 'sectors' | 'wristbands' | 'companies';
+type AdminTab = 'checkin' | 'qrValidation' | 'register' | 'suppliers' | 'sectors' | 'wristbands' | 'companies';
 
 interface AdminViewProps {
     isLoading: boolean;
@@ -29,6 +30,7 @@ interface AdminViewProps {
     onUpdateSector: (sectorId: string, data: { label: string; color: string; }) => Promise<void>;
     onDeleteSector: (sector: Sector) => Promise<void>;
     onAttendeeDetailsUpdate: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'wristbands' | 'subCompany' | 'supplierId'>>) => Promise<void>;
+    onAttendeeStatusUpdate: (attendeeId: string, status: CheckinStatus, wristbands?: { [sectorId: string]: string }) => Promise<void>;
     onDeleteAttendee: (attendeeId: string) => Promise<void>;
     onApproveSubstitution: (attendeeId: string) => Promise<void>;
     onRejectSubstitution: (attendeeId: string) => Promise<void>;
@@ -55,6 +57,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
 
     const tabs: { id: AdminTab; label: string }[] = [
         { id: 'checkin', label: t('admin.tabs.checkin') },
+        { id: 'qrValidation', label: t('admin.tabs.qrValidation') },
         { id: 'register', label: t('admin.tabs.register') },
         { id: 'suppliers', label: t('admin.tabs.suppliers') },
         { id: 'companies', label: t('admin.tabs.companies') },
@@ -87,6 +90,13 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                     onRejectSectorChange={props.onRejectSectorChange}
                     onApproveNewRegistration={props.onApproveNewRegistration}
                     onRejectNewRegistration={props.onRejectNewRegistration}
+                    setError={props.setError}
+                />;
+            case 'qrValidation':
+                return <QRCodeScannerView
+                    currentEvent={props.currentEvent}
+                    attendees={props.attendees}
+                    onUpdateStatus={props.onAttendeeStatusUpdate}
                     setError={props.setError}
                 />;
             case 'register':

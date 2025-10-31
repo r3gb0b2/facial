@@ -316,6 +316,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
               sectors={sectors}
               suppliers={suppliers}
               allAttendees={attendees}
+              currentEventId={currentEventId}
               onClose={() => setSelectedAttendee(null)}
               onUpdateStatus={handleUpdateStatus}
               onUpdateDetails={onUpdateAttendeeDetails}

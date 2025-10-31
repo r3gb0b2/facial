@@ -170,16 +170,25 @@ export const rejectNewRegistration = (eventId: string, attendeeId: string) => {
 
 
 export const updateAttendeeStatus = (eventId: string, attendeeId: string, status: CheckinStatus, wristbands?: { [sectorId: string]: string }) => {
-    // This object will hold the fields to update.
-    const dataToUpdate: { status: CheckinStatus, wristbands?: { [sectorId: string]: string } } = {
-        status: status
-    };
+    const dataToUpdate: any = { status };
 
-    // ONLY add the wristbands field to the update object if it's actually provided.
-    // If 'wristbands' is undefined, it won't be in the object, and Firestore will not touch that field,
-    // preventing accidental deletion of wristband data when only changing the status.
-    if (wristbands !== undefined) {
-        dataToUpdate.wristbands = wristbands;
+    switch (status) {
+        case CheckinStatus.CHECKED_IN:
+            dataToUpdate.checkinTime = FieldValue.serverTimestamp();
+            dataToUpdate.checkoutTime = FieldValue.delete(); // Clear on re-entry
+            if (wristbands !== undefined) {
+                dataToUpdate.wristbands = wristbands;
+            }
+            break;
+        case CheckinStatus.CHECKED_OUT:
+            dataToUpdate.checkoutTime = FieldValue.serverTimestamp();
+            break;
+        case CheckinStatus.PENDING:
+            // This handles cancelling a check-in or checkout
+            dataToUpdate.checkinTime = FieldValue.delete();
+            dataToUpdate.checkoutTime = FieldValue.delete();
+            dataToUpdate.wristbands = FieldValue.delete();
+            break;
     }
 
     return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).update(dataToUpdate);
