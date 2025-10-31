@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { Attendee, CheckinStatus, Sector, Supplier } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { EyeIcon, PencilIcon, SearchIcon } from '../icons.tsx';
+import { EyeIcon, PencilIcon, SearchIcon, UsersIcon } from '../icons.tsx';
 import SubstitutionRequestModal from '../SubstitutionRequestModal.tsx';
+import SupplierRegistrationModal from '../SupplierRegistrationModal.tsx';
 
 interface SupplierAdminViewProps {
   eventName: string;
@@ -27,6 +28,8 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
   const { t } = useTranslation();
   const [editingAttendee, setEditingAttendee] = useState<Attendee | null>(null);
   const [submittedEdits, setSubmittedEdits] = useState<Set<string>>(new Set());
+  const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
   
   // State for filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -36,6 +39,11 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
     setSubmittedEdits(prev => new Set(prev).add(attendeeId));
   };
   
+  const handleRegisterSuccess = () => {
+    setSuccessMessage(t('supplierAdmin.modal.successMessage'));
+    setTimeout(() => setSuccessMessage(''), 5000);
+  };
+
   const uniqueCompanies = useMemo(() => {
     const companies = new Set<string>();
     attendees.forEach(attendee => {
@@ -81,7 +89,7 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
             <h1 className="text-3xl md:text-4xl font-bold text-white">
             {t('supplierAdmin.title')}
             </h1>
-            <p className="text-gray-400 mt-1 text-lg">{t('supplierAdmin.supplier')} <span className="font-semibold text-gray-300">{eventName}</span></p>
+            <p className="text-gray-400 mt-1 text-lg">{t('supplierAdmin.supplier')} <span className="font-semibold text-gray-300">{supplier.name}</span> para o evento <span className="font-semibold text-gray-300">{eventName}</span></p>
         </header>
 
         {/* Filters Section */}
@@ -108,7 +116,20 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                     ))}
                 </select>
             )}
+             <button
+                onClick={() => setIsRegisterModalOpen(true)}
+                className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+            >
+                <UsersIcon className="w-5 h-5" />
+                {t('supplierAdmin.registerButton')}
+            </button>
         </div>
+        
+        {successMessage && (
+          <div className="mb-4 bg-green-500/20 text-green-300 border border-green-500 text-center p-3 rounded-lg">
+              {successMessage}
+          </div>
+        )}
 
         <main>
             {attendees.length > 0 ? (
@@ -168,6 +189,15 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
             onClose={() => setEditingAttendee(null)}
             onSuccess={handleEditSuccess}
             allowedSectors={allowedSectorsForSupplier}
+        />
+      )}
+      {isRegisterModalOpen && (
+        <SupplierRegistrationModal
+          eventId={eventId}
+          supplier={supplier}
+          allowedSectors={allowedSectorsForSupplier}
+          onClose={() => setIsRegisterModalOpen(false)}
+          onSuccess={handleRegisterSuccess}
         />
       )}
     </div>

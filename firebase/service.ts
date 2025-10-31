@@ -140,6 +140,35 @@ export const addAttendee = async (eventId: string, attendeeData: Omit<Attendee, 
     return db.collection('events').doc(eventId).collection('attendees').add(data);
 };
 
+export const requestNewRegistration = async (eventId: string, attendeeData: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>, supplierId: string) => {
+    let photoUrl = attendeeData.photo;
+    if (attendeeData.photo.startsWith('data:image')) {
+        photoUrl = await uploadPhoto(attendeeData.photo, attendeeData.cpf);
+    }
+
+    const data: Omit<Attendee, 'id'> = {
+        ...attendeeData,
+        photo: photoUrl,
+        eventId,
+        status: CheckinStatus.PENDING_APPROVAL,
+        createdAt: Timestamp.now(),
+        supplierId,
+    };
+
+    return db.collection('events').doc(eventId).collection('attendees').add(data);
+};
+
+export const approveNewRegistration = (eventId: string, attendeeId: string) => {
+    return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).update({
+        status: CheckinStatus.PENDING,
+    });
+};
+
+export const rejectNewRegistration = (eventId: string, attendeeId: string) => {
+    return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).delete();
+};
+
+
 export const updateAttendeeStatus = (eventId: string, attendeeId: string, status: CheckinStatus, wristbands?: { [sectorId: string]: string }) => {
     // This object will hold the fields to update.
     const dataToUpdate: { status: CheckinStatus, wristbands?: { [sectorId: string]: string } } = {

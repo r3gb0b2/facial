@@ -16,6 +16,8 @@ interface AttendeeDetailModalProps {
   onRejectSubstitution: (attendeeId: string) => Promise<void>;
   onApproveSectorChange: (attendeeId: string) => Promise<void>;
   onRejectSectorChange: (attendeeId: string) => Promise<void>;
+  onApproveNewRegistration: (attendeeId: string) => Promise<void>;
+  onRejectNewRegistration: (attendeeId: string) => Promise<void>;
   setError: (message: string) => void;
   supplier?: Supplier;
 }
@@ -33,6 +35,8 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   onRejectSubstitution,
   onApproveSectorChange,
   onRejectSectorChange,
+  onApproveNewRegistration,
+  onRejectNewRegistration,
   setError,
   supplier,
 }) => {
@@ -79,6 +83,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     [CheckinStatus.SUBSTITUTION]: { bg: 'bg-yellow-500', text: 'text-black', label: t('status.substitution') },
     [CheckinStatus.SUBSTITUTION_REQUEST]: { bg: 'bg-blue-500', text: 'text-white', label: t('status.substitution_request') },
     [CheckinStatus.SECTOR_CHANGE_REQUEST]: { bg: 'bg-purple-500', text: 'text-white', label: t('status.sector_change_request') },
+    [CheckinStatus.PENDING_APPROVAL]: { bg: 'bg-yellow-500', text: 'text-black', label: t('status.pending_approval') },
     [CheckinStatus.MISSED]: { bg: 'bg-gray-800', text: 'text-gray-400', label: t('status.missed') },
   }[attendee.status] || { bg: 'bg-gray-600', text: 'text-gray-200', label: attendee.status };
   
@@ -215,6 +220,30 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
       }
   };
 
+  const handleApproveRegistration = async () => {
+    setIsSubmitting(true);
+    try {
+        await onApproveNewRegistration(attendee.id);
+        onClose();
+    } catch (e) {
+        setError("Falha ao aprovar novo cadastro.");
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
+  
+  const handleRejectRegistration = async () => {
+      setIsSubmitting(true);
+      try {
+          await onRejectNewRegistration(attendee.id);
+          onClose();
+      } catch (e) {
+          setError("Falha ao rejeitar novo cadastro.");
+      } finally {
+          setIsSubmitting(false);
+      }
+  };
+
   const selectedSupplierData = useMemo(() => {
     return suppliers.find(s => s.id === editData.supplierId);
   }, [editData.supplierId, suppliers]);
@@ -321,6 +350,51 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
           </div>
         </div>
       );
+    }
+    
+    if (attendee.status === CheckinStatus.PENDING_APPROVAL) {
+        return (
+            <div className="space-y-4 text-center">
+                <div className="space-y-3 p-4 bg-gray-900/50 rounded-lg text-left">
+                  <div>
+                    <span className="text-sm font-medium text-gray-400">CPF</span>
+                    <p className="text-white text-lg">{formatCPF(attendee.cpf)}</p>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-gray-400">Setores</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                        {attendeeSectors.map(sector => (
+                            <span key={sector.id} className="text-xs font-medium px-2 py-1 rounded-full" style={{ backgroundColor: `${sector.color}33`, color: sector.color }}>
+                                {sector.label}
+                            </span>
+                        ))}
+                    </div>
+                  </div>
+                  {supplier && (
+                    <div>
+                      <span className="text-sm font-medium text-gray-400">Fornecedor</span>
+                      <p className="text-white">{supplier.name}</p>
+                    </div>
+                  )}
+                   {attendee.subCompany && (
+                      <div>
+                          <span className="text-sm font-medium text-gray-400">Empresa / Unidade</span>
+                          <p className="text-white">{attendee.subCompany}</p>
+                      </div>
+                  )}
+                </div>
+                <div className="flex gap-4 mt-4">
+                     <button onClick={handleRejectRegistration} disabled={isSubmitting} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50">
+                        {isSubmitting && <SpinnerIcon className="w-5 h-5"/>}
+                        {t('attendeeDetail.rejectRegistrationButton')}
+                    </button>
+                     <button onClick={handleApproveRegistration} disabled={isSubmitting} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50">
+                        {isSubmitting && <SpinnerIcon className="w-5 h-5"/>}
+                        {t('attendeeDetail.approveRegistrationButton')}
+                    </button>
+                </div>
+            </div>
+        );
     }
 
     if (attendee.status === CheckinStatus.SUBSTITUTION_REQUEST && attendee.substitutionData) {
@@ -442,7 +516,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   };
   
   const renderCheckinSection = () => {
-    if (isEditing || attendee.status === CheckinStatus.SUBSTITUTION_REQUEST || attendee.status === CheckinStatus.SECTOR_CHANGE_REQUEST) return null;
+    if (isEditing || attendee.status === CheckinStatus.SUBSTITUTION_REQUEST || attendee.status === CheckinStatus.SECTOR_CHANGE_REQUEST || attendee.status === CheckinStatus.PENDING_APPROVAL) return null;
 
     if (attendee.status === CheckinStatus.PENDING) {
       return (
@@ -517,6 +591,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
       ],
        [CheckinStatus.SUBSTITUTION_REQUEST]: [],
        [CheckinStatus.SECTOR_CHANGE_REQUEST]: [],
+       [CheckinStatus.PENDING_APPROVAL]: [],
        [CheckinStatus.SUBSTITUTION]: [],
     }[attendee.status];
 
@@ -548,7 +623,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
               </div>
             </div>
             <div className="flex gap-2">
-              {!isEditing && attendee.status !== CheckinStatus.SUBSTITUTION_REQUEST && attendee.status !== CheckinStatus.SECTOR_CHANGE_REQUEST && (
+              {!isEditing && attendee.status !== CheckinStatus.SUBSTITUTION_REQUEST && attendee.status !== CheckinStatus.SECTOR_CHANGE_REQUEST && attendee.status !== CheckinStatus.PENDING_APPROVAL &&(
                 <button onClick={() => setIsEditing(true)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700">
                   <PencilIcon className="w-5 h-5" />
                 </button>

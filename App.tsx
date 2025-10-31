@@ -204,7 +204,6 @@ const App: React.FC = () => {
       setEventToEdit(null);
     } catch (error) {
       console.error(error);
-      // Fix: The error object is of an unknown type. We need to check if it's an instance of Error before accessing .message.
       if (error instanceof Error) {
         setGlobalError(error.message);
       } else {
@@ -220,7 +219,6 @@ const App: React.FC = () => {
         await loadEvents();
       } catch (error) {
         console.error(error);
-        // Fix: The error object is of an unknown type. We need to check if it's an instance of Error before accessing .message.
         if (error instanceof Error) {
           setGlobalError(error.message);
         } else {
@@ -284,6 +282,16 @@ const App: React.FC = () => {
     if (!currentEvent) return;
     await api.rejectSectorChange(currentEvent.id, attendeeId);
   };
+  
+  const handleApproveNewRegistration = async (attendeeId: string) => {
+    if (!currentEvent) return;
+    await api.approveNewRegistration(currentEvent.id, attendeeId);
+  };
+
+  const handleRejectNewRegistration = async (attendeeId: string) => {
+    if (!currentEvent) return;
+    await api.rejectNewRegistration(currentEvent.id, attendeeId);
+  };
 
   const handleImportAttendees = async (data: any[]) => {
     if (!currentEvent) {
@@ -346,7 +354,7 @@ const App: React.FC = () => {
             successCount++;
 
         } catch (error) {
-            // Fix: Safely handle the unknown error object by checking its type.
+            // FIX: Safely handle the unknown error object by checking its type.
             const reason = error instanceof Error ? `Erro no servidor: ${error.message}` : 'Erro no servidor: desconhecido.';
             failedRows.push({ row, reason });
         }
@@ -377,7 +385,7 @@ const App: React.FC = () => {
     try {
       await api.deleteSupplier(currentEvent.id, supplier.id);
     } catch (error) {
-      // Fix: Safely handle the unknown error object by checking its type.
+      // FIX: Safely handle the unknown error object by checking its type.
       if (error instanceof Error) {
         setGlobalError(error.message);
       } else {
@@ -458,6 +466,8 @@ const App: React.FC = () => {
             onRejectSubstitution={handleRejectSubstitution}
             onApproveSectorChange={handleApproveSectorChange}
             onRejectSectorChange={handleRejectSectorChange}
+            onApproveNewRegistration={handleApproveNewRegistration}
+            onRejectNewRegistration={handleRejectNewRegistration}
             onUpdateSectorsForSelectedAttendees={handleUpdateSectorsForSelectedAttendees}
             onBack={handleBackToEvents}
             setError={setGlobalError}
