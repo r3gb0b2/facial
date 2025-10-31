@@ -56,26 +56,23 @@ const QRCodeScannerView: React.FC<QRCodeScannerViewProps> = ({ currentEvent, att
                 html5QrCodeRef.current = new Html5Qrcode(readerId);
             }
             setIsScanning(true);
+            
+            await html5QrCodeRef.current.start(
+                { facingMode: "environment" }, // Request the rear camera
+                { 
+                    fps: 10, 
+                    qrbox: { width: 250, height: 250 },
+                    aspectRatio: 1.0
+                },
+                (decodedText, decodedResult) => {
+                    handleScanSuccess(decodedText);
+                    stopScanning();
+                },
+                (errorMessage) => {
+                    // console.warn(`QR Code no match: ${errorMessage}`);
+                }
+            );
 
-            const cameras = await Html5Qrcode.getCameras();
-            if (cameras && cameras.length) {
-                const cameraId = cameras.find(camera => camera.label.toLowerCase().includes('back'))?.id || cameras[0].id;
-                
-                await html5QrCodeRef.current.start(
-                    cameraId,
-                    { fps: 10, qrbox: { width: 250, height: 250 } },
-                    (decodedText, decodedResult) => {
-                        handleScanSuccess(decodedText);
-                        stopScanning();
-                    },
-                    (errorMessage) => {
-                        // console.warn(`QR Code no match: ${errorMessage}`);
-                    }
-                );
-            } else {
-                setError(t('qrScanner.noCameraFound'));
-                setIsScanning(false);
-            }
         } catch (err: any) {
             console.error("Error starting scanner:", err);
             setError(t('qrScanner.permissionError'));
@@ -175,7 +172,7 @@ const QRCodeScannerView: React.FC<QRCodeScannerViewProps> = ({ currentEvent, att
                     {t('qrScanner.title')}
                 </h2>
                 
-                <div id={readerId} className="w-full border-2 border-dashed border-gray-600 rounded-lg overflow-hidden"></div>
+                <div id={readerId} className="w-full border-2 border-dashed border-gray-600 rounded-lg overflow-hidden bg-black"></div>
 
                 {!isScanning && (
                      <p className="text-center text-gray-400 mt-4">{t('qrScanner.scanning')}</p>

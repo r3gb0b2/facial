@@ -26,6 +26,7 @@ const translations: { [lang: string]: Translations } = {
     'events.modal.error': 'O nome do evento não pode ser vazio.',
     'admin.backButton': 'Voltar para Eventos',
     'admin.tabs.checkin': 'Check-in',
+    'admin.tabs.checkinLog': 'Registro de Acessos',
     'admin.tabs.qrValidation': 'Validação QR',
     'admin.tabs.register': 'Registrar',
     'admin.tabs.suppliers': 'Fornecedores',
@@ -231,6 +232,15 @@ const translations: { [lang: string]: Translations } = {
     'qrScanner.scanNext': 'Escanear Próximo',
     'qrScanner.reentry': 'Reentrada (Check-in)',
     'qrScanner.noCameraFound': 'Nenhuma câmera encontrada.',
+    'checkinLog.title': 'Registro de Entrada e Saída',
+    'checkinLog.searchPlaceholder': 'Buscar por nome ou CPF...',
+    'checkinLog.noLogs': 'Nenhum registro de entrada ou saída encontrado.',
+    'checkinLog.noResults': 'Nenhum registro encontrado para a sua busca.',
+    'checkinLog.header.attendee': 'Colaborador',
+    'checkinLog.header.action': 'Ação',
+    'checkinLog.header.timestamp': 'Horário',
+    'checkinLog.action.checkin': 'Entrada',
+    'checkinLog.action.checkout': 'Saída',
   },
 };
 

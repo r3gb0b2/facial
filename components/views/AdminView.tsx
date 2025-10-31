@@ -9,9 +9,10 @@ import WristbandReportView from './WristbandReportView.tsx';
 import SpreadsheetUploadView from './SpreadsheetUploadView.tsx';
 import CompanyManagementView from './CompanyManagementView.tsx';
 import QRCodeScannerView from './QRCodeScannerView.tsx';
+import CheckinLogView from './CheckinLogView.tsx';
 import { ArrowLeftOnRectangleIcon, SpinnerIcon } from '../icons.tsx';
 
-type AdminTab = 'checkin' | 'qrValidation' | 'register' | 'suppliers' | 'sectors' | 'wristbands' | 'companies';
+type AdminTab = 'checkin' | 'checkinLog' | 'qrValidation' | 'register' | 'suppliers' | 'sectors' | 'wristbands' | 'companies';
 
 interface AdminViewProps {
     isLoading: boolean;
@@ -57,6 +58,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
 
     const tabs: { id: AdminTab; label: string }[] = [
         { id: 'checkin', label: t('admin.tabs.checkin') },
+        { id: 'checkinLog', label: t('admin.tabs.checkinLog') },
         { id: 'qrValidation', label: t('admin.tabs.qrValidation') },
         { id: 'register', label: t('admin.tabs.register') },
         { id: 'suppliers', label: t('admin.tabs.suppliers') },
@@ -92,6 +94,8 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                     onRejectNewRegistration={props.onRejectNewRegistration}
                     setError={props.setError}
                 />;
+            case 'checkinLog':
+                return <CheckinLogView attendees={props.attendees} />;
             case 'qrValidation':
                 return <QRCodeScannerView
                     currentEvent={props.currentEvent}
