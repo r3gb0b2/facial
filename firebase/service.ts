@@ -2,7 +2,7 @@
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
 import { db, storage, FieldValue, Timestamp } from './config.ts';
-import { Attendee, CheckinStatus, Event, Supplier, Sector, SubCompany } from '../types.ts';
+import { Attendee, CheckinStatus, Event, Supplier, Sector, SubCompany, ValidationPoint, AccessLogEntry } from '../types.ts';
 import { v4 as uuidv4 } from 'uuid';
 
 // Helper to extract data and id from snapshots
@@ -35,21 +35,19 @@ export const deleteEvent = (id: string) => {
 // Realtime Data Subscription for a specific event
 export const subscribeToEventData = (
     eventId: string,
-    callback: (data: { attendees: Attendee[], suppliers: Supplier[], sectors: Sector[] }) => void,
+    callback: (data: { attendees: Attendee[], suppliers: Supplier[], sectors: Sector[], validationPoints: ValidationPoint[], accessLogs: AccessLogEntry[] }) => void,
     onError: (error: Error) => void
 ) => {
-    // Maintain the latest state of each collection locally
     let attendees: Attendee[] = [];
     let suppliers: Supplier[] = [];
     let sectors: Sector[] = [];
-    const loaded = { attendees: false, suppliers: false, sectors: false };
+    let validationPoints: ValidationPoint[] = [];
+    let accessLogs: AccessLogEntry[] = [];
+    const loaded = { attendees: false, suppliers: false, sectors: false, validationPoints: false, accessLogs: false };
 
-    // This function will be called by each listener.
-    // It sends the complete, merged state to the App component.
     const updateCallback = () => {
-        // Ensure all three initial loads have completed before sending data
-        if (loaded.attendees && loaded.suppliers && loaded.sectors) {
-            callback({ attendees, suppliers, sectors });
+        if (loaded.attendees && loaded.suppliers && loaded.sectors && loaded.validationPoints && loaded.accessLogs) {
+            callback({ attendees, suppliers, sectors, validationPoints, accessLogs });
         }
     };
 
@@ -71,11 +69,26 @@ export const subscribeToEventData = (
         updateCallback();
     }, onError);
 
+    const validationPointsUnsub = db.collection('events').doc(eventId).collection('validationPoints').onSnapshot(snap => {
+        validationPoints = getCollectionData<ValidationPoint>(snap);
+        if (!loaded.validationPoints) loaded.validationPoints = true;
+        updateCallback();
+    }, onError);
+
+    const accessLogsUnsub = db.collection('events').doc(eventId).collection('accessLogs').orderBy('timestamp', 'desc').onSnapshot(snap => {
+        accessLogs = getCollectionData<AccessLogEntry>(snap);
+        if (!loaded.accessLogs) loaded.accessLogs = true;
+        updateCallback();
+    }, onError);
+
+
     // Return a function that unsubscribes from all listeners
     return () => {
         attendeesUnsub();
         suppliersUnsub();
         sectorsUnsub();
+        validationPointsUnsub();
+        accessLogsUnsub();
     };
 };
 
@@ -494,4 +507,51 @@ export const deleteSector = async (eventId: string, sectorId: string) => {
         throw new Error('Sector is in use and cannot be deleted.');
     }
     return db.collection('events').doc(eventId).collection('sectors').doc(sectorId).delete();
+};
+
+// Validation Point Management
+export const getValidationPoints = async (eventId: string): Promise<ValidationPoint[]> => {
+    const snapshot = await db.collection('events').doc(eventId).collection('validationPoints').orderBy('name', 'asc').get();
+    return getCollectionData<ValidationPoint>(snapshot);
+};
+
+export const addValidationPoint = (eventId: string, name: string, sectorId: string) => {
+    return db.collection('events').doc(eventId).collection('validationPoints').add({
+        name,
+        sectorId,
+        createdAt: FieldValue.serverTimestamp(),
+    });
+};
+
+export const deleteValidationPoint = (eventId: string, pointId: string) => {
+    return db.collection('events').doc(eventId).collection('validationPoints').doc(pointId).delete();
+};
+
+export const getValidationPoint = async (eventId: string, pointId: string): Promise<ValidationPoint | null> => {
+    const doc = await db.collection('events').doc(eventId).collection('validationPoints').doc(pointId).get();
+    return doc.exists ? getData<ValidationPoint>(doc) : null;
+};
+
+// Access Logging
+export const recordSectorAccess = async (eventId: string, attendeeId: string, sectorId: string) => {
+    const batch = db.batch();
+    const now = Timestamp.now();
+
+    // 1. Update the attendee's current location
+    const attendeeRef = db.collection('events').doc(eventId).collection('attendees').doc(attendeeId);
+    batch.update(attendeeRef, {
+        currentSectorId: sectorId,
+        lastSectorEntryTime: now,
+    });
+
+    // 2. Create a historical log entry
+    const logRef = db.collection('events').doc(eventId).collection('accessLogs').doc();
+    batch.set(logRef, {
+        attendeeId,
+        sectorId,
+        timestamp: now,
+        type: 'entry',
+    });
+
+    return batch.commit();
 };

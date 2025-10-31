@@ -282,6 +282,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
             const sectorLabel = joinedLabels || 'Sem setor';
             const primarySectorColor = labelsAndColors.length > 0 ? labelsAndColors[0].color : undefined;
             const supplier = attendee.supplierId ? supplierMap.get(attendee.supplierId) : undefined;
+            const currentSector = attendee.currentSectorId ? sectorMap.get(attendee.currentSectorId) : null;
             
             return (
               <AttendeeCard 
@@ -291,6 +292,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
                 sectorLabel={sectorLabel}
                 sectorColor={primarySectorColor}
                 supplierName={supplier?.name}
+                currentSector={currentSector}
               />
             );
         })}

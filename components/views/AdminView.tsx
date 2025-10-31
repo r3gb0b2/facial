@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Attendee, Sector, Supplier, Event, SubCompany, CheckinStatus } from '../../types.ts';
+import { Attendee, Sector, Supplier, Event, SubCompany, CheckinStatus, ValidationPoint } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import CheckinView from './CheckinView.tsx';
 import RegisterView from './RegisterView.tsx';
@@ -10,9 +10,11 @@ import SpreadsheetUploadView from './SpreadsheetUploadView.tsx';
 import CompanyManagementView from './CompanyManagementView.tsx';
 import QRCodeScannerView from './QRCodeScannerView.tsx';
 import CheckinLogView from './CheckinLogView.tsx';
+import ValidationPointView from './ValidationPointView.tsx';
+import LocationView from './LocationView.tsx';
 import { ArrowLeftOnRectangleIcon, SpinnerIcon } from '../icons.tsx';
 
-type AdminTab = 'checkin' | 'checkinLog' | 'qrValidation' | 'register' | 'suppliers' | 'sectors' | 'wristbands' | 'companies';
+type AdminTab = 'checkin' | 'checkinLog' | 'qrValidation' | 'location' | 'validationPoints' | 'register' | 'suppliers' | 'sectors' | 'wristbands' | 'companies';
 
 interface AdminViewProps {
     isLoading: boolean;
@@ -20,6 +22,7 @@ interface AdminViewProps {
     attendees: Attendee[];
     suppliers: Supplier[];
     sectors: Sector[];
+    validationPoints: ValidationPoint[];
     onRegister: (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>, supplierId?: string) => Promise<void>;
     onImportAttendees: (data: any[]) => Promise<void>;
     onAddSupplier: (name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[]) => Promise<void>;
@@ -40,6 +43,8 @@ interface AdminViewProps {
     onApproveNewRegistration: (attendeeId: string) => Promise<void>;
     onRejectNewRegistration: (attendeeId: string) => Promise<void>;
     onUpdateSectorsForSelectedAttendees: (attendeeIds: string[], sectorIds: string[]) => Promise<void>;
+    onAddValidationPoint: (name: string, sectorId: string) => Promise<void>;
+    onDeleteValidationPoint: (pointId: string) => Promise<void>;
     onBack: () => void;
     setError: (message: string) => void;
 }
@@ -58,12 +63,14 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
 
     const tabs: { id: AdminTab; label: string }[] = [
         { id: 'checkin', label: t('admin.tabs.checkin') },
+        { id: 'location', label: t('admin.tabs.location') },
         { id: 'checkinLog', label: t('admin.tabs.checkinLog') },
         { id: 'qrValidation', label: t('admin.tabs.qrValidation') },
         { id: 'register', label: t('admin.tabs.register') },
         { id: 'suppliers', label: t('admin.tabs.suppliers') },
         { id: 'companies', label: t('admin.tabs.companies') },
         { id: 'sectors', label: t('admin.tabs.sectors') },
+        { id: 'validationPoints', label: t('admin.tabs.validationPoints') },
         { id: 'wristbands', label: t('admin.tabs.wristbands') },
     ];
     
@@ -93,6 +100,11 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                     onApproveNewRegistration={props.onApproveNewRegistration}
                     onRejectNewRegistration={props.onRejectNewRegistration}
                     setError={props.setError}
+                />;
+            case 'location':
+                return <LocationView
+                    attendees={props.attendees}
+                    sectors={props.sectors}
                 />;
             case 'checkinLog':
                 return <CheckinLogView attendees={props.attendees} />;
@@ -142,6 +154,15 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                 />;
             case 'sectors':
                 return <SectorManagementView sectors={props.sectors} onAddSector={props.onAddSector} onUpdateSector={props.onUpdateSector} onDeleteSector={props.onDeleteSector} setError={props.setError} />;
+            case 'validationPoints':
+                return <ValidationPointView
+                    currentEventId={props.currentEvent.id}
+                    validationPoints={props.validationPoints}
+                    sectors={props.sectors}
+                    onAddPoint={props.onAddValidationPoint}
+                    onDeletePoint={props.onDeleteValidationPoint}
+                    setError={props.setError}
+                />;
             case 'wristbands':
                 return <WristbandReportView attendees={props.attendees} sectors={props.sectors} />;
             default:
