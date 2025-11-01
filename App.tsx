@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Attendee, Event, Sector, Supplier, CheckinStatus, SubCompany, ValidationPoint, AccessLogEntry } from './types.ts';
+import { Attendee, Event, Sector, Supplier, CheckinStatus, SubCompany } from './types.ts';
 import * as api from './firebase/service.ts';
 import { useTranslation } from './hooks/useTranslation.tsx';
 
@@ -9,10 +9,9 @@ import AdminView from './components/views/AdminView.tsx';
 import RegisterView from './components/views/RegisterView.tsx';
 import SupplierAdminView from './components/views/SupplierAdminView.tsx';
 import RegistrationClosedView from './components/views/RegistrationClosedView.tsx';
-import SectorScannerView from './components/views/SectorScannerView.tsx';
 import EventModal from './components/EventModal.tsx';
 
-type View = 'login' | 'event-selection' | 'admin' | 'supplier-registration' | 'supplier-admin' | 'sector-scanner' | 'closed';
+type View = 'login' | 'event-selection' | 'admin' | 'supplier-registration' | 'supplier-admin' | 'closed';
 
 const NO_PHOTO_PLACEHOLDER = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCIgZmlsbD0ibm9uZSI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZHRoPSIyMDAiIGZpbGw9IiMzNzQxNTEiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IiNFNUU3RUIiIGZvbnQtd2VpZHRoPSJib2xkIj5TRU0gRk9UTzwvdGV4dD48L3N2Zz4=';
 
@@ -34,13 +33,10 @@ const App: React.FC = () => {
   const [attendees, setAttendees] = useState<Attendee[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [sectors, setSectors] = useState<Sector[]>([]);
-  const [validationPoints, setValidationPoints] = useState<ValidationPoint[]>([]);
-  const [accessLogs, setAccessLogs] = useState<AccessLogEntry[]>([]);
   
   // Supplier view state
   const [supplierInfo, setSupplierInfo] = useState<{data: Supplier, name: string} | null>(null);
   const [supplierAdminData, setSupplierAdminData] = useState<{eventName: string, attendees: Attendee[], eventId: string, supplierId: string, supplier: Supplier, sectors: Sector[]} | null>(null);
-  const [scannerData, setScannerData] = useState<{validationPoint: ValidationPoint, eventName: string, eventId: string} | null>(null);
 
 
   // Modal state
@@ -92,38 +88,8 @@ const App: React.FC = () => {
         const eventId = params.get('eventId');
         const supplierId = params.get('supplierId');
         const verifyToken = params.get('verify');
-        const scannerId = params.get('scannerId');
 
-        if (scannerId && eventId) {
-            setIsLoading(true);
-            try {
-                const [point, event] = await Promise.all([
-                    api.getValidationPoint(eventId, scannerId),
-                    api.getEvents().then(events => events.find(e => e.id === eventId))
-                ]);
-
-                if (point && event) {
-                    const eventUnsub = api.subscribeToEventData(eventId, (data) => {
-                        setAttendees(data.attendees);
-                        setSectors(data.sectors);
-                    }, (err) => {
-                        console.error(err);
-                        setGlobalError(t('errors.subscriptionError'));
-                    });
-                    unsubscribe = () => eventUnsub();
-                    setScannerData({ validationPoint: point, eventName: event.name, eventId: eventId });
-                    setView('sector-scanner');
-                } else {
-                    setGlobalError(t('errors.invalidScannerLink'));
-                    setView('closed');
-                }
-            } catch (error) {
-                 setGlobalError(t('errors.invalidScannerLink'));
-                 setView('closed');
-            } finally {
-                setIsLoading(false);
-            }
-        } else if (verifyToken) {
+        if (verifyToken) {
             setIsLoading(true);
             unsubscribe = api.subscribeToSupplierAdminData(
                 verifyToken,
@@ -197,8 +163,6 @@ const App: React.FC = () => {
         setAttendees(data.attendees);
         setSuppliers(data.suppliers);
         setSectors(data.sectors);
-        setValidationPoints(data.validationPoints);
-        setAccessLogs(data.accessLogs);
         setIsLoading(false);
       }, (error) => {
         console.error(error);
@@ -225,8 +189,6 @@ const App: React.FC = () => {
     setAttendees([]);
     setSuppliers([]);
     setSectors([]);
-    setValidationPoints([]);
-    setAccessLogs([]);
     setView('event-selection');
   };
 
@@ -398,7 +360,7 @@ const App: React.FC = () => {
             successCount++;
 
         } catch (error) {
-            // FIX: The error object is of type 'unknown'. To safely access properties like 'message', we must first verify its type.
+            // FIX: The error object is of type 'unknown'. To safely access its 'message' property, we must first check if it's an instance of Error.
             let reason: string;
             if (error instanceof Error) {
                 reason = `Erro no servidor: ${error.message}`;
@@ -434,7 +396,7 @@ const App: React.FC = () => {
     try {
       await api.deleteSupplier(currentEvent.id, supplier.id);
     } catch (error) {
-      // FIX: The error object is of type 'unknown'. To safely pass it to a function expecting a string, we first extract the message if it's an Error instance, or provide a fallback for other error types.
+      // FIX: The error object is of type 'unknown'. To safely use its 'message' property, we check if it is an instance of Error before calling setGlobalError.
       if (error instanceof Error) {
         setGlobalError(error.message);
       } else {
@@ -480,23 +442,6 @@ const App: React.FC = () => {
     }
   };
   
-  // Validation Point Handlers
-  const handleAddValidationPoint = async (name: string, sectorId: string) => {
-    if (!currentEvent) return;
-    await api.addValidationPoint(currentEvent.id, name, sectorId);
-  };
-
-  const handleDeleteValidationPoint = async (pointId: string) => {
-    if (!currentEvent) return;
-    await api.deleteValidationPoint(currentEvent.id, pointId);
-  };
-
-  // Access Log Handlers
-  const handleRecordSectorAccess = async (eventId: string, attendeeId: string, sectorId: string) => {
-    await api.recordSectorAccess(eventId, attendeeId, sectorId);
-  };
-
-  
   const renderContent = () => {
     if (isLoading) {
       return <div className="min-h-screen flex items-center justify-center"><div className="w-16 h-16 border-4 border-dashed rounded-full animate-spin border-indigo-500"></div></div>;
@@ -515,7 +460,6 @@ const App: React.FC = () => {
             attendees={attendees}
             suppliers={suppliers}
             sectors={sectors}
-            validationPoints={validationPoints}
             onRegister={handleRegister}
             onImportAttendees={handleImportAttendees}
             onAddSupplier={handleAddSupplier}
@@ -536,8 +480,6 @@ const App: React.FC = () => {
             onApproveNewRegistration={handleApproveNewRegistration}
             onRejectNewRegistration={handleRejectNewRegistration}
             onUpdateSectorsForSelectedAttendees={handleUpdateSectorsForSelectedAttendees}
-            onAddValidationPoint={handleAddValidationPoint}
-            onDeleteValidationPoint={handleDeleteValidationPoint}
             onBack={handleBackToEvents}
             setError={setGlobalError}
           />;
@@ -567,19 +509,6 @@ const App: React.FC = () => {
           />;
         }
         return null;
-      case 'sector-scanner':
-          if(scannerData) {
-              return <SectorScannerView 
-                  eventId={scannerData.eventId}
-                  eventName={scannerData.eventName}
-                  validationPoint={scannerData.validationPoint}
-                  sectors={sectors}
-                  attendees={attendees}
-                  onRecordAccess={handleRecordSectorAccess}
-                  setError={setGlobalError}
-              />;
-          }
-          return null;
       case 'closed':
         return <RegistrationClosedView />;
       default:

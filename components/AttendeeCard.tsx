@@ -9,10 +9,9 @@ interface AttendeeCardProps {
   sectorLabel: string;
   sectorColor?: string;
   supplierName?: string;
-  currentSector?: Sector | null;
 }
 
-const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect, sectorLabel, sectorColor, supplierName, currentSector }) => {
+const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect, sectorLabel, sectorColor, supplierName }) => {
   const { t } = useTranslation();
 
   const statusInfo = {
@@ -34,14 +33,6 @@ const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect, sectorL
       .replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
   };
   
-  const formatTime = (timestamp: any) => {
-    if (!timestamp || !timestamp.seconds) return '';
-    return new Date(timestamp.seconds * 1000).toLocaleTimeString('pt-BR', {
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-  };
-
   const wristbandNumbers = attendee.wristbands ? Object.values(attendee.wristbands).filter(Boolean).join(', ') : '';
 
   return (
@@ -80,13 +71,6 @@ const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect, sectorL
                 <span className="font-semibold">{t('attendeeCard.wristbandNumber')}:</span>
                 <span>{wristbandNumbers}</span>
             </div>
-        )}
-        {currentSector && attendee.lastSectorEntryTime && (
-          <div className="mt-2 text-xs text-center text-gray-400 bg-gray-900/50 p-1 rounded-md">
-            <span>{t('attendeeCard.lastSeen')} </span>
-            <span className="font-semibold" style={{ color: currentSector.color || 'inherit' }}>{currentSector.label}</span>
-            <span> às {formatTime(attendee.lastSectorEntryTime)}</span>
-          </div>
         )}
       </div>
     </div>

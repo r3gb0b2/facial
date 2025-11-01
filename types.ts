@@ -37,9 +37,6 @@ export interface Attendee {
     newSectorId: string;
     justification?: string;
   };
-  // New fields for real-time location tracking
-  currentSectorId?: string;
-  lastSectorEntryTime?: FirebaseTimestamp;
 }
 
 export interface Event {
@@ -67,19 +64,4 @@ export interface Sector {
   id: string; // e.g., 'staff'
   label: string; // e.g., 'Staff'
   color?: string; // e.g., '#ff0000'
-}
-
-export interface ValidationPoint {
-  id: string;
-  name: string;
-  sectorId: string;
-  createdAt: FirebaseTimestamp;
-}
-
-export interface AccessLogEntry {
-  id: string;
-  attendeeId: string;
-  sectorId: string;
-  timestamp: FirebaseTimestamp;
-  type: 'entry'; // Can be expanded later for 'exit'
 }

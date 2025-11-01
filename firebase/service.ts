@@ -1,7 +1,7 @@
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
 import { db, storage, FieldValue, Timestamp } from './config.ts';
-import { Attendee, CheckinStatus, Event, Supplier, Sector, SubCompany, ValidationPoint, AccessLogEntry } from '../types.ts';
+import { Attendee, CheckinStatus, Event, Supplier, Sector, SubCompany } from '../types.ts';
 import { v4 as uuidv4 } from 'uuid';
 
 // Helper to extract data and id from snapshots
@@ -34,15 +34,13 @@ export const deleteEvent = (id: string) => {
 // Realtime Data Subscription for a specific event
 export const subscribeToEventData = (
     eventId: string,
-    callback: (data: { attendees: Attendee[], suppliers: Supplier[], sectors: Sector[], validationPoints: ValidationPoint[], accessLogs: AccessLogEntry[] }) => void,
+    callback: (data: { attendees: Attendee[], suppliers: Supplier[], sectors: Sector[] }) => void,
     onError: (error: Error) => void
 ) => {
     const data = {
         attendees: [] as Attendee[],
         suppliers: [] as Supplier[],
         sectors: [] as Sector[],
-        validationPoints: [] as ValidationPoint[],
-        accessLogs: [] as AccessLogEntry[],
     };
 
     const updateCallback = () => {
@@ -65,24 +63,12 @@ export const subscribeToEventData = (
         updateCallback();
     }, onError);
 
-    const validationPointsUnsub = db.collection('events').doc(eventId).collection('validationPoints').onSnapshot(snap => {
-        data.validationPoints = getCollectionData<ValidationPoint>(snap);
-        updateCallback();
-    }, onError);
-
-    const accessLogsUnsub = db.collection('events').doc(eventId).collection('accessLogs').orderBy('timestamp', 'desc').onSnapshot(snap => {
-        data.accessLogs = getCollectionData<AccessLogEntry>(snap);
-        updateCallback();
-    }, onError);
-
 
     // Return a function that unsubscribes from all listeners
     return () => {
         attendeesUnsub();
         suppliersUnsub();
         sectorsUnsub();
-        validationPointsUnsub();
-        accessLogsUnsub();
     };
 };
 
@@ -501,51 +487,4 @@ export const deleteSector = async (eventId: string, sectorId: string) => {
         throw new Error('Sector is in use and cannot be deleted.');
     }
     return db.collection('events').doc(eventId).collection('sectors').doc(sectorId).delete();
-};
-
-// Validation Point Management
-export const getValidationPoints = async (eventId: string): Promise<ValidationPoint[]> => {
-    const snapshot = await db.collection('events').doc(eventId).collection('validationPoints').orderBy('name', 'asc').get();
-    return getCollectionData<ValidationPoint>(snapshot);
-};
-
-export const addValidationPoint = (eventId: string, name: string, sectorId: string) => {
-    return db.collection('events').doc(eventId).collection('validationPoints').add({
-        name,
-        sectorId,
-        createdAt: FieldValue.serverTimestamp(),
-    });
-};
-
-export const deleteValidationPoint = (eventId: string, pointId: string) => {
-    return db.collection('events').doc(eventId).collection('validationPoints').doc(pointId).delete();
-};
-
-export const getValidationPoint = async (eventId: string, pointId: string): Promise<ValidationPoint | null> => {
-    const doc = await db.collection('events').doc(eventId).collection('validationPoints').doc(pointId).get();
-    return doc.exists ? getData<ValidationPoint>(doc) : null;
-};
-
-// Access Logging
-export const recordSectorAccess = async (eventId: string, attendeeId: string, sectorId: string) => {
-    const batch = db.batch();
-    const now = Timestamp.now();
-
-    // 1. Update the attendee's current location
-    const attendeeRef = db.collection('events').doc(eventId).collection('attendees').doc(attendeeId);
-    batch.update(attendeeRef, {
-        currentSectorId: sectorId,
-        lastSectorEntryTime: now,
-    });
-
-    // 2. Create a historical log entry
-    const logRef = db.collection('events').doc(eventId).collection('accessLogs').doc();
-    batch.set(logRef, {
-        attendeeId,
-        sectorId,
-        timestamp: now,
-        type: 'entry',
-    });
-
-    return batch.commit();
 };

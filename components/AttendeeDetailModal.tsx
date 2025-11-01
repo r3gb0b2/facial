@@ -150,8 +150,8 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     for (const sectorId of attendeeSectors.map(s => s.id)) {
       const number = wristbands[sectorId];
       if (number) {
-        const isDuplicate = otherAttendees.some(other => 
-          other.wristbands && Object.values(other.wristbands).includes(number)
+        const isDuplicate = otherAttendees.some(other =>
+          other.wristbands && other.wristbands[sectorId] === number
         );
         if (isDuplicate) {
           errors.add(sectorId);
