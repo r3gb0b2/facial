@@ -56,12 +56,12 @@ const SectorManagementView: React.FC<SectorManagementViewProps> = ({
     };
     
     const handleDelete = async (sector: Sector) => {
-        if (window.confirm(t('sectors.deleteConfirm', { label: sector.label }))) {
+        if (window.confirm(t('sectors.deleteConfirm', { sectorLabel: sector.label }))) {
             try {
                 await onDeleteSector(sector);
             } catch (e: any) {
                 if (e.message.includes("in use")) {
-                    setError(t('sectors.deleteErrorInUse', { label: sector.label }));
+                    setError(t('sectors.deleteErrorInUse', { sectorLabel: sector.label }));
                 } else {
                     setError(e.message || 'Falha ao deletar o setor.');
                 }

@@ -151,7 +151,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                     {activeTab === 'checkin' && <CheckinView {...checkinViewProps} />}
                     {activeTab === 'register' && <RegisterView onRegister={onRegister} setError={setError} sectors={eventData.sectors} suppliers={eventData.suppliers} />}
                     {activeTab === 'suppliers' && <SupplierManagementView currentEventId={currentEventId} suppliers={eventData.suppliers} attendees={eventData.attendees} sectors={eventData.sectors} onAddSupplier={handleAddSupplier} onUpdateSupplier={handleUpdateSupplier} onDeleteSupplier={handleDeleteSupplier} onSupplierStatusUpdate={handleSupplierStatusUpdate} onRegenerateAdminToken={handleRegenerateAdminToken} onUpdateSectorsForSelectedAttendees={handleUpdateSectorsForAttendees} setError={setError} />}
-                    {activeTab === 'sectors' && <SectorManagementView sectors={eventData.sectors} onAddSupplier={handleAddSector} onUpdateSupplier={handleUpdateSector} onDeleteSupplier={handleDeleteSector} setError={setError} />}
+                    {activeTab === 'sectors' && <SectorManagementView sectors={eventData.sectors} onAddSector={handleAddSector} onUpdateSector={handleUpdateSector} onDeleteSector={handleDeleteSector} setError={setError} />}
                     {activeTab === 'companies' && <CompanyManagementView attendees={eventData.attendees} sectors={eventData.sectors} onUpdateSectorsForSelectedAttendees={handleUpdateSectorsForAttendees} setError={setError} />}
                     {activeTab === 'spreadsheet' && <SpreadsheetUploadView onImport={handleImport} setError={setError} />}
                     {activeTab === 'reports' && <WristbandReportView attendees={eventData.attendees} sectors={eventData.sectors} />}
