@@ -5,6 +5,7 @@ import { UsersIcon, PencilIcon, TrashIcon } from '../icons.tsx';
 import UserModal from '../UserModal.tsx';
 
 interface UserManagementViewProps {
+    currentUser: User;
     users: User[];
     events: Event[];
     onCreateUser: (userData: Omit<User, 'id'>) => Promise<void>;
@@ -13,14 +14,22 @@ interface UserManagementViewProps {
     setError: (message: string) => void;
 }
 
-const UserManagementView: React.FC<UserManagementViewProps> = ({ users, events, onCreateUser, onUpdateUser, onDeleteUser, setError }) => {
+const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser, users, events, onCreateUser, onUpdateUser, onDeleteUser, setError }) => {
     const { t } = useTranslation();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [userToEdit, setUserToEdit] = useState<User | null>(null);
 
+    const managedUsers = useMemo(() => {
+        if (currentUser.role === 'superadmin') {
+            return users;
+        }
+        // Admins can only see users they created
+        return users.filter(user => user.createdBy === currentUser.id);
+    }, [users, currentUser]);
+
     const sortedUsers = useMemo(() => 
-        [...users].sort((a, b) => a.username.localeCompare(b.username)), 
-    [users]);
+        [...managedUsers].sort((a, b) => a.username.localeCompare(b.username)), 
+    [managedUsers]);
 
     const handleOpenModal = (user: User | null) => {
         setUserToEdit(user);
@@ -46,7 +55,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ users, events, 
     };
     
     const handleDelete = async (user: User) => {
-        if (window.confirm(t('users.deleteConfirm', user.username))) {
+        if (window.confirm(t('users.deleteConfirm', { username: user.username }))) {
             try {
                 await onDeleteUser(user.id);
             } catch (e: any) {
@@ -60,10 +69,13 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ users, events, 
     return (
         <div className="w-full max-w-5xl mx-auto">
             <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
-                <h2 className="text-3xl font-bold text-white mb-6 flex items-center justify-center gap-3">
+                <h2 className="text-3xl font-bold text-white mb-2 flex items-center justify-center gap-3">
                     <UsersIcon className="w-8 h-8"/>
                     {t('users.title')}
                 </h2>
+                {currentUser.role === 'admin' && (
+                    <p className="text-center text-gray-400 mb-6 text-sm" dangerouslySetInnerHTML={{ __html: t('users.admin.managementNotice') }} />
+                )}
                 <div className="mb-6 text-right">
                     <button onClick={() => handleOpenModal(null)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">
                         {t('users.createUserButton')}
@@ -115,6 +127,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ users, events, 
                     onSave={handleSave}
                     userToEdit={userToEdit}
                     allEvents={events}
+                    currentUser={currentUser}
                 />
             )}
         </div>

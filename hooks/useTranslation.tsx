@@ -287,6 +287,8 @@ const translations = {
     'users.modal.eventsDescription': 'Este usuário só poderá acessar os eventos selecionados.',
     'users.modal.error.usernameRequired': 'O nome de usuário é obrigatório.',
     'users.modal.error.passwordRequired': 'A senha é obrigatória para novos usuários.',
+    'users.admin.creationNotice': 'O usuário será criado com a função <b>Check-in</b>.',
+    'users.admin.managementNotice': 'Você só pode gerenciar os usuários de check-in que você criou.',
     
     // Errors
     'errors.registrationLimitReached': 'O limite de cadastros para este fornecedor foi atingido.',
@@ -307,12 +309,14 @@ interface LanguageContextType {
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [language, setLanguage] = useState<Language>('pt');
+  // FIX: Renamed 'language' to 'currentLanguage' to avoid potential conflicts with the 'Language' type.
+  const [currentLanguage, setCurrentLanguage] = useState<Language>('pt');
 
   // FIX: Loosen key type to string to support dynamic keys
   const t = useCallback((key: string, ...args: (string | number | Record<string, string | number>)[]) => {
     // FIX: Cast key to TranslationKey for object lookup to satisfy TypeScript
-    let translation: string = translations[language][key as TranslationKey] || key;
+    // FIX: Use the renamed state variable 'currentLanguage'.
+    let translation: string = translations[currentLanguage][key as TranslationKey] || key;
     
     if (args.length > 0) {
         // Handle named placeholders e.g., t('key', { name: 'world' })
@@ -336,10 +340,10 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
     }
     
     return translation;
-  }, [language]);
+  }, [currentLanguage]);
 
   return (
-    <LanguageContext.Provider value={{ language, setLanguage, t }}>
+    <LanguageContext.Provider value={{ language: currentLanguage, setLanguage: setCurrentLanguage, t }}>
       {children}
     </LanguageContext.Provider>
   );

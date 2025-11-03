@@ -45,7 +45,7 @@ const TABS: { id: AdminTab, label: string, roles: UserRole[] }[] = [
     { id: 'sectors', label: 'Setores', roles: ['superadmin', 'admin'] },
     { id: 'spreadsheet', label: 'Importar', roles: ['superadmin', 'admin'] },
     { id: 'reports', label: 'Rel. Pulseiras', roles: ['superadmin', 'admin'] },
-    { id: 'users', label: 'Usuários', roles: ['superadmin'] },
+    { id: 'users', label: 'Usuários', roles: ['superadmin', 'admin'] },
 ];
 
 
@@ -99,11 +99,9 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
     
      // User management handlers
     const fetchUsersAndEvents = async () => {
-        if (user.role === 'superadmin') {
-            const [fetchedUsers, fetchedEvents] = await Promise.all([api.getUsers(), api.getEvents()]);
-            setUsers(fetchedUsers);
-            setEventsForUserManagement(fetchedEvents);
-        }
+        const [fetchedUsers, fetchedEvents] = await Promise.all([api.getUsers(), api.getEvents()]);
+        setUsers(fetchedUsers);
+        setEventsForUserManagement(fetchedEvents);
     };
 
     const handleCreateUser = (userData: Omit<User, 'id'>) => api.createUser(userData).then(fetchUsersAndEvents);
@@ -111,7 +109,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
     const handleDeleteUser = (userId: string) => api.deleteUser(userId).then(fetchUsersAndEvents);
     
     useEffect(() => {
-        if (activeTab === 'users' && user.role === 'superadmin') {
+        if (activeTab === 'users' && (user.role === 'superadmin' || user.role === 'admin')) {
             fetchUsersAndEvents();
         }
     }, [activeTab, user.role]);
@@ -157,7 +155,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                     {activeTab === 'reports' && <WristbandReportView attendees={eventData.attendees} sectors={eventData.sectors} />}
                     {activeTab === 'logs' && <CheckinLogView attendees={eventData.attendees} />}
                     {activeTab === 'scanner' && <QRCodeScannerView currentEvent={{ id: currentEventId, name: currentEventName, createdAt: null! }} attendees={eventData.attendees} onUpdateStatus={handleUpdateStatusForScanner} setError={setError} />}
-                    {activeTab === 'users' && <UserManagementView users={users} events={eventsForUserManagement} onCreateUser={handleCreateUser} onUpdateUser={handleUpdateUser} onDeleteUser={handleDeleteUser} setError={setError} />}
+                    {activeTab === 'users' && <UserManagementView currentUser={user} users={users} events={eventsForUserManagement} onCreateUser={handleCreateUser} onUpdateUser={handleUpdateUser} onDeleteUser={handleDeleteUser} setError={setError} />}
                 </div>
             </main>
         </div>

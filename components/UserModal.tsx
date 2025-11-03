@@ -9,9 +9,10 @@ interface UserModalProps {
   onSave: (data: Omit<User, 'id'>, userId?: string) => void;
   userToEdit?: User | null;
   allEvents: Event[];
+  currentUser: User;
 }
 
-const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, userToEdit, allEvents }) => {
+const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, userToEdit, allEvents, currentUser }) => {
   const { t } = useTranslation();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -20,6 +21,11 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, userToEd
   const [error, setError] = useState('');
   
   const isEditing = !!userToEdit;
+  const isAdminCreator = currentUser.role === 'admin';
+
+  const availableEvents = isAdminCreator
+    ? allEvents.filter(event => currentUser.linkedEventIds.includes(event.id))
+    : allEvents;
 
   useEffect(() => {
     if (userToEdit) {
@@ -30,11 +36,12 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, userToEd
     } else {
       setUsername('');
       setPassword('');
-      setRole('checkin');
+      // Admin can only create check-in users
+      setRole(isAdminCreator ? 'checkin' : 'admin');
       setLinkedEventIds([]);
     }
     setError('');
-  }, [userToEdit, isOpen]);
+  }, [userToEdit, isOpen, isAdminCreator]);
 
   if (!isOpen) return null;
 
@@ -56,7 +63,7 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, userToEd
       return;
     }
     
-    const data: Omit<User, 'id' | 'password'> & { password?: string } = {
+    const data: Omit<User, 'id' | 'password'> & { password?: string, createdBy?: string } = {
         username,
         role,
         linkedEventIds: showEventLinker ? linkedEventIds : [],
@@ -64,6 +71,10 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, userToEd
 
     if (password.trim()) {
         data.password = password.trim();
+    }
+    
+    if (isAdminCreator && !isEditing) {
+        data.createdBy = currentUser.id;
     }
 
     onSave(data, userToEdit?.id);
@@ -93,16 +104,19 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, userToEd
           </div>
            <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">{t('users.modal.roleLabel')}</label>
-            <select value={role} onChange={(e) => setRole(e.target.value as UserRole)} className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white">
-                <option value="admin">Admin</option>
+            <select value={role} onChange={(e) => setRole(e.target.value as UserRole)} className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white" disabled={isAdminCreator}>
+                {!isAdminCreator && <option value="admin">Admin</option>}
                 <option value="checkin">Check-in</option>
             </select>
+            {isAdminCreator && !isEditing &&
+                <p className="text-xs text-gray-400 mt-1" dangerouslySetInnerHTML={{ __html: t('users.admin.creationNotice') }} />
+            }
           </div>
           {showEventLinker && (
              <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">{t('users.modal.eventsLabel')}</label>
                  <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 p-2 bg-gray-900 rounded-md max-h-48 overflow-y-auto border border-gray-600">
-                    {allEvents.map(event => (
+                    {availableEvents.map(event => (
                         <div key={event.id} className="flex items-center p-1 rounded-md hover:bg-gray-700/50">
                             <input type="checkbox" id={`event-link-${event.id}`} checked={linkedEventIds.includes(event.id)} onChange={() => handleEventLinkChange(event.id)} className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500" />
                             <label htmlFor={`event-link-${event.id}`} className="ml-2 text-white cursor-pointer">{event.name}</label>

@@ -76,4 +76,5 @@ export interface User {
   password?: string; // Should not be sent to client, but needed for creation/update
   role: UserRole;
   linkedEventIds: string[];
+  createdBy?: string; // ID of the admin user who created this user
 }
