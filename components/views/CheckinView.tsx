@@ -8,7 +8,10 @@ import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { SearchIcon, CheckCircleIcon, UsersIcon, ArrowDownTrayIcon } from '../icons.tsx';
 import * as XLSX from 'xlsx';
 
+type UserRole = 'admin' | 'checkin';
+
 interface CheckinViewProps {
+  userRole: UserRole;
   attendees: Attendee[];
   suppliers: Supplier[];
   sectors: Sector[];
@@ -35,7 +38,7 @@ const normalizeString = (str: string) => {
     .trim();
 };
 
-const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors, currentEventId, currentEventName, onUpdateAttendeeDetails, onDeleteAttendee, onApproveSubstitution, onRejectSubstitution, onApproveSectorChange, onRejectSectorChange, onApproveNewRegistration, onRejectNewRegistration, setError }) => {
+const CheckinView: React.FC<CheckinViewProps> = ({ userRole, attendees, suppliers, sectors, currentEventId, currentEventName, onUpdateAttendeeDetails, onDeleteAttendee, onApproveSubstitution, onRejectSubstitution, onApproveSectorChange, onRejectSectorChange, onApproveNewRegistration, onRejectNewRegistration, setError }) => {
   const { t } = useTranslation();
   const sessionKey = `filters_${currentEventId}`;
 
@@ -46,12 +49,13 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
     }
     return {
       searchTerm: '',
+      searchBy: 'ALL',
       statusFilter: CheckinStatus.PENDING,
       supplierFilter: 'ALL',
     };
   });
   
-  const { searchTerm, statusFilter, supplierFilter } = filters;
+  const { searchTerm, searchBy, statusFilter, supplierFilter } = filters;
 
   useEffect(() => {
     sessionStorage.setItem(sessionKey, JSON.stringify(filters));
@@ -162,7 +166,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
   const filteredAttendees = useMemo(() => {
     const normalizedTerm = normalizeString(searchTerm);
 
-    const filtered = attendees.filter((attendee) => {
+    return attendees.filter((attendee) => {
       // Status filter
       if (statusFilter !== 'ALL' && attendee.status !== statusFilter) {
         return false;
@@ -179,20 +183,25 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
 
       // Search term filter
       if (normalizedTerm) {
-        const nameMatch = normalizeString(attendee.name).includes(normalizedTerm);
-        const cpfMatch = attendee.cpf.replace(/\D/g, '').includes(normalizedTerm);
-        // FIX: Explicitly cast num to string to satisfy normalizeString's type requirement.
-        const wristbandMatch = attendee.wristbands ? Object.values(attendee.wristbands).some(num => normalizeString(String(num)).includes(normalizedTerm)) : false;
-        const subCompanyMatch = attendee.subCompany ? normalizeString(attendee.subCompany).includes(normalizedTerm) : false;
-        if (!nameMatch && !cpfMatch && !wristbandMatch && !subCompanyMatch) {
-          return false; // if neither name, CPF, wristband nor sub-company matches, filter it out
+        let match = false;
+        if (searchBy === 'ALL') {
+          match = normalizeString(attendee.name).includes(normalizedTerm) ||
+                  attendee.cpf.replace(/\D/g, '').includes(normalizedTerm) ||
+                  (attendee.wristbands ? Object.values(attendee.wristbands).some(num => normalizeString(String(num)).includes(normalizedTerm)) : false) ||
+                  (attendee.subCompany ? normalizeString(attendee.subCompany).includes(normalizedTerm) : false);
+        } else if (searchBy === 'NAME') {
+          match = normalizeString(attendee.name).includes(normalizedTerm);
+        } else if (searchBy === 'CPF') {
+          match = attendee.cpf.replace(/\D/g, '').includes(normalizedTerm);
+        } else if (searchBy === 'WRISTBAND') {
+          match = attendee.wristbands ? Object.values(attendee.wristbands).some(num => normalizeString(String(num)).includes(normalizedTerm)) : false;
         }
+        if (!match) return false;
       }
-      return true; // if it passes all filters, include it
-    });
-
-    return filtered.sort((a, b) => a.name.localeCompare(b.name));
-  }, [attendees, searchTerm, statusFilter, supplierFilter]);
+      
+      return true;
+    }).sort((a, b) => a.name.localeCompare(b.name));
+  }, [attendees, searchTerm, searchBy, statusFilter, supplierFilter]);
 
 
   const stats = useMemo(() => {
@@ -207,17 +216,29 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
     <div className="w-full max-w-7xl mx-auto">
       <div className="bg-gray-800/50 backdrop-blur-sm p-6 rounded-2xl shadow-2xl border border-gray-700 mb-6 space-y-4">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="relative w-full md:w-1/3">
-            <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder={t('checkin.searchPlaceholder')}
-              value={searchTerm}
-              onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
-              className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 pl-10 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
+          <div className="flex-grow w-full flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-grow">
+              <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder={t('checkin.searchPlaceholder')}
+                value={searchTerm}
+                onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
+                className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 pl-10 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <select
+              value={searchBy}
+              onChange={(e) => handleFilterChange('searchBy', e.target.value)}
+              className="w-full sm:w-48 bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="ALL">{t('checkin.filter.searchBy.all')}</option>
+              <option value="NAME">{t('checkin.filter.searchBy.name')}</option>
+              <option value="CPF">{t('checkin.filter.searchBy.cpf')}</option>
+              <option value="WRISTBAND">{t('checkin.filter.searchBy.wristband')}</option>
+            </select>
           </div>
-          <div className="flex items-center gap-6 text-white">
+          <div className="flex items-center gap-6 text-white flex-shrink-0">
             <div className="text-center">
               <p className="text-2xl font-bold text-green-400 flex items-center gap-2"><CheckCircleIcon className="w-6 h-6" /> {stats.checkedIn}</p>
               <p className="text-xs text-gray-400 uppercase font-semibold">{t('checkin.stats.checkedIn')}</p>
@@ -312,6 +333,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ attendees, suppliers, sectors
           
           return (
             <AttendeeDetailModal
+              userRole={userRole}
               attendee={selectedAttendee}
               sectors={sectors}
               suppliers={suppliers}

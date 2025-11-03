@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Attendee, Sector, Supplier, Event, SubCompany, CheckinStatus } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import CheckinView from './CheckinView.tsx';
@@ -13,8 +13,10 @@ import CheckinLogView from './CheckinLogView.tsx';
 import { ArrowLeftOnRectangleIcon, SpinnerIcon } from '../icons.tsx';
 
 type AdminTab = 'checkin' | 'checkinLog' | 'qrValidation' | 'register' | 'suppliers' | 'sectors' | 'wristbands' | 'companies';
+type UserRole = 'admin' | 'checkin';
 
 interface AdminViewProps {
+    userRole: UserRole;
     isLoading: boolean;
     currentEvent: Event;
     attendees: Attendee[];
@@ -52,11 +54,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
         return (savedTab as AdminTab) || 'checkin';
     });
 
-    useEffect(() => {
-        sessionStorage.setItem(sessionKey, activeTab);
-    }, [activeTab, sessionKey]);
-
-    const tabs: { id: AdminTab; label: string }[] = [
+    const allTabs: { id: AdminTab; label: string }[] = useMemo(() => [
         { id: 'checkin', label: t('admin.tabs.checkin') },
         { id: 'checkinLog', label: t('admin.tabs.checkinLog') },
         { id: 'qrValidation', label: t('admin.tabs.qrValidation') },
@@ -65,7 +63,26 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
         { id: 'companies', label: t('admin.tabs.companies') },
         { id: 'sectors', label: t('admin.tabs.sectors') },
         { id: 'wristbands', label: t('admin.tabs.wristbands') },
-    ];
+    ], [t]);
+
+    const tabs = useMemo(() => {
+        if (props.userRole === 'checkin') {
+            const checkinTabs = new Set<AdminTab>(['checkin', 'checkinLog', 'qrValidation']);
+            return allTabs.filter(tab => checkinTabs.has(tab.id));
+        }
+        return allTabs;
+    }, [props.userRole, allTabs]);
+
+    useEffect(() => {
+        // If the current active tab is not available for the user role, default to the first available tab
+        if (!tabs.some(tab => tab.id === activeTab)) {
+            setActiveTab(tabs[0]?.id || 'checkin');
+        }
+    }, [tabs, activeTab]);
+
+    useEffect(() => {
+        sessionStorage.setItem(sessionKey, activeTab);
+    }, [activeTab, sessionKey]);
     
     const renderContent = () => {
         if (props.isLoading) {
@@ -79,6 +96,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
         switch(activeTab) {
             case 'checkin':
                 return <CheckinView 
+                    userRole={props.userRole}
                     attendees={props.attendees} 
                     suppliers={props.suppliers} 
                     sectors={props.sectors}

@@ -12,13 +12,21 @@ import RegistrationClosedView from './components/views/RegistrationClosedView.ts
 import EventModal from './components/EventModal.tsx';
 
 type View = 'login' | 'event-selection' | 'admin' | 'supplier-registration' | 'supplier-admin' | 'closed';
+type UserRole = 'admin' | 'checkin';
+interface User {
+  username: string;
+  role: UserRole;
+}
 
 const NO_PHOTO_PLACEHOLDER = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCIgZmlsbD0ibm9uZSI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZHRoPSIyMDAiIGZpbGw9IiMzNzQxNTEiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IiNFNUU3RUIiIGZvbnQtd2VpZHRoPSJib2xkIj5TRU0gRk9UTzwvdGV4dD48L3N2Zz4=';
 
 
 const App: React.FC = () => {
   const { t } = useTranslation();
-  const [isLoggedIn, setIsLoggedIn] = useState(sessionStorage.getItem('isLoggedIn') === 'true');
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    const savedUser = sessionStorage.getItem('currentUser');
+    return savedUser ? JSON.parse(savedUser) : null;
+  });
   const [loginError, setLoginError] = useState<string | null>(null);
   const [view, setView] = useState<View>('login');
   const [isLoading, setIsLoading] = useState(true);
@@ -51,14 +59,21 @@ const App: React.FC = () => {
 
   useEffect(clearGlobalError, [globalError]);
 
-  const handleLogin = (password: string) => {
-    if (password === '12345') {
-      sessionStorage.setItem('isLoggedIn', 'true');
-      setIsLoggedIn(true);
+  const handleLogin = (username: string, password: string) => {
+    if (username.toLowerCase() === 'admin' && password === '12345') {
+      const user: User = { username: 'admin', role: 'admin' };
+      sessionStorage.setItem('currentUser', JSON.stringify(user));
+      setCurrentUser(user);
+      setLoginError(null);
+      setView('event-selection');
+    } else if (username.toLowerCase() === 'checkin' && password === 'checkin') {
+      const user: User = { username: 'checkin', role: 'checkin' };
+      sessionStorage.setItem('currentUser', JSON.stringify(user));
+      setCurrentUser(user);
       setLoginError(null);
       setView('event-selection');
     } else {
-      setLoginError(t('login.errors.invalidPassword'));
+      setLoginError(t('login.errors.invalidCredentials'));
     }
   };
 
@@ -76,10 +91,10 @@ const App: React.FC = () => {
   }, [t]);
 
   useEffect(() => {
-    if (isLoggedIn) {
+    if (currentUser) {
       loadEvents();
     }
-  }, [isLoggedIn, loadEvents]);
+  }, [currentUser, loadEvents]);
 
   useEffect(() => {
     let unsubscribe: (() => void) | null = null;
@@ -134,7 +149,7 @@ const App: React.FC = () => {
                 }
             );
         } else {
-            if (isLoggedIn) {
+            if (currentUser) {
                 if (currentEvent) {
                     setView('admin');
                 } else {
@@ -153,7 +168,7 @@ const App: React.FC = () => {
             unsubscribe();
         }
     };
-  }, [t, isLoggedIn, currentEvent]);
+  }, [t, currentUser, currentEvent]);
   
   useEffect(() => {
     let unsubscribe: () => void = () => {};
@@ -360,7 +375,7 @@ const App: React.FC = () => {
             successCount++;
 
         } catch (error) {
-            // FIX: The error object is of type 'unknown'. To safely access its 'message' property, we must first check if it's an instance of Error.
+            // FIX: The error object is of type 'unknown'. To safely access its 'message' property, it is checked to be an instance of Error.
             let reason: string;
             if (error instanceof Error) {
                 reason = `Erro no servidor: ${error.message}`;
@@ -396,7 +411,7 @@ const App: React.FC = () => {
     try {
       await api.deleteSupplier(currentEvent.id, supplier.id);
     } catch (error) {
-      // FIX: The error object is of type 'unknown'. To safely use its 'message' property, we check if it is an instance of Error before calling setGlobalError.
+      // FIX: The error object is of type 'unknown'. To safely use its 'message' property, it is checked to be an instance of Error before calling setGlobalError.
       if (error instanceof Error) {
         setGlobalError(error.message);
       } else {
@@ -453,8 +468,9 @@ const App: React.FC = () => {
       case 'event-selection':
         return <EventSelectionView events={events} onSelectEvent={handleSelectEvent} onCreateEvent={() => { setEventToEdit(null); setIsEventModalOpen(true); }} onEditEvent={(e) => { setEventToEdit(e); setIsEventModalOpen(true); }} onDeleteEvent={handleDeleteEvent} />;
       case 'admin':
-        if (currentEvent) {
+        if (currentEvent && currentUser) {
           return <AdminView 
+            userRole={currentUser.role}
             isLoading={isLoading}
             currentEvent={currentEvent}
             attendees={attendees}

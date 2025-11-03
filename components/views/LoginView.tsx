@@ -5,17 +5,18 @@ import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { FingerPrintIcon } from '../icons.tsx';
 
 interface LoginViewProps {
-  onLogin: (password: string) => void;
+  onLogin: (username: string, password: string) => void;
   error: string | null;
 }
 
 const LoginView: React.FC<LoginViewProps> = ({ onLogin, error }) => {
   const { t } = useTranslation();
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onLogin(password);
+    onLogin(username, password);
   };
 
   return (
@@ -25,6 +26,20 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, error }) => {
         {t('login.title')}
       </h2>
       <form onSubmit={handleSubmit} className="space-y-6">
+        <div>
+          <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-1">
+            {t('login.usernameLabel')}
+          </label>
+          <input
+            type="text"
+            id="username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder={t('login.usernamePlaceholder')}
+            autoFocus
+          />
+        </div>
         <div>
           <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">
             {t('login.passwordLabel')}
@@ -36,14 +51,13 @@ const LoginView: React.FC<LoginViewProps> = ({ onLogin, error }) => {
             onChange={(e) => setPassword(e.target.value)}
             className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
             placeholder={t('login.passwordPlaceholder')}
-            autoFocus
           />
         </div>
         {error && <p className="text-red-400 text-sm">{error}</p>}
         <button
           type="submit"
           className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-indigo-400"
-          disabled={!password}
+          disabled={!password || !username}
         >
           {t('login.button')}
         </button>

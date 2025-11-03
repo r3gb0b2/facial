@@ -4,7 +4,10 @@ import { useTranslation } from '../hooks/useTranslation.tsx';
 import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon, SpinnerIcon } from './icons.tsx';
 import QRCodeDisplay from './QRCodeDisplay.tsx';
 
+type UserRole = 'admin' | 'checkin';
+
 interface AttendeeDetailModalProps {
+  userRole: UserRole;
   attendee: Attendee;
   sectors: Sector[];
   suppliers: Supplier[];
@@ -25,6 +28,7 @@ interface AttendeeDetailModalProps {
 }
 
 export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
+  userRole,
   attendee,
   sectors,
   suppliers,
@@ -613,31 +617,39 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     const statusActions = [];
     switch (attendee.status) {
         case CheckinStatus.PENDING:
-            statusActions.push(renderStatusButton(CheckinStatus.CANCELLED, t('statusUpdateModal.cancelRegistration')));
-            statusActions.push(renderStatusButton(CheckinStatus.MISSED, t('statusUpdateModal.markAsMissed')));
+            if (userRole === 'admin') {
+              statusActions.push(renderStatusButton(CheckinStatus.CANCELLED, t('statusUpdateModal.cancelRegistration')));
+              statusActions.push(renderStatusButton(CheckinStatus.MISSED, t('statusUpdateModal.markAsMissed')));
+            }
             break;
         case CheckinStatus.CHECKED_IN:
             statusActions.push(renderStatusButton(CheckinStatus.CHECKED_OUT, t('attendeeDetail.confirmCheckout'), 'bg-yellow-600 hover:bg-yellow-700'));
-            statusActions.push(renderStatusButton(CheckinStatus.PENDING, t('statusUpdateModal.cancelCheckin')));
+            if (userRole === 'admin') {
+              statusActions.push(renderStatusButton(CheckinStatus.PENDING, t('statusUpdateModal.cancelCheckin')));
+            }
             break;
         case CheckinStatus.CHECKED_OUT:
             statusActions.push(renderStatusButton(CheckinStatus.CHECKED_IN, t('attendeeDetail.reactivateCheckin')));
             break;
         case CheckinStatus.CANCELLED:
         case CheckinStatus.MISSED:
-            statusActions.push(renderStatusButton(CheckinStatus.PENDING, t('statusUpdateModal.reactivateRegistration')));
+            if (userRole === 'admin') {
+              statusActions.push(renderStatusButton(CheckinStatus.PENDING, t('statusUpdateModal.reactivateRegistration')));
+            }
             break;
     }
 
     return (
       <div className="space-y-2">
         {statusActions.map((button, index) => <div key={index}>{button}</div>)}
-        <button
-          onClick={handleDelete}
-          className="w-full text-red-400 hover:bg-red-500/10 font-semibold py-2 rounded-lg transition-colors mt-2"
-        >
-          {t('attendeeDetail.deleteButton')}
-        </button>
+        {userRole === 'admin' && (
+          <button
+            onClick={handleDelete}
+            className="w-full text-red-400 hover:bg-red-500/10 font-semibold py-2 rounded-lg transition-colors mt-2"
+          >
+            {t('attendeeDetail.deleteButton')}
+          </button>
+        )}
       </div>
     );
   };
@@ -658,7 +670,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
               </div>
             </div>
             <div className="flex gap-2">
-              {!isEditing && attendee.status !== CheckinStatus.SUBSTITUTION_REQUEST && attendee.status !== CheckinStatus.SECTOR_CHANGE_REQUEST && attendee.status !== CheckinStatus.PENDING_APPROVAL &&(
+              {userRole === 'admin' && !isEditing && attendee.status !== CheckinStatus.SUBSTITUTION_REQUEST && attendee.status !== CheckinStatus.SECTOR_CHANGE_REQUEST && attendee.status !== CheckinStatus.PENDING_APPROVAL &&(
                 <button onClick={() => setIsEditing(true)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700">
                   <PencilIcon className="w-5 h-5" />
                 </button>
