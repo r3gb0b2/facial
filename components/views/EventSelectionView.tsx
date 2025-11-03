@@ -1,75 +1,105 @@
-import React from 'react';
-// FIX: Add file extensions to local imports.
-import { Event } from '../../types.ts';
-// FIX: Added .tsx extension to module import.
+import React, { useState } from 'react';
+import { Event, User } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { CalendarIcon, PencilIcon, TrashIcon } from '../icons.tsx';
+import EventModal from '../EventModal.tsx';
+import { ArrowLeftOnRectangleIcon, CalendarIcon, PencilIcon, TrashIcon } from '../icons.tsx';
 
 interface EventSelectionViewProps {
+  user: User;
   events: Event[];
-  onSelectEvent: (event: Event) => void;
-  onCreateEvent: () => void;
-  onEditEvent: (event: Event) => void;
-  onDeleteEvent: (event: Event) => void;
+  onSelectEvent: (eventId: string) => void;
+  onCreateEvent: (name: string) => void;
+  onUpdateEvent: (id: string, name:string) => void;
+  onDeleteEvent: (id: string) => void;
+  onLogout: () => void;
 }
 
-const EventSelectionView: React.FC<EventSelectionViewProps> = ({
-  events,
-  onSelectEvent,
-  onCreateEvent,
-  onEditEvent,
-  onDeleteEvent,
-}) => {
+const EventSelectionView: React.FC<EventSelectionViewProps> = ({ user, events, onSelectEvent, onCreateEvent, onUpdateEvent, onDeleteEvent, onLogout }) => {
   const { t } = useTranslation();
-
-  const formatDate = (timestamp: any) => {
-    if (!timestamp || !timestamp.seconds) return '...';
-    return new Date(timestamp.seconds * 1000).toLocaleDateString();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [eventToEdit, setEventToEdit] = useState<Event | null>(null);
+  
+  const handleOpenModal = (event: Event | null = null) => {
+      setEventToEdit(event);
+      setIsModalOpen(true);
+  };
+  
+  const handleCloseModal = () => {
+      setEventToEdit(null);
+      setIsModalOpen(false);
+  };
+  
+  const handleSaveEvent = (name: string, eventId?: string) => {
+      if (eventId) {
+          onUpdateEvent(eventId, name);
+      } else {
+          onCreateEvent(name);
+      }
+      handleCloseModal();
+  };
+  
+  const handleDelete = (event: Event, e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (window.confirm(t('events.deleteConfirm', { eventName: event.name }))) {
+          onDeleteEvent(event.id);
+      }
   };
 
   return (
-    <div className="min-h-screen flex flex-col justify-center items-center p-4">
-      <header className="py-6 text-center">
-        <h1 className="text-4xl md:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-500">
-          {t('events.title')}
-        </h1>
-        <p className="text-gray-400 mt-2">{t('header.subtitle')}</p>
-      </header>
-      <main className="w-full max-w-3xl mx-auto">
-        <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
-          {events.length === 0 ? (
-            <div className="text-center text-gray-400 py-8">
-              <CalendarIcon className="w-16 h-16 mx-auto text-gray-500 mb-4" />
-              <p className="text-lg mb-2">{t('events.noEvents')}</p>
-              <p className="text-sm">{t('events.noEventsSubtitle')}</p>
-            </div>
-          ) : (
-            <ul className="space-y-4">
-              {events.map((event) => (
-                <li key={event.id} className="bg-gray-900/70 p-4 rounded-lg flex items-center justify-between transition-all hover:bg-gray-800">
-                  <div onClick={() => onSelectEvent(event)} className="flex-grow cursor-pointer">
-                    <p className="font-semibold text-white text-lg">{event.name}</p>
-                    <p className="text-sm text-gray-400">Criado em: {formatDate(event.createdAt)}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => onEditEvent(event)} className="p-2 text-gray-400 hover:text-yellow-400 transition-colors rounded-full hover:bg-gray-700">
-                      <PencilIcon className="w-5 h-5" />
-                    </button>
-                    <button onClick={() => onDeleteEvent(event)} className="p-2 text-gray-400 hover:text-red-400 transition-colors rounded-full hover:bg-gray-700">
-                      <TrashIcon className="w-5 h-5" />
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="mt-8">
-            <button onClick={onCreateEvent} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300">
-              {t('events.createButton')}
-            </button>
-          </div>
+    <div className="w-full max-w-2xl mx-auto bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h2 className="text-3xl font-bold text-white flex items-center gap-3">
+            <CalendarIcon className="w-8 h-8"/>
+            {t('events.title')}
+          </h2>
+          <p className="text-gray-400">Olá, {user.username}!</p>
         </div>
-      </main>
+        <button onClick={onLogout} className="text-gray-400 hover:text-white transition-colors flex items-center gap-2 p-2 rounded-md hover:bg-gray-700">
+            <ArrowLeftOnRectangleIcon className="w-5 h-5"/>
+            Sair
+        </button>
+      </div>
+
+      <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2">
+        {events.map(event => (
+          <div
+            key={event.id}
+            onClick={() => onSelectEvent(event.id)}
+            className="group bg-gray-900/70 p-4 rounded-lg flex items-center justify-between transition-all hover:bg-indigo-600/30 hover:border-indigo-500 border border-transparent cursor-pointer"
+          >
+            <span className="font-semibold text-white text-lg">{event.name}</span>
+            {user.role === 'superadmin' && (
+              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                 <button onClick={(e) => { e.stopPropagation(); handleOpenModal(event); }} className="p-2 text-gray-400 hover:text-yellow-400 transition-colors rounded-full hover:bg-gray-700">
+                    <PencilIcon className="w-5 h-5" />
+                </button>
+                <button onClick={(e) => handleDelete(event, e)} className="p-2 text-gray-400 hover:text-red-400 transition-colors rounded-full hover:bg-gray-700">
+                    <TrashIcon className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {user.role === 'superadmin' && (
+        <div className="mt-6 pt-6 border-t border-gray-700">
+            <button
+            onClick={() => handleOpenModal(null)}
+            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300"
+            >
+            {t('events.createButton')}
+            </button>
+        </div>
+      )}
+      
+      <EventModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        onSave={handleSaveEvent}
+        eventToEdit={eventToEdit}
+      />
     </div>
   );
 };

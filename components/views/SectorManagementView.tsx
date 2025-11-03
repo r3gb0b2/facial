@@ -1,9 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { Sector } from '../../types';
+// FIX: Added .ts extension to correctly resolve the module.
+import { Sector } from '../../types.ts';
 // FIX: Added .tsx extension to module import.
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { PencilIcon, TagIcon, TrashIcon } from '../icons';
-import SectorModal from '../SectorModal';
+// FIX: Added .tsx extension to correctly resolve the module.
+import { PencilIcon, TagIcon, TrashIcon } from '../icons.tsx';
+// FIX: Added .tsx extension to correctly resolve the module.
+import SectorModal from '../SectorModal.tsx';
 
 interface SectorManagementViewProps {
     sectors: Sector[];
@@ -53,12 +56,12 @@ const SectorManagementView: React.FC<SectorManagementViewProps> = ({
     };
     
     const handleDelete = async (sector: Sector) => {
-        if (window.confirm(t('sectors.deleteConfirm', sector.label))) {
+        if (window.confirm(t('sectors.deleteConfirm', { label: sector.label }))) {
             try {
                 await onDeleteSector(sector);
             } catch (e: any) {
-                if (e.message === 'Sector is in use and cannot be deleted.') {
-                    setError(t('sectors.deleteErrorInUse', sector.label));
+                if (e.message.includes("in use")) {
+                    setError(t('sectors.deleteErrorInUse', { label: sector.label }));
                 } else {
                     setError(e.message || 'Falha ao deletar o setor.');
                 }

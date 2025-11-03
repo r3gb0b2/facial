@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
-import { Attendee, CheckinStatus, Event } from '../../types';
+// FIX: Added .ts extension to correctly resolve the module.
+import { Attendee, CheckinStatus, Event } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { QrCodeIcon, SpinnerIcon, CheckCircleIcon, XMarkIcon } from '../icons.tsx';
 
