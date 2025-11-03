@@ -191,6 +191,8 @@ const translations = {
     'sectors.modal.colorLabel': 'Cor de Identificação',
     'sectors.modal.error': 'O nome do setor é obrigatório.',
     'sectors.modal.saveButton': 'Salvar Alterações',
+    // FIX: Add missing translation key to fix type error.
+    'sectors.modal.createButton': 'Criar Setor',
     'sectors.deleteConfirm': 'Tem certeza que deseja deletar o setor "{sectorLabel}"? Esta ação não pode ser desfeita.',
     'sectors.deleteErrorInUse': 'O setor "{sectorLabel}" não pode ser excluído pois está em uso por fornecedores ou colaboradores.',
     
@@ -296,7 +298,8 @@ type TranslationKey = keyof typeof translations.pt;
 interface LanguageContextType {
   language: Language;
   setLanguage: (language: Language) => void;
-  t: (key: TranslationKey, ...args: any[]) => string;
+  // FIX: Loosen type to allow dynamic keys from template literals
+  t: (key: string, ...args: any[]) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -304,8 +307,10 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [language, setLanguage] = useState<Language>('pt');
 
-  const t = useCallback((key: TranslationKey, ...args: (string | number | Record<string, string | number>)[]) => {
-    let translation: string = translations[language][key] || key;
+  // FIX: Loosen key type to string to support dynamic keys
+  const t = useCallback((key: string, ...args: (string | number | Record<string, string | number>)[]) => {
+    // FIX: Cast key to TranslationKey for object lookup to satisfy TypeScript
+    let translation: string = translations[language][key as TranslationKey] || key;
     
     if (args.length > 0) {
         // Handle named placeholders e.g., t('key', { name: 'world' })

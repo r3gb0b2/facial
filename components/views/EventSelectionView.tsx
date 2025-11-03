@@ -69,7 +69,7 @@ const EventSelectionView: React.FC<EventSelectionViewProps> = ({ user, events, o
             className="group bg-gray-900/70 p-4 rounded-lg flex items-center justify-between transition-all hover:bg-indigo-600/30 hover:border-indigo-500 border border-transparent cursor-pointer"
           >
             <span className="font-semibold text-white text-lg">{event.name}</span>
-            {user.role === 'superadmin' && (
+            {(user.role === 'superadmin' || user.role === 'admin') && (
               <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                  <button onClick={(e) => { e.stopPropagation(); handleOpenModal(event); }} className="p-2 text-gray-400 hover:text-yellow-400 transition-colors rounded-full hover:bg-gray-700">
                     <PencilIcon className="w-5 h-5" />
@@ -83,7 +83,7 @@ const EventSelectionView: React.FC<EventSelectionViewProps> = ({ user, events, o
         ))}
       </div>
 
-      {user.role === 'superadmin' && (
+      {(user.role === 'superadmin' || user.role === 'admin') && (
         <div className="mt-6 pt-6 border-t border-gray-700">
             <button
             onClick={() => handleOpenModal(null)}

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as api from './firebase/service.ts';
-import { User, Event, Attendee, Supplier, Sector } from './types.ts';
+import { User, Event, Attendee, Supplier, Sector, UserRole } from './types.ts';
 import { useTranslation } from './hooks/useTranslation.tsx';
 import LoginView from './components/views/LoginView.tsx';
 import EventSelectionView from './components/views/EventSelectionView.tsx';
@@ -94,6 +94,18 @@ const App: React.FC = () => {
     const handleLogin = async (username: string, password: string) => {
         try {
             setError(null);
+            // Special case for the hardcoded superadmin user
+            if (username === 'superadmin' && password === 'superadmin') {
+                const superAdminUser: User = {
+                    id: 'superadmin',
+                    username: 'superadmin',
+                    role: 'superadmin',
+                    linkedEventIds: [] // superadmin has access to all events
+                };
+                setUser(superAdminUser);
+                return; // Exit early
+            }
+            
             const authenticatedUser = await api.authenticateUser(username, password);
             if (authenticatedUser) {
                 setUser(authenticatedUser);
@@ -224,7 +236,7 @@ const App: React.FC = () => {
                 currentEventName={events.find(e => e.id === currentEventId)?.name || ''}
                 onBackToEvents={handleBackToEvents}
                 onLogout={handleLogout}
-                onRegister={onRegister}
+                onRegister={handleRegister}
                 onUpdateAttendeeDetails={handleUpdateAttendeeDetails}
                 onDeleteAttendee={handleDeleteAttendee}
                 onApproveSubstitution={handleApproveSubstitution}

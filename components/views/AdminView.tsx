@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { User, Attendee, Supplier, Sector, Event } from '../../types.ts';
+import { User, Attendee, Supplier, Sector, Event, UserRole } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import CheckinView from './CheckinView.tsx';
 import RegisterView from './RegisterView.tsx';
@@ -35,10 +35,26 @@ interface AdminViewProps {
     setError: (message: string) => void;
 }
 
+const TABS: { id: AdminTab, label: string, roles: UserRole[] }[] = [
+    { id: 'checkin', label: 'Check-in', roles: ['superadmin', 'admin', 'checkin'] },
+    { id: 'scanner', label: 'Scanner QR', roles: ['superadmin', 'admin', 'checkin'] },
+    { id: 'logs', label: 'Histórico', roles: ['superadmin', 'admin', 'checkin'] },
+    { id: 'register', label: 'Cadastrar', roles: ['superadmin', 'admin'] },
+    { id: 'suppliers', label: 'Fornecedores', roles: ['superadmin', 'admin'] },
+    { id: 'companies', label: 'Empresas', roles: ['superadmin', 'admin'] },
+    { id: 'sectors', label: 'Setores', roles: ['superadmin', 'admin'] },
+    { id: 'spreadsheet', label: 'Importar', roles: ['superadmin', 'admin'] },
+    { id: 'reports', label: 'Rel. Pulseiras', roles: ['superadmin', 'admin'] },
+    { id: 'users', label: 'Usuários', roles: ['superadmin'] },
+];
+
+
 const AdminView: React.FC<AdminViewProps> = (props) => {
     const { user, eventData, currentEventId, currentEventName, onBackToEvents, onLogout, onRegister, setError } = props;
     const { t } = useTranslation();
-    const [activeTab, setActiveTab] = useState<AdminTab>('checkin');
+
+    const availableTabs = useMemo(() => TABS.filter(tab => tab.roles.includes(user.role)), [user.role]);
+    const [activeTab, setActiveTab] = useState<AdminTab>(availableTabs[0]?.id ?? 'checkin');
     
     // Additional state for user management
     const [users, setUsers] = useState<User[]>([]);
@@ -46,7 +62,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
 
     // Memoize the props for CheckinView to prevent re-renders on tab change
     const checkinViewProps = useMemo(() => ({
-        userRole: user.role as 'admin' | 'checkin',
+        userRole: user.role,
         attendees: eventData.attendees,
         suppliers: eventData.suppliers,
         sectors: eventData.sectors,
@@ -93,21 +109,6 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
     const handleCreateUser = (userData: Omit<User, 'id'>) => api.createUser(userData).then(fetchUsersAndEvents);
     const handleUpdateUser = (userId: string, data: Partial<User>) => api.updateUser(userId, data).then(fetchUsersAndEvents);
     const handleDeleteUser = (userId: string) => api.deleteUser(userId).then(fetchUsersAndEvents);
-
-    const TABS: { id: AdminTab, label: string, adminOnly?: boolean }[] = [
-        { id: 'checkin', label: 'Check-in' },
-        { id: 'register', label: 'Cadastrar' },
-        { id: 'scanner', label: 'Scanner QR'},
-        { id: 'suppliers', label: 'Fornecedores', adminOnly: true },
-        { id: 'companies', label: 'Empresas', adminOnly: true },
-        { id: 'sectors', label: 'Setores', adminOnly: true },
-        { id: 'spreadsheet', label: 'Importar', adminOnly: true },
-        { id: 'reports', label: 'Rel. Pulseiras', adminOnly: true },
-        { id: 'logs', label: 'Histórico', adminOnly: true },
-        { id: 'users', label: 'Usuários', adminOnly: true },
-    ];
-    
-    const availableTabs = TABS.filter(tab => !tab.adminOnly || user.role === 'superadmin');
     
     useEffect(() => {
         if (activeTab === 'users' && user.role === 'superadmin') {

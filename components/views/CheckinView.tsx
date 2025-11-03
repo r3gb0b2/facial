@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Attendee, CheckinStatus, Supplier, Sector } from '../../types.ts';
+import { Attendee, CheckinStatus, Supplier, Sector, UserRole } from '../../types.ts';
 import AttendeeCard from '../AttendeeCard.tsx';
 // FIX: Changed to a named import to resolve module error.
 import { AttendeeDetailModal } from '../AttendeeDetailModal.tsx';
@@ -7,8 +7,6 @@ import * as api from '../../firebase/service.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { SearchIcon, CheckCircleIcon, UsersIcon, ArrowDownTrayIcon } from '../icons.tsx';
 import * as XLSX from 'xlsx';
-
-type UserRole = 'admin' | 'checkin';
 
 interface CheckinViewProps {
   userRole: UserRole;
