@@ -65,3 +65,13 @@ export interface Sector {
   label: string; // e.g., 'Staff'
   color?: string; // e.g., '#ff0000'
 }
+
+export type UserRole = 'superadmin' | 'admin' | 'checkin';
+
+export interface User {
+  id: string;
+  username: string;
+  password?: string; // Should not be sent to client, but needed for creation/update
+  role: UserRole;
+  linkedEventIds: string[];
+}

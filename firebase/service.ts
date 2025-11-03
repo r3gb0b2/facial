@@ -1,7 +1,7 @@
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
 import { db, storage, FieldValue, Timestamp } from './config.ts';
-import { Attendee, CheckinStatus, Event, Supplier, Sector, SubCompany } from '../types.ts';
+import { Attendee, CheckinStatus, Event, Supplier, Sector, SubCompany, User } from '../types.ts';
 import { v4 as uuidv4 } from 'uuid';
 
 // Helper to extract data and id from snapshots
@@ -487,4 +487,51 @@ export const deleteSector = async (eventId: string, sectorId: string) => {
         throw new Error('Sector is in use and cannot be deleted.');
     }
     return db.collection('events').doc(eventId).collection('sectors').doc(sectorId).delete();
+};
+
+
+// User Management
+export const authenticateUser = async (username: string, password: string): Promise<User | null> => {
+    const snapshot = await db.collection('users').where('username', '==', username).limit(1).get();
+    if (snapshot.empty) {
+        return null;
+    }
+    const user = getData<User>(snapshot.docs[0]);
+    // Note: In a real-world application, passwords should be hashed and compared securely.
+    if (user.password === password) {
+        const { password: _, ...userWithoutPassword } = user;
+        return userWithoutPassword as User;
+    }
+    return null;
+};
+
+export const getUsers = async (): Promise<User[]> => {
+    const snapshot = await db.collection('users').orderBy('username', 'asc').get();
+    // Exclude passwords from the data sent to the client
+    return snapshot.docs.map(doc => {
+        const data = doc.data();
+        delete data.password;
+        return { id: doc.id, ...data } as User;
+    });
+};
+
+export const createUser = async (userData: Omit<User, 'id'>) => {
+    // Check for unique username server-side
+    const snapshot = await db.collection('users').where('username', '==', userData.username).get();
+    if (!snapshot.empty) {
+        throw new Error("Username already exists.");
+    }
+    return db.collection('users').add(userData);
+};
+
+export const updateUser = (id: string, data: Partial<User>) => {
+    // If password is an empty string or undefined, don't update it.
+    if (!data.password) {
+        delete data.password;
+    }
+    return db.collection('users').doc(id).update(data);
+};
+
+export const deleteUser = (id: string) => {
+    return db.collection('users').doc(id).delete();
 };

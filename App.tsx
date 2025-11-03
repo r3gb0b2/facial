@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Attendee, Event, Sector, Supplier, CheckinStatus, SubCompany } from './types.ts';
+import { Attendee, Event, Sector, Supplier, CheckinStatus, SubCompany, User, UserRole } from './types.ts';
 import * as api from './firebase/service.ts';
 import { useTranslation } from './hooks/useTranslation.tsx';
 
@@ -12,11 +12,6 @@ import RegistrationClosedView from './components/views/RegistrationClosedView.ts
 import EventModal from './components/EventModal.tsx';
 
 type View = 'login' | 'event-selection' | 'admin' | 'supplier-registration' | 'supplier-admin' | 'closed';
-type UserRole = 'admin' | 'checkin';
-interface User {
-  username: string;
-  role: UserRole;
-}
 
 const NO_PHOTO_PLACEHOLDER = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCIgZmlsbD0ibm9uZSI+PHJlY3Qgd2lkdGg9IjIwMCIgaGVpZHRoPSIyMDAiIGZpbGw9IiMzNzQxNTEiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IiNFNUU3RUIiIGZvbnQtd2VpZHRoPSJib2xkIj5TRU0gRk9UTzwvdGV4dD48L3N2Zz4=';
 
@@ -34,6 +29,8 @@ const App: React.FC = () => {
 
   // Data state
   const [events, setEvents] = useState<Event[]>([]);
+  const [allEvents, setAllEvents] = useState<Event[]>([]); // For superadmin user management
+  const [users, setUsers] = useState<User[]>([]);
   const [currentEvent, setCurrentEvent] = useState<Event | null>(() => {
     const savedEvent = sessionStorage.getItem('currentEvent');
     return savedEvent ? JSON.parse(savedEvent) : null;
@@ -59,42 +56,82 @@ const App: React.FC = () => {
 
   useEffect(clearGlobalError, [globalError]);
 
-  const handleLogin = (username: string, password: string) => {
-    if (username.toLowerCase() === 'admin' && password === '12345') {
-      const user: User = { username: 'admin', role: 'admin' };
+  const handleLogin = async (username: string, password: string) => {
+    setLoginError(null);
+    // Special case for initial superadmin login
+    if (username.toLowerCase() === 'superadmin' && password === 'superadmin') {
+      const user: User = { id: 'superadmin', username: 'superadmin', role: 'superadmin', linkedEventIds: [] };
       sessionStorage.setItem('currentUser', JSON.stringify(user));
       setCurrentUser(user);
-      setLoginError(null);
       setView('event-selection');
-    } else if (username.toLowerCase() === 'checkin' && password === 'checkin') {
-      const user: User = { username: 'checkin', role: 'checkin' };
-      sessionStorage.setItem('currentUser', JSON.stringify(user));
-      setCurrentUser(user);
-      setLoginError(null);
-      setView('event-selection');
-    } else {
+      return;
+    }
+
+    try {
+      const user = await api.authenticateUser(username, password);
+      if (user) {
+        sessionStorage.setItem('currentUser', JSON.stringify(user));
+        setCurrentUser(user);
+        
+        // If user is linked to only one event, go directly to it.
+        if (user.linkedEventIds.length === 1) {
+            const allEventsFromApi = await api.getEvents();
+            const singleEvent = allEventsFromApi.find(e => e.id === user.linkedEventIds[0]);
+            if (singleEvent) {
+                handleSelectEvent(singleEvent);
+                return;
+            }
+        }
+        // Otherwise, show event selection screen (which will be filtered)
+        setView('event-selection');
+      } else {
+        setLoginError(t('login.errors.invalidCredentials'));
+      }
+    } catch (error) {
+      console.error(error);
       setLoginError(t('login.errors.invalidCredentials'));
     }
   };
+
+  const loadAllDataForSuperAdmin = useCallback(async () => {
+    if (currentUser?.role !== 'superadmin') return;
+    try {
+        const fetchedUsers = await api.getUsers();
+        setUsers(fetchedUsers);
+    } catch (error) {
+        console.error(error);
+        setGlobalError('Failed to load users.');
+    }
+  }, [currentUser]);
 
   const loadEvents = useCallback(async () => {
     setIsLoading(true);
     try {
       const fetchedEvents = await api.getEvents();
-      setEvents(fetchedEvents);
+      setAllEvents(fetchedEvents); // Store all events for superadmin user management
+
+      if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'checkin')) {
+        const allowedEvents = fetchedEvents.filter(event => currentUser.linkedEventIds.includes(event.id));
+        setEvents(allowedEvents);
+      } else { // superadmin gets all events
+        setEvents(fetchedEvents);
+      }
     } catch (error) {
       console.error(error);
       setGlobalError(t('errors.loadEvents'));
     } finally {
       setIsLoading(false);
     }
-  }, [t]);
+  }, [t, currentUser]);
 
   useEffect(() => {
     if (currentUser) {
       loadEvents();
+      if (currentUser.role === 'superadmin') {
+        loadAllDataForSuperAdmin();
+      }
     }
-  }, [currentUser, loadEvents]);
+  }, [currentUser, loadEvents, loadAllDataForSuperAdmin]);
 
   useEffect(() => {
     let unsubscribe: (() => void) | null = null;
@@ -135,7 +172,6 @@ const App: React.FC = () => {
                              setView('closed');
                         }
                     } else {
-                        // This case might not be hit if onError handles it, but good to have.
                         setGlobalError(t('errors.invalidSupplierLink'));
                         setView('login');
                     }
@@ -375,7 +411,8 @@ const App: React.FC = () => {
             successCount++;
 
         } catch (error) {
-            // FIX: The error object is of type 'unknown'. To safely access its 'message' property, it is checked to be an instance of Error.
+            // FIX: Error on line 383: Type 'unknown' is not assignable to type 'string'.
+            // Safely handle the 'unknown' type of the caught error by ensuring it's converted to a string.
             let reason: string;
             if (error instanceof Error) {
                 reason = `Erro no servidor: ${error.message}`;
@@ -411,7 +448,6 @@ const App: React.FC = () => {
     try {
       await api.deleteSupplier(currentEvent.id, supplier.id);
     } catch (error) {
-      // FIX: The error object is of type 'unknown'. To safely use its 'message' property, it is checked to be an instance of Error before calling setGlobalError.
       if (error instanceof Error) {
         setGlobalError(error.message);
       } else {
@@ -457,6 +493,35 @@ const App: React.FC = () => {
     }
   };
   
+  // User Handlers
+  const handleCreateUser = async (userData: Omit<User, 'id'>) => {
+    try {
+      await api.createUser(userData);
+      await loadAllDataForSuperAdmin();
+    } catch(error) {
+        // FIX: Error on line 406: Type 'unknown' is not assignable to type 'string'.
+        // The original code used a risky 'any' type. This handles unknown errors safely.
+        if (error instanceof Error) {
+            setGlobalError(error.message || "Failed to create user.");
+        } else {
+            setGlobalError(String(error) || "Failed to create user.");
+        }
+        throw error;
+    }
+  };
+
+  const handleUpdateUser = async (userId: string, data: Partial<User>) => {
+    await api.updateUser(userId, data);
+    await loadAllDataForSuperAdmin();
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if(window.confirm('Tem certeza que deseja deletar este usuário?')) {
+        await api.deleteUser(userId);
+        await loadAllDataForSuperAdmin();
+    }
+  };
+
   const renderContent = () => {
     if (isLoading) {
       return <div className="min-h-screen flex items-center justify-center"><div className="w-16 h-16 border-4 border-dashed rounded-full animate-spin border-indigo-500"></div></div>;
@@ -470,12 +535,14 @@ const App: React.FC = () => {
       case 'admin':
         if (currentEvent && currentUser) {
           return <AdminView 
-            userRole={currentUser.role}
+            currentUser={currentUser}
             isLoading={isLoading}
             currentEvent={currentEvent}
             attendees={attendees}
             suppliers={suppliers}
             sectors={sectors}
+            users={users}
+            allEvents={allEvents}
             onRegister={handleRegister}
             onImportAttendees={handleImportAttendees}
             onAddSupplier={handleAddSupplier}
@@ -496,6 +563,9 @@ const App: React.FC = () => {
             onApproveNewRegistration={handleApproveNewRegistration}
             onRejectNewRegistration={handleRejectNewRegistration}
             onUpdateSectorsForSelectedAttendees={handleUpdateSectorsForSelectedAttendees}
+            onCreateUser={handleCreateUser}
+            onUpdateUser={handleUpdateUser}
+            onDeleteUser={handleDeleteUser}
             onBack={handleBackToEvents}
             setError={setGlobalError}
           />;

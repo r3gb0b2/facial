@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Attendee, Sector, Supplier, Event, SubCompany, CheckinStatus } from '../../types.ts';
+import { Attendee, Sector, Supplier, Event, SubCompany, CheckinStatus, User } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import CheckinView from './CheckinView.tsx';
 import RegisterView from './RegisterView.tsx';
@@ -10,18 +10,20 @@ import SpreadsheetUploadView from './SpreadsheetUploadView.tsx';
 import CompanyManagementView from './CompanyManagementView.tsx';
 import QRCodeScannerView from './QRCodeScannerView.tsx';
 import CheckinLogView from './CheckinLogView.tsx';
+import UserManagementView from './UserManagementView.tsx';
 import { ArrowLeftOnRectangleIcon, SpinnerIcon } from '../icons.tsx';
 
-type AdminTab = 'checkin' | 'checkinLog' | 'qrValidation' | 'register' | 'suppliers' | 'sectors' | 'wristbands' | 'companies';
-type UserRole = 'admin' | 'checkin';
+type AdminTab = 'checkin' | 'checkinLog' | 'qrValidation' | 'register' | 'suppliers' | 'sectors' | 'wristbands' | 'companies' | 'users';
 
 interface AdminViewProps {
-    userRole: UserRole;
+    currentUser: User;
     isLoading: boolean;
     currentEvent: Event;
     attendees: Attendee[];
     suppliers: Supplier[];
     sectors: Sector[];
+    users: User[];
+    allEvents: Event[];
     onRegister: (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>, supplierId?: string) => Promise<void>;
     onImportAttendees: (data: any[]) => Promise<void>;
     onAddSupplier: (name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[]) => Promise<void>;
@@ -42,6 +44,9 @@ interface AdminViewProps {
     onApproveNewRegistration: (attendeeId: string) => Promise<void>;
     onRejectNewRegistration: (attendeeId: string) => Promise<void>;
     onUpdateSectorsForSelectedAttendees: (attendeeIds: string[], sectorIds: string[]) => Promise<void>;
+    onCreateUser: (userData: Omit<User, 'id'>) => Promise<void>;
+    onUpdateUser: (userId: string, data: Partial<User>) => Promise<void>;
+    onDeleteUser: (userId: string) => Promise<void>;
     onBack: () => void;
     setError: (message: string) => void;
 }
@@ -54,24 +59,32 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
         return (savedTab as AdminTab) || 'checkin';
     });
 
-    const allTabs: { id: AdminTab; label: string }[] = useMemo(() => [
-        { id: 'checkin', label: t('admin.tabs.checkin') },
-        { id: 'checkinLog', label: t('admin.tabs.checkinLog') },
-        { id: 'qrValidation', label: t('admin.tabs.qrValidation') },
-        { id: 'register', label: t('admin.tabs.register') },
-        { id: 'suppliers', label: t('admin.tabs.suppliers') },
-        { id: 'companies', label: t('admin.tabs.companies') },
-        { id: 'sectors', label: t('admin.tabs.sectors') },
-        { id: 'wristbands', label: t('admin.tabs.wristbands') },
-    ], [t]);
+    const allTabs: { id: AdminTab; label: string }[] = useMemo(() => {
+        const tabs: { id: AdminTab; label: string }[] = [
+            { id: 'checkin', label: t('admin.tabs.checkin') },
+            { id: 'checkinLog', label: t('admin.tabs.checkinLog') },
+            { id: 'qrValidation', label: t('admin.tabs.qrValidation') },
+            { id: 'register', label: t('admin.tabs.register') },
+            { id: 'suppliers', label: t('admin.tabs.suppliers') },
+            { id: 'companies', label: t('admin.tabs.companies') },
+            { id: 'sectors', label: t('admin.tabs.sectors') },
+            { id: 'wristbands', label: t('admin.tabs.wristbands') },
+        ];
+        if (props.currentUser.role === 'superadmin') {
+            tabs.push({ id: 'users', label: t('admin.tabs.users') });
+        }
+        return tabs;
+    }, [t, props.currentUser.role]);
+
 
     const tabs = useMemo(() => {
-        if (props.userRole === 'checkin') {
+        const role = props.currentUser.role;
+        if (role === 'checkin') {
             const checkinTabs = new Set<AdminTab>(['checkin', 'checkinLog', 'qrValidation']);
             return allTabs.filter(tab => checkinTabs.has(tab.id));
         }
         return allTabs;
-    }, [props.userRole, allTabs]);
+    }, [props.currentUser.role, allTabs]);
 
     useEffect(() => {
         // If the current active tab is not available for the user role, default to the first available tab
@@ -96,7 +109,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
         switch(activeTab) {
             case 'checkin':
                 return <CheckinView 
-                    userRole={props.userRole}
+                    userRole={props.currentUser.role}
                     attendees={props.attendees} 
                     suppliers={props.suppliers} 
                     sectors={props.sectors}
@@ -162,6 +175,18 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                 return <SectorManagementView sectors={props.sectors} onAddSector={props.onAddSector} onUpdateSector={props.onUpdateSector} onDeleteSector={props.onDeleteSector} setError={props.setError} />;
             case 'wristbands':
                 return <WristbandReportView attendees={props.attendees} sectors={props.sectors} />;
+             case 'users':
+                if (props.currentUser.role === 'superadmin') {
+                    return <UserManagementView 
+                        users={props.users}
+                        events={props.allEvents}
+                        onCreateUser={props.onCreateUser}
+                        onUpdateUser={props.onUpdateUser}
+                        onDeleteUser={props.onDeleteUser}
+                        setError={props.setError}
+                    />;
+                }
+                return null;
             default:
                 return null;
         }
