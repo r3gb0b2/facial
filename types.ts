@@ -23,7 +23,9 @@ export interface Attendee {
   eventId: string;
   createdAt: FirebaseTimestamp;
   checkinTime?: FirebaseTimestamp;
+  checkedInBy?: string; // User's username who performed the check-in
   checkoutTime?: FirebaseTimestamp;
+  checkedOutBy?: string; // User's username who performed the check-out
   supplierId?: string; // To track which supplier registered the attendee
   subCompany?: string; // The attendee's specific company under a supplier
   wristbands?: { [sectorId: string]: string }; // Maps sectorId to wristband number

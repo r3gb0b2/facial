@@ -62,7 +62,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
 
     // Memoize the props for CheckinView to prevent re-renders on tab change
     const checkinViewProps = useMemo(() => ({
-        userRole: user.role,
+        user: user,
         attendees: eventData.attendees,
         suppliers: eventData.suppliers,
         sectors: eventData.sectors,
@@ -77,7 +77,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
         onApproveNewRegistration: props.onApproveNewRegistration,
         onRejectNewRegistration: props.onRejectNewRegistration,
         setError: setError
-    }), [user.role, eventData, currentEventId, currentEventName, props.onUpdateAttendeeDetails, props.onDeleteAttendee, props.onApproveSubstitution, props.onRejectSubstitution, props.onApproveSectorChange, props.onRejectSectorChange, props.onApproveNewRegistration, props.onRejectNewRegistration, setError]);
+    }), [user, eventData, currentEventId, currentEventName, props.onUpdateAttendeeDetails, props.onDeleteAttendee, props.onApproveSubstitution, props.onRejectSubstitution, props.onApproveSectorChange, props.onRejectSectorChange, props.onApproveNewRegistration, props.onRejectNewRegistration, setError]);
 
     const handleAddSupplier = (name: string, sectors: string[], registrationLimit: number, subCompanies: any[]) => api.addSupplier(currentEventId, name, sectors, registrationLimit, subCompanies);
     const handleUpdateSupplier = (supplierId: string, data: Partial<Supplier>) => api.updateSupplier(currentEventId, supplierId, data);
@@ -95,7 +95,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
         // ... (spreadsheet import logic)
     };
 
-    const handleUpdateStatusForScanner = (attendeeId: string, status: any) => api.updateAttendeeStatus(currentEventId, attendeeId, status);
+    const handleUpdateStatusForScanner = (attendeeId: string, status: any) => api.updateAttendeeStatus(currentEventId, attendeeId, status, user.username);
     
      // User management handlers
     const fetchUsersAndEvents = async () => {

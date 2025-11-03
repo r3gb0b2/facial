@@ -14,6 +14,7 @@ interface LogEntry {
   photo: string;
   type: 'checkin' | 'checkout';
   timestamp: Date;
+  user?: string;
 }
 
 // Helper function for accent-insensitive search
@@ -40,7 +41,8 @@ const CheckinLogView: React.FC<CheckinLogViewProps> = ({ attendees }) => {
                     cpf: attendee.cpf,
                     photo: attendee.photo,
                     type: 'checkin',
-                    timestamp: new Date(attendee.checkinTime.seconds * 1000)
+                    timestamp: new Date(attendee.checkinTime.seconds * 1000),
+                    user: attendee.checkedInBy,
                 });
             }
             if (attendee.checkoutTime && attendee.checkoutTime.seconds) {
@@ -50,7 +52,8 @@ const CheckinLogView: React.FC<CheckinLogViewProps> = ({ attendees }) => {
                     cpf: attendee.cpf,
                     photo: attendee.photo,
                     type: 'checkout',
-                    timestamp: new Date(attendee.checkoutTime.seconds * 1000)
+                    timestamp: new Date(attendee.checkoutTime.seconds * 1000),
+                    user: attendee.checkedOutBy,
                 });
             }
         });
@@ -106,6 +109,7 @@ const CheckinLogView: React.FC<CheckinLogViewProps> = ({ attendees }) => {
                                 <tr>
                                     <th scope="col" className="px-6 py-3">{t('checkinLog.header.attendee')}</th>
                                     <th scope="col" className="px-6 py-3">{t('checkinLog.header.action')}</th>
+                                    <th scope="col" className="px-6 py-3">{t('checkinLog.header.user')}</th>
                                     <th scope="col" className="px-6 py-3 text-right">{t('checkinLog.header.timestamp')}</th>
                                 </tr>
                             </thead>
@@ -132,6 +136,7 @@ const CheckinLogView: React.FC<CheckinLogViewProps> = ({ attendees }) => {
                                                 </span>
                                             )}
                                         </td>
+                                        <td className="px-6 py-4 font-mono text-xs">{log.user || 'N/A'}</td>
                                         <td className="px-6 py-4 text-right font-mono text-gray-400">
                                             {formatTimestamp(log.timestamp)}
                                         </td>

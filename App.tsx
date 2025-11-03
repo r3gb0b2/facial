@@ -132,24 +132,57 @@ const App: React.FC = () => {
         setEventData({ attendees: [], suppliers: [], sectors: [] });
     };
 
+    // Helper to refetch and filter events for the current user
+    const refreshAndFilterEvents = async (currentUser: User) => {
+        const allEvents = await api.getEvents();
+        if (currentUser.role === 'superadmin') {
+            setEvents(allEvents);
+        } else {
+            const linkedEvents = allEvents.filter(e => currentUser.linkedEventIds.includes(e.id));
+            setEvents(linkedEvents);
+        }
+    };
+
     // CRUD operations passed down to AdminView
     const handleCreateEvent = async (name: string) => {
-        await api.createEvent(name);
-        const fetchedEvents = await api.getEvents();
-        setEvents(fetchedEvents);
+        if (!user) return;
+        const newEventRef = await api.createEvent(name);
+        const newEventId = newEventRef.id;
+
+        if (user.role === 'admin') {
+            const updatedLinkedEventIds = [...user.linkedEventIds, newEventId];
+            await api.updateUser(user.id, { linkedEventIds: updatedLinkedEventIds });
+            const updatedUser = { ...user, linkedEventIds: updatedLinkedEventIds };
+            setUser(updatedUser);
+            await refreshAndFilterEvents(updatedUser);
+        } else {
+            // For superadmin, just refresh all events
+            await refreshAndFilterEvents(user);
+        }
     };
 
     const handleUpdateEvent = async (id: string, name: string) => {
+        if (!user) return;
         await api.updateEvent(id, name);
-        const fetchedEvents = await api.getEvents();
-        setEvents(fetchedEvents);
+        await refreshAndFilterEvents(user);
     };
 
     const handleDeleteEvent = async (id: string) => {
+        if (!user) return;
+        
         await api.deleteEvent(id);
-        const fetchedEvents = await api.getEvents();
-        setEvents(fetchedEvents);
+
+        if (user.role === 'admin') {
+            const updatedLinkedEventIds = user.linkedEventIds.filter(eventId => eventId !== id);
+            await api.updateUser(user.id, { linkedEventIds: updatedLinkedEventIds }); 
+            const updatedUser = { ...user, linkedEventIds: updatedLinkedEventIds };
+            setUser(updatedUser);
+            await refreshAndFilterEvents(updatedUser);
+        } else {
+            await refreshAndFilterEvents(user);
+        }
     };
+
 
     const handleRegister = async (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>, supplierId?: string) => {
         const eventId = currentEventId || supplierInfo?.data.eventId;

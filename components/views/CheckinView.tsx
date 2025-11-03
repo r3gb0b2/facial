@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Attendee, CheckinStatus, Supplier, Sector, UserRole } from '../../types.ts';
+import { Attendee, CheckinStatus, Supplier, Sector, User } from '../../types.ts';
 import AttendeeCard from '../AttendeeCard.tsx';
 // FIX: Changed to a named import to resolve module error.
 import { AttendeeDetailModal } from '../AttendeeDetailModal.tsx';
@@ -9,7 +9,7 @@ import { SearchIcon, CheckCircleIcon, UsersIcon, ArrowDownTrayIcon } from '../ic
 import * as XLSX from 'xlsx';
 
 interface CheckinViewProps {
-  userRole: UserRole;
+  user: User;
   attendees: Attendee[];
   suppliers: Supplier[];
   sectors: Sector[];
@@ -36,7 +36,7 @@ const normalizeString = (str: string) => {
     .trim();
 };
 
-const CheckinView: React.FC<CheckinViewProps> = ({ userRole, attendees, suppliers, sectors, currentEventId, currentEventName, onUpdateAttendeeDetails, onDeleteAttendee, onApproveSubstitution, onRejectSubstitution, onApproveSectorChange, onRejectSectorChange, onApproveNewRegistration, onRejectNewRegistration, setError }) => {
+const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, sectors, currentEventId, currentEventName, onUpdateAttendeeDetails, onDeleteAttendee, onApproveSubstitution, onRejectSubstitution, onApproveSectorChange, onRejectSectorChange, onApproveNewRegistration, onRejectNewRegistration, setError }) => {
   const { t } = useTranslation();
   const sessionKey = `filters_${currentEventId}`;
 
@@ -79,7 +79,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ userRole, attendees, supplier
 
   const handleUpdateStatus = async (status: CheckinStatus, wristbands?: { [sectorId: string]: string }) => {
     if (selectedAttendee) {
-      await api.updateAttendeeStatus(currentEventId, selectedAttendee.id, status, wristbands);
+      await api.updateAttendeeStatus(currentEventId, selectedAttendee.id, status, user.username, wristbands);
       // Optimistically update local state for a smoother UI
       setSelectedAttendee(prev => {
         if (!prev) return null;
@@ -331,7 +331,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ userRole, attendees, supplier
           
           return (
             <AttendeeDetailModal
-              userRole={userRole}
+              user={user}
               attendee={selectedAttendee}
               sectors={sectors}
               suppliers={suppliers}

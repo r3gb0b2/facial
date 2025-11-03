@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Attendee, CheckinStatus, Sector, Supplier, UserRole } from '../types.ts';
+import { Attendee, CheckinStatus, Sector, Supplier, User } from '../types.ts';
 import { useTranslation } from '../hooks/useTranslation.tsx';
 import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon, SpinnerIcon } from './icons.tsx';
 import QRCodeDisplay from './QRCodeDisplay.tsx';
 
 interface AttendeeDetailModalProps {
-  userRole: UserRole;
+  user: User;
   attendee: Attendee;
   sectors: Sector[];
   suppliers: Supplier[];
@@ -26,7 +26,7 @@ interface AttendeeDetailModalProps {
 }
 
 export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
-  userRole,
+  user,
   attendee,
   sectors,
   suppliers,
@@ -530,13 +530,17 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
         {attendee.checkinTime && (
             <div>
                 <span className="text-sm font-medium text-gray-400">{t('attendeeDetail.checkinTime')}</span>
-                <p className="text-white">{formatTimestamp(attendee.checkinTime)}</p>
+                <p className="text-white">{formatTimestamp(attendee.checkinTime)}
+                {attendee.checkedInBy && <span className="text-xs text-gray-400 italic ml-1">{t('attendeeDetail.byUser', { user: attendee.checkedInBy })}</span>}
+                </p>
             </div>
         )}
          {attendee.checkoutTime && (
             <div>
                 <span className="text-sm font-medium text-gray-400">{t('attendeeDetail.checkoutTime')}</span>
-                <p className="text-white">{formatTimestamp(attendee.checkoutTime)}</p>
+                <p className="text-white">{formatTimestamp(attendee.checkoutTime)}
+                {attendee.checkedOutBy && <span className="text-xs text-gray-400 italic ml-1">{t('attendeeDetail.byUser', { user: attendee.checkedOutBy })}</span>}
+                </p>
             </div>
         )}
       </div>
@@ -615,14 +619,14 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     const statusActions = [];
     switch (attendee.status) {
         case CheckinStatus.PENDING:
-            if (userRole !== 'checkin') {
+            if (user.role !== 'checkin') {
               statusActions.push(renderStatusButton(CheckinStatus.CANCELLED, t('statusUpdateModal.cancelRegistration')));
               statusActions.push(renderStatusButton(CheckinStatus.MISSED, t('statusUpdateModal.markAsMissed')));
             }
             break;
         case CheckinStatus.CHECKED_IN:
             statusActions.push(renderStatusButton(CheckinStatus.CHECKED_OUT, t('attendeeDetail.confirmCheckout'), 'bg-yellow-600 hover:bg-yellow-700'));
-            if (userRole !== 'checkin') {
+            if (user.role !== 'checkin') {
               statusActions.push(renderStatusButton(CheckinStatus.PENDING, t('statusUpdateModal.cancelCheckin')));
             }
             break;
@@ -631,7 +635,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
             break;
         case CheckinStatus.CANCELLED:
         case CheckinStatus.MISSED:
-            if (userRole !== 'checkin') {
+            if (user.role !== 'checkin') {
               statusActions.push(renderStatusButton(CheckinStatus.PENDING, t('statusUpdateModal.reactivateRegistration')));
             }
             break;
@@ -640,7 +644,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     return (
       <div className="space-y-2">
         {statusActions.map((button, index) => <div key={index}>{button}</div>)}
-        {userRole !== 'checkin' && (
+        {user.role !== 'checkin' && (
           <button
             onClick={handleDelete}
             className="w-full text-red-400 hover:bg-red-500/10 font-semibold py-2 rounded-lg transition-colors mt-2"
@@ -668,7 +672,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
               </div>
             </div>
             <div className="flex gap-2">
-              {userRole !== 'checkin' && !isEditing && attendee.status !== CheckinStatus.SUBSTITUTION_REQUEST && attendee.status !== CheckinStatus.SECTOR_CHANGE_REQUEST && attendee.status !== CheckinStatus.PENDING_APPROVAL &&(
+              {user.role !== 'checkin' && !isEditing && attendee.status !== CheckinStatus.SUBSTITUTION_REQUEST && attendee.status !== CheckinStatus.SECTOR_CHANGE_REQUEST && attendee.status !== CheckinStatus.PENDING_APPROVAL &&(
                 <button onClick={() => setIsEditing(true)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700">
                   <PencilIcon className="w-5 h-5" />
                 </button>

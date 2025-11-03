@@ -14,7 +14,7 @@ export const getEvents = async (): Promise<Event[]> => {
     return getCollectionData<Event>(snapshot);
 };
 
-export const createEvent = (name: string) => {
+export const createEvent = (name: string): Promise<firebase.firestore.DocumentReference> => {
     return db.collection('events').add({
         name,
         createdAt: FieldValue.serverTimestamp(),
@@ -162,25 +162,30 @@ export const rejectNewRegistration = (eventId: string, attendeeId: string) => {
 };
 
 
-export const updateAttendeeStatus = (eventId: string, attendeeId: string, status: CheckinStatus, wristbands?: { [sectorId: string]: string }) => {
+export const updateAttendeeStatus = (eventId: string, attendeeId: string, status: CheckinStatus, username: string, wristbands?: { [sectorId: string]: string }) => {
     const dataToUpdate: any = { status };
 
     switch (status) {
         case CheckinStatus.CHECKED_IN:
             dataToUpdate.checkinTime = FieldValue.serverTimestamp();
-            dataToUpdate.checkoutTime = FieldValue.delete(); // Clear on re-entry
+            dataToUpdate.checkedInBy = username;
+            dataToUpdate.checkoutTime = FieldValue.delete();
+            dataToUpdate.checkedOutBy = FieldValue.delete();
             if (wristbands !== undefined) {
                 dataToUpdate.wristbands = wristbands;
             }
             break;
         case CheckinStatus.CHECKED_OUT:
             dataToUpdate.checkoutTime = FieldValue.serverTimestamp();
+            dataToUpdate.checkedOutBy = username;
             break;
         case CheckinStatus.PENDING:
             // This handles cancelling a check-in or checkout
             dataToUpdate.checkinTime = FieldValue.delete();
             dataToUpdate.checkoutTime = FieldValue.delete();
             dataToUpdate.wristbands = FieldValue.delete();
+            dataToUpdate.checkedInBy = FieldValue.delete();
+            dataToUpdate.checkedOutBy = FieldValue.delete();
             break;
     }
 
