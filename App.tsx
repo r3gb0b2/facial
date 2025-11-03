@@ -24,7 +24,7 @@ const App: React.FC = () => {
     const [supplierAdminData, setSupplierAdminData] = useState<{ eventName: string, attendees: Attendee[], eventId: string, supplierId: string, supplier: Supplier, sectors: Sector[] } | null>(null);
     const [publicLinkError, setPublicLinkError] = useState<string | null>(null);
 
-    // Check for URL parameters on initial load to handle public links
+    // Check for URL parameters or saved session on initial load
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const eventId = params.get('eventId');
@@ -65,7 +65,16 @@ const App: React.FC = () => {
             );
             return () => unsubscribe();
         } else {
-            // No public link params, proceed with normal auth flow
+            // No public link params, check for a saved session
+            try {
+                const savedUser = sessionStorage.getItem('currentUser');
+                if (savedUser) {
+                    setUser(JSON.parse(savedUser));
+                }
+            } catch (e) {
+                console.error("Failed to parse user from session storage", e);
+                sessionStorage.removeItem('currentUser');
+            }
             setIsLoading(false);
         }
     }, [t]);
@@ -94,21 +103,22 @@ const App: React.FC = () => {
     const handleLogin = async (username: string, password: string) => {
         try {
             setError(null);
-            // Special case for the hardcoded superadmin user
+            let authenticatedUser: User | null = null;
+            
             if (username === 'superadmin' && password === 'superadmin') {
-                const superAdminUser: User = {
+                authenticatedUser = {
                     id: 'superadmin',
                     username: 'superadmin',
                     role: 'superadmin',
                     linkedEventIds: [] // superadmin has access to all events
                 };
-                setUser(superAdminUser);
-                return; // Exit early
+            } else {
+                authenticatedUser = await api.authenticateUser(username, password);
             }
             
-            const authenticatedUser = await api.authenticateUser(username, password);
             if (authenticatedUser) {
                 setUser(authenticatedUser);
+                sessionStorage.setItem('currentUser', JSON.stringify(authenticatedUser));
             } else {
                 setError('Usuário ou senha inválidos.');
             }
@@ -121,6 +131,7 @@ const App: React.FC = () => {
         setUser(null);
         setCurrentEventId(null);
         setEventData({ attendees: [], suppliers: [], sectors: [] });
+        sessionStorage.removeItem('currentUser');
     };
 
     const handleSelectEvent = (eventId: string) => {
@@ -152,9 +163,10 @@ const App: React.FC = () => {
         if (user.role === 'admin') {
             const updatedLinkedEventIds = [...user.linkedEventIds, newEventId];
             await api.updateUser(user.id, { linkedEventIds: updatedLinkedEventIds });
+            // Update the user state; the useEffect will handle refreshing the event list
             const updatedUser = { ...user, linkedEventIds: updatedLinkedEventIds };
             setUser(updatedUser);
-            await refreshAndFilterEvents(updatedUser);
+            sessionStorage.setItem('currentUser', JSON.stringify(updatedUser));
         } else {
             // For superadmin, just refresh all events
             await refreshAndFilterEvents(user);
@@ -175,9 +187,10 @@ const App: React.FC = () => {
         if (user.role === 'admin') {
             const updatedLinkedEventIds = user.linkedEventIds.filter(eventId => eventId !== id);
             await api.updateUser(user.id, { linkedEventIds: updatedLinkedEventIds }); 
+            // Update the user state; the useEffect will handle refreshing the event list
             const updatedUser = { ...user, linkedEventIds: updatedLinkedEventIds };
             setUser(updatedUser);
-            await refreshAndFilterEvents(updatedUser);
+            sessionStorage.setItem('currentUser', JSON.stringify(updatedUser));
         } else {
             await refreshAndFilterEvents(user);
         }
