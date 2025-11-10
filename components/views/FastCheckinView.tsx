@@ -99,6 +99,21 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
     }
       
     setIsLoading(true);
+
+    let ai: GoogleGenAI;
+    try {
+        const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+        if (!hasKey) {
+            await (window as any).aistudio.openSelectKey();
+        }
+        ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+    } catch (e: any) {
+        console.error("AI SDK Initialization failed:", e);
+        setError(t('errors.apiKeyNeeded'));
+        setIsLoading(false);
+        return;
+    }
+
     setFeedbackMessage(t('fastCheckin.analyzing'));
 
     try {
@@ -111,7 +126,6 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
       
       video.srcObject = stream;
       
-      // Explicitly wait for the video to be ready to play to avoid race conditions
       await new Promise<void>((resolve, reject) => {
         video.onloadedmetadata = () => {
           video.play().then(resolve).catch(reject);
@@ -143,13 +157,11 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
 
       setIsScanning(true);
       
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
       let matchFound = false;
 
       intervalRef.current = setInterval(async () => {
         if (matchFound || !videoRef.current || videoRef.current.paused || videoRef.current.ended) return;
 
-        // Refresh the list of pending attendees in every interval to avoid stale state
         const pendingAttendees = attendeesRef.current.filter(a => a.status === CheckinStatus.PENDING);
         if (pendingAttendees.length === 0) {
             setFeedbackMessage(t('fastCheckin.noPending'));
@@ -161,7 +173,6 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
             const canvas = document.createElement('canvas');
             canvas.width = videoRef.current.videoWidth;
             canvas.height = videoRef.current.videoHeight;
-            // Bail if dimensions are not yet available
             if (!canvas.width || !canvas.height) return;
 
             const context = canvas.getContext('2d');
@@ -227,17 +238,13 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
       }, 4000);
 
     } catch (err: any) {
-      if (err.message && (err.message.includes('API Key') || err.message.includes('API_KEY'))) {
-        setError("Erro de Configuração: A chave da API para a IA não foi encontrada. Certifique-se de que a API Key está corretamente configurada no ambiente.");
-      } else {
-        const baseMessage = t('fastCheckin.cameraError');
-        const errorDetails = `(${err.name || 'Error'}: ${err.message || 'Detalhes indisponíveis'})`;
-        const detailedMessage = `${baseMessage} ${errorDetails}`;
-        setError(detailedMessage);
-      }
+      const baseMessage = t('fastCheckin.cameraError');
+      const errorDetails = `(${err.name || 'Error'}: ${err.message || 'Detalhes indisponíveis'})`;
+      const detailedMessage = `${baseMessage} ${errorDetails}`;
+      setError(detailedMessage);
       console.error("Error starting camera for fast check-in:", err);
       stopScanningProcess();
-      setFeedbackMessage(''); // Clear any optimistic messages
+      setFeedbackMessage('');
     }
   };
 
@@ -248,7 +255,6 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   };
 
   const renderOverlay = () => {
-    // Only show the spinner overlay
     if (isLoading && !foundAttendee) {
       return (
         <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-center p-4">

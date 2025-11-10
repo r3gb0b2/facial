@@ -51,9 +51,24 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
     setVerificationResult(null);
     setVerificationMessage('Analisando...');
 
+    let ai: GoogleGenAI;
     try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-        
+        const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+        if (!hasKey) {
+            await (window as any).aistudio.openSelectKey();
+        }
+        // After attempting to get a key, try to initialize the SDK.
+        ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+    } catch (e: any) {
+        console.error("AI SDK Initialization failed:", e);
+        setVerificationResult('ERROR');
+        setVerificationMessage(t('errors.apiKeyNeeded'));
+        setIsVerifying(false);
+        return;
+    }
+
+
+    try {
         // Prepare registered photo
         const registeredPhotoData = await imageUrlToPartData(attendee.photo);
         const registeredPhotoPart = {
@@ -92,13 +107,8 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
 
     } catch (error: any) {
         console.error("AI Verification Error:", error);
-        if (error.message && (error.message.includes('API Key') || error.message.includes('API_KEY'))) {
-            setVerificationResult('ERROR');
-            setVerificationMessage('Erro de Configuração: Chave da API não encontrada.');
-        } else {
-            setVerificationResult('ERROR');
-            setVerificationMessage('Ocorreu um erro na verificação com IA. Tente novamente ou verifique manualmente.');
-        }
+        setVerificationResult('ERROR');
+        setVerificationMessage('Ocorreu um erro na verificação com IA. Tente novamente ou verifique manualmente.');
     } finally {
         setIsVerifying(false);
     }
