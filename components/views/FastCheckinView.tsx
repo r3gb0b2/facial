@@ -116,7 +116,29 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
         video.onloadedmetadata = () => {
           video.play().then(resolve).catch(reject);
         };
-        video.onerror = (e) => reject(`Video error: ${e}`);
+        video.onerror = () => {
+            const mediaError = video.error;
+            let message = 'Erro desconhecido ao reproduzir o vídeo.';
+            if (mediaError) {
+                switch (mediaError.code) {
+                    case mediaError.MEDIA_ERR_ABORTED:
+                        message = 'A reprodução de vídeo foi abortada.';
+                        break;
+                    case mediaError.MEDIA_ERR_NETWORK:
+                        message = 'Um erro de rede impediu o carregamento do vídeo.';
+                        break;
+                    case mediaError.MEDIA_ERR_DECODE:
+                        message = 'Erro na decodificação do vídeo.';
+                        break;
+                    case mediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                        message = 'Formato de vídeo não suportado.';
+                        break;
+                    default:
+                        message = `Ocorreu um erro inesperado no vídeo (Código: ${mediaError.code})`;
+                }
+            }
+            reject(new Error(message));
+        };
       });
 
       setIsScanning(true);
@@ -206,7 +228,8 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
 
     } catch (err: any) {
       const baseMessage = t('fastCheckin.cameraError');
-      const detailedMessage = `${baseMessage} (Código: ${err.name || 'Desconhecido'})`;
+      const errorDetails = `(${err.name || 'Error'}: ${err.message || 'Detalhes indisponíveis'})`;
+      const detailedMessage = `${baseMessage} ${errorDetails}`;
       setError(detailedMessage);
       console.error("Error starting camera for fast check-in:", err);
       stopScanningProcess();

@@ -47,11 +47,10 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
       setIsStreamActive(true);
     } catch (err: any) {
       console.error("Error accessing webcam:", err); // Log the full error for better debugging
-      // Provide a more detailed error message for debugging, including the error name.
-      // This helps distinguish between permission denial (NotAllowedError) and other issues
-      // like the camera being in use (NotReadableError) or not found (NotFoundError).
-      const baseMessage = "Não foi possível acessar a webcam. Verifique as permissões e tente novamente.";
-      const detailedMessage = `${baseMessage} (Código: ${err.name || 'Desconhecido'})`;
+      // Provide a more detailed error message for debugging, including the error name and message.
+      const baseMessage = "Não foi possível acessar a webcam.";
+      const errorDetails = `(${err.name || 'Error'}: ${err.message || 'Verifique as permissões e se a câmera não está em uso por outro app.'})`;
+      const detailedMessage = `${baseMessage} ${errorDetails}`;
       setError(detailedMessage);
     }
   }, [stopStream]);
