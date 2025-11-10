@@ -91,11 +91,9 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
 
   const handleSelectKey = async () => {
     try {
-        if (!(window as any).aistudio || typeof (window as any).aistudio.openSelectKey !== 'function') {
-            throw new Error("A função para selecionar a chave de API (aistudio.openSelectKey) não está disponível neste ambiente.");
-        }
         await (window as any).aistudio.openSelectKey();
-        handleStartScanning();
+        // Assume key is selected and bypass the check to avoid race condition
+        handleStartScanning(true);
     } catch (e: any) {
         const errorMessage = e?.message || 'Detalhes indisponíveis';
         console.error("Failed to open API key selection:", e);
@@ -104,7 +102,7 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   };
 
 
-  const handleStartScanning = async () => {
+  const handleStartScanning = async (bypassKeyCheck = false) => {
     if (isScanning || isLoading) return;
     
     setFoundAttendee(null);
@@ -121,12 +119,14 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
 
     let ai: GoogleGenAI;
     try {
-        const hasKey = await (window as any).aistudio.hasSelectedApiKey();
-        if (!hasKey) {
-            setApiKeyNeeded(true);
-            setFeedbackMessage(t('errors.apiKeyNeeded'));
-            setIsLoading(false);
-            return;
+        if (!bypassKeyCheck) {
+            const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+            if (!hasKey) {
+                setApiKeyNeeded(true);
+                setFeedbackMessage(t('errors.apiKeyNeeded'));
+                setIsLoading(false);
+                return;
+            }
         }
         ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     } catch (e: any) {
@@ -342,7 +342,7 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
         
         <div className="mt-6">
           {!isScanning && !isLoading ? (
-            <button onClick={handleStartScanning} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-4 rounded-lg transition-colors">
+            <button onClick={() => handleStartScanning()} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-4 rounded-lg transition-colors">
               {t('fastCheckin.start')}
             </button>
           ) : (

@@ -18,7 +18,8 @@ interface RegisterViewProps {
   predefinedSector?: string | string[];
   eventName?: string;
   supplierName?: string;
-  supplierInfo?: { data: Supplier };
+  // FIX: Corrected the type for the 'supplierInfo' prop to include 'eventId' on the 'data' object, resolving a TypeScript error where 'eventId' was being accessed on a 'Supplier' type that did not contain it.
+  supplierInfo?: { data: Supplier & { eventId: string } };
 }
 
 const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, sectors, suppliers = [], predefinedSector, eventName, supplierName, supplierInfo }) => {

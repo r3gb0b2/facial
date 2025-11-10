@@ -49,9 +49,11 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
   
   const handleSelectKey = async () => {
     try {
+        if (!(window as any).aistudio || typeof (window as any).aistudio.openSelectKey !== 'function') {
+            throw new Error("A função para selecionar a chave de API (aistudio.openSelectKey) não está disponível neste ambiente.");
+        }
         await (window as any).aistudio.openSelectKey();
-        // Assume key is selected and bypass the check to avoid race condition
-        handleVerification(true);
+        handleVerification();
     } catch (e: any) {
         const errorMessage = e?.message || 'Detalhes indisponíveis';
         console.error("Failed to open API key selection", e);
@@ -60,7 +62,7 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
     }
   };
 
-  const handleVerification = async (bypassKeyCheck = false) => {
+  const handleVerification = async () => {
     if (!verificationPhoto) return;
 
     setIsVerifying(true);
@@ -70,20 +72,19 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
 
     let ai: GoogleGenAI;
     try {
-        if (!bypassKeyCheck) {
-            const hasKey = await (window as any).aistudio.hasSelectedApiKey();
-            if (!hasKey) {
-                setApiKeyNeeded(true);
-                setVerificationResult('ERROR');
-                setVerificationMessage(t('errors.apiKeyNeeded'));
-                setIsVerifying(false);
-                return;
-            }
+        const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+        if (!hasKey) {
+            setApiKeyNeeded(true);
+            setVerificationResult('ERROR');
+            setVerificationMessage(t('errors.apiKeyNeeded'));
+            setIsVerifying(false);
+            return;
         }
         ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     } catch (e: any) {
         console.error("AI SDK Initialization failed:", e);
         setVerificationResult('ERROR');
+        // This catch block might be redundant if hasSelectedApiKey is reliable, but it's a good safeguard.
         setVerificationMessage(t('errors.apiKeyNeeded'));
         setIsVerifying(false);
         setApiKeyNeeded(true);
@@ -172,7 +173,7 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
                 {verificationPhoto && !verificationResult && !apiKeyNeeded && (
                     <div className="mt-4 w-full">
                         <button
-                            onClick={() => handleVerification()}
+                            onClick={handleVerification}
                             disabled={isVerifying}
                             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 disabled:bg-indigo-400 disabled:cursor-wait"
                         >
