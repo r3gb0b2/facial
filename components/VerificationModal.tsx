@@ -90,10 +90,15 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
             setVerificationMessage('As fotos não parecem ser da mesma pessoa. Verificação manual necessária.');
         }
 
-    } catch (error) {
+    } catch (error: any) {
         console.error("AI Verification Error:", error);
-        setVerificationResult('ERROR');
-        setVerificationMessage('Ocorreu um erro na verificação com IA. Tente novamente ou verifique manually.');
+        if (error.message && (error.message.includes('API Key') || error.message.includes('API_KEY'))) {
+            setVerificationResult('ERROR');
+            setVerificationMessage('Erro de Configuração: Chave da API não encontrada.');
+        } else {
+            setVerificationResult('ERROR');
+            setVerificationMessage('Ocorreu um erro na verificação com IA. Tente novamente ou verifique manualmente.');
+        }
     } finally {
         setIsVerifying(false);
     }

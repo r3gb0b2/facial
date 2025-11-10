@@ -227,10 +227,14 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
       }, 4000);
 
     } catch (err: any) {
-      const baseMessage = t('fastCheckin.cameraError');
-      const errorDetails = `(${err.name || 'Error'}: ${err.message || 'Detalhes indisponíveis'})`;
-      const detailedMessage = `${baseMessage} ${errorDetails}`;
-      setError(detailedMessage);
+      if (err.message && (err.message.includes('API Key') || err.message.includes('API_KEY'))) {
+        setError("Erro de Configuração: A chave da API para a IA não foi encontrada. Certifique-se de que a API Key está corretamente configurada no ambiente.");
+      } else {
+        const baseMessage = t('fastCheckin.cameraError');
+        const errorDetails = `(${err.name || 'Error'}: ${err.message || 'Detalhes indisponíveis'})`;
+        const detailedMessage = `${baseMessage} ${errorDetails}`;
+        setError(detailedMessage);
+      }
       console.error("Error starting camera for fast check-in:", err);
       stopScanningProcess();
       setFeedbackMessage(''); // Clear any optimistic messages
