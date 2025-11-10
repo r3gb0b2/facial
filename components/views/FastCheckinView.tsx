@@ -87,35 +87,45 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
 
 
   const handleStartScanning = async () => {
-    if (isScanning) return;
+    if (isScanning || isLoading) return;
     
     setFoundAttendee(null);
     setFeedbackMessage('');
 
+    const initialPendingAttendees = attendeesRef.current.filter(a => a.status === CheckinStatus.PENDING);
+    if (initialPendingAttendees.length === 0) {
+        setFeedbackMessage(t('fastCheckin.noPending'));
+        return;
+    }
+      
+    setIsLoading(true);
+    setFeedbackMessage(t('fastCheckin.analyzing'));
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+      const video = videoRef.current;
+      if (!video) {
+        throw new Error("Video element not found.");
       }
-      setIsScanning(true);
-      setIsLoading(true);
-      setFeedbackMessage(t('fastCheckin.analyzing'));
+      
+      video.srcObject = stream;
+      
+      // Explicitly wait for the video to be ready to play to avoid race conditions
+      await new Promise<void>((resolve, reject) => {
+        video.onloadedmetadata = () => {
+          video.play().then(resolve).catch(reject);
+        };
+        video.onerror = (e) => reject(`Video error: ${e}`);
+      });
 
-      const initialPendingAttendees = attendees.filter(a => a.status === CheckinStatus.PENDING);
-      if (initialPendingAttendees.length === 0) {
-          setFeedbackMessage(t('fastCheckin.noPending'));
-          setIsLoading(false);
-          // Don't stop scanning immediately, allow user to see the message
-          setTimeout(stopScanningProcess, 3000);
-          return;
-      }
+      setIsScanning(true);
       
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
       let matchFound = false;
 
       intervalRef.current = setInterval(async () => {
-        if (matchFound || !videoRef.current || !videoRef.current.videoWidth) return;
+        if (matchFound || !videoRef.current || videoRef.current.paused || videoRef.current.ended) return;
 
         // Refresh the list of pending attendees in every interval to avoid stale state
         const pendingAttendees = attendeesRef.current.filter(a => a.status === CheckinStatus.PENDING);
@@ -129,6 +139,9 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
             const canvas = document.createElement('canvas');
             canvas.width = videoRef.current.videoWidth;
             canvas.height = videoRef.current.videoHeight;
+            // Bail if dimensions are not yet available
+            if (!canvas.width || !canvas.height) return;
+
             const context = canvas.getContext('2d');
             if (!context) return;
     
@@ -146,13 +159,11 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
     
                 const batch = pendingAttendees.slice(i, i + BATCH_SIZE);
                 
-                // Asynchronously convert all images and associate them with the original attendee
                 const batchPhotoResults = await Promise.all(batch.map(async (attendee) => {
                     const part = await imageUrlToPartData(attendee.photo);
                     return { attendee, part };
                 }));
 
-                // Filter out any attendees whose images failed to load
                 const validBatchData = batchPhotoResults.filter(result => result.part !== null);
 
                 if (validBatchData.length === 0) continue;
@@ -172,9 +183,7 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
     
                 if (resultText.startsWith('MATCH:')) {
                     const matchIndex = parseInt(resultText.replace('MATCH:', '').trim(), 10);
-                    // Check if the index is valid for our validBatchData array
                     if (!isNaN(matchIndex) && matchIndex > 0 && matchIndex <= validBatchData.length) {
-                        // The model's index is 1-based. Our array is 0-based.
                         const { attendee: found } = validBatchData[matchIndex - 1];
                         if (found) {
                             matchFound = true;
@@ -182,7 +191,7 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
                             await onUpdateStatus(found.id, CheckinStatus.CHECKED_IN);
                             setFeedbackMessage(t('fastCheckin.checkinSuccess', { name: found.name }));
                             stopScanningProcess();
-                            return; // Exit interval callback
+                            return;
                         }
                     }
                 }
@@ -192,13 +201,13 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
             setError(t('fastCheckin.aiError'));
             stopScanningProcess();
         }
-      }, 4000); // Analyze every 4 seconds
+      }, 4000);
 
     } catch (err) {
       setError(t('fastCheckin.cameraError'));
       console.error(err);
-      setIsScanning(false);
-      setIsLoading(false);
+      stopScanningProcess();
+      setFeedbackMessage(''); // Clear any optimistic messages
     }
   };
 
@@ -209,7 +218,7 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   };
 
   const renderOverlay = () => {
-    if (!isScanning) return null;
+    // Only show the spinner overlay
     if (isLoading && !foundAttendee) {
       return (
         <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-center p-4">
@@ -240,11 +249,8 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
                  <AttendeeCard 
                     attendee={foundAttendee}
                     onSelect={() => {}}
-                    // FIX: Filter out falsy values before joining to prevent extra commas, and resolve type error.
                     sectorLabel={(foundAttendee.sectors.map(id => sectorMap.get(id)?.label).filter(Boolean).join(', '))}
-                    // FIX: Resolve potential 'unknown' type error by safely accessing properties.
                     sectorColor={sectorMap.get(foundAttendee.sectors[0])?.color}
-                    // FIX: Resolve potential 'unknown' type error by safely accessing properties.
                     supplierName={foundAttendee.supplierId ? supplierMap.get(foundAttendee.supplierId)?.name : ''}
                  />
                </div>
@@ -258,7 +264,7 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
         </div>
         
         <div className="mt-6">
-          {!isScanning ? (
+          {!isScanning && !isLoading ? (
             <button onClick={handleStartScanning} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-4 rounded-lg transition-colors">
               {t('fastCheckin.start')}
             </button>
