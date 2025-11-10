@@ -35,34 +35,7 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationResult, setVerificationResult] = useState<'MATCH' | 'NO_MATCH' | 'ERROR' | null>(null);
   const [verificationMessage, setVerificationMessage] = useState('');
-  const [aiEnvStatus, setAiEnvStatus] = useState<'initializing' | 'ready' | 'unavailable'>('initializing');
   const [apiKeyNeeded, setApiKeyNeeded] = useState(false);
-
-  // Poll for AI Studio environment to resolve race condition
-  useEffect(() => {
-    const POLLING_INTERVAL = 200;
-    const TIMEOUT = 5000;
-
-    const intervalId = setInterval(() => {
-        if (typeof (window as any).aistudio?.openSelectKey === 'function') {
-            clearInterval(intervalId);
-            clearTimeout(timeoutId);
-            setAiEnvStatus('ready');
-        }
-    }, POLLING_INTERVAL);
-
-    const timeoutId = setTimeout(() => {
-        clearInterval(intervalId);
-        if (typeof (window as any).aistudio?.openSelectKey !== 'function') {
-           setAiEnvStatus('unavailable');
-        }
-    }, TIMEOUT);
-
-    return () => {
-        clearInterval(intervalId);
-        clearTimeout(timeoutId);
-    };
-  }, []);
 
   // Reset state when a new attendee is selected
   useEffect(() => {
@@ -113,11 +86,7 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
         }
         ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     } catch (e: any) {
-        if (e instanceof Error && e.message.toLowerCase().includes('api key must be set')) {
-            setVerificationResult('ERROR');
-            setVerificationMessage(t('errors.apiKeyNeeded'));
-            setApiKeyNeeded(true);
-        } else if (e instanceof TypeError && e.message.toLowerCase().includes('aistudio')) {
+        if (e instanceof TypeError && e.message.toLowerCase().includes('aistudio')) {
             setVerificationResult('ERROR');
             setVerificationMessage(t('errors.aistudioUnavailable'));
         } else {
@@ -252,31 +221,17 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
               </div>
               <div className="text-center">
                 <h3 className="text-lg font-semibold text-gray-300 mb-2">{t('verificationModal.liveVerification')}</h3>
-                {aiEnvStatus === 'initializing' && (
-                    <div className="flex flex-col items-center justify-center aspect-square bg-gray-900 rounded-lg">
-                        <SpinnerIcon className="w-8 h-8 text-gray-400" />
-                        <p className="mt-4 text-gray-400">{t('ai.initializing')}</p>
-                    </div>
-                )}
-                {aiEnvStatus === 'unavailable' && (
-                    <div className="flex flex-col items-center justify-center aspect-square bg-red-500/10 text-red-400 text-center p-4 rounded-lg">
-                        <XMarkIcon className="w-8 h-8" />
-                        <p className="mt-4 font-semibold">{t('errors.aistudioUnavailable')}</p>
-                    </div>
-                )}
-                {aiEnvStatus === 'ready' && (
-                  <>
-                    <WebcamCapture onCapture={setVerificationPhoto} capturedImage={verificationPhoto} allowUpload={true} />
-                    {renderVerificationControls()}
-                  </>
-                )}
+                <>
+                  <WebcamCapture onCapture={setVerificationPhoto} capturedImage={verificationPhoto} allowUpload={true} />
+                  {renderVerificationControls()}
+                </>
               </div>
             </div>
         </div>
         <div className="p-6 bg-gray-900/50 rounded-b-2xl flex-shrink-0">
             <button
                 onClick={onConfirm}
-                disabled={!verificationPhoto || verificationResult !== 'MATCH' || isVerifying || aiEnvStatus !== 'ready'}
+                disabled={!verificationPhoto || verificationResult !== 'MATCH' || isVerifying}
                 className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-gray-600 disabled:cursor-not-allowed"
             >
                 <CheckCircleIcon className="w-6 h-6"/>

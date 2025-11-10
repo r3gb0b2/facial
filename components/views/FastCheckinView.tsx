@@ -48,7 +48,6 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   const [isLoading, setIsLoading] = useState(false);
   const [foundAttendee, setFoundAttendee] = useState<Attendee | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string>('');
-  const [aiEnvStatus, setAiEnvStatus] = useState<'initializing' | 'ready' | 'unavailable'>('initializing');
   const [apiKeyNeeded, setApiKeyNeeded] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -59,26 +58,6 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   useEffect(() => {
     attendeesRef.current = attendees;
   }, [attendees]);
-
-  // Poll for AI Studio environment
-  useEffect(() => {
-    const POLLING_INTERVAL = 200;
-    const TIMEOUT = 5000;
-    const intervalId = setInterval(() => {
-        if (typeof (window as any).aistudio?.openSelectKey === 'function') {
-            clearInterval(intervalId);
-            clearTimeout(timeoutId);
-            setAiEnvStatus('ready');
-        }
-    }, POLLING_INTERVAL);
-    const timeoutId = setTimeout(() => {
-        clearInterval(intervalId);
-        if (typeof (window as any).aistudio?.openSelectKey !== 'function') {
-           setAiEnvStatus('unavailable');
-        }
-    }, TIMEOUT);
-    return () => { clearInterval(intervalId); clearTimeout(timeoutId); };
-  }, []);
 
   const sectorMap = useMemo(() => new Map(sectors.map(s => [s.id, s])), [sectors]);
   const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s])), [suppliers]);
@@ -149,9 +128,7 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
         }
         ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     } catch (e: any) {
-        if (e instanceof Error && e.message.toLowerCase().includes('api key must be set')) {
-            setApiKeyNeeded(true);
-        } else if (e instanceof TypeError && e.message.toLowerCase().includes('aistudio')) {
+        if (e instanceof TypeError && e.message.toLowerCase().includes('aistudio')) {
             setError(t('errors.aistudioUnavailable'));
         } else {
             setError(t('errors.apiKeyNeeded'));
@@ -280,17 +257,6 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   };
   
   const renderControls = () => {
-    if (aiEnvStatus === 'unavailable') {
-        return <p className="mt-6 text-center text-red-400">{t('errors.aistudioUnavailable')}</p>;
-    }
-    if (aiEnvStatus === 'initializing') {
-        return (
-            <button disabled className="mt-6 w-full bg-gray-500 text-white font-bold py-4 px-4 rounded-lg flex items-center justify-center gap-2">
-                <SpinnerIcon className="w-5 h-5"/>
-                {t('ai.initializing')}
-            </button>
-        );
-    }
     if (apiKeyNeeded) {
         return (
              <div className="mt-6">
