@@ -163,6 +163,9 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
                 }
             } catch (error) {
                 console.error("Gemini API error:", error);
+                setError(t('fastCheckin.aiError'));
+                stopScanningProcess();
+                break;
             }
         }
       }, 4000); // Analyze every 4 seconds

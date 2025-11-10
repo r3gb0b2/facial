@@ -21,6 +21,7 @@
     "fastCheckin.checkNext": "Verificar Próximo",
     "fastCheckin.cameraError": "Não foi possível acessar a câmera. Verifique as permissões.",
     "fastCheckin.noPending": "Nenhum colaborador com check-in pendente.",
+    "fastCheckin.aiError": "Erro na verificação com IA. Tente novamente.",
     "login.title": "Acessar Painel",
     "login.usernameLabel": "Usuário",
     "login.usernamePlaceholder": "Digite seu usuário",
