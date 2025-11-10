@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Attendee, CheckinStatus, Sector, Supplier } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
@@ -86,25 +87,17 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
     return () => stopScanningProcess();
   }, [stopScanningProcess]);
   
-  const checkAiStudio = (): boolean => {
-      if (typeof (window as any).aistudio?.openSelectKey !== 'function' || typeof (window as any).aistudio?.hasSelectedApiKey !== 'function') {
-          setError(t('errors.aistudioUnavailable'));
-          setIsLoading(false);
-          setFeedbackMessage('');
-          setApiKeyNeeded(false);
-          return false;
-      }
-      return true;
-  };
-
   const handleSelectKey = async () => {
-    if (!checkAiStudio()) return;
-
     try {
         await (window as any).aistudio.openSelectKey();
         await handleStartScanning(true);
     } catch (e: any) {
-        setError(t('errors.apiKeySelectionFailed', { details: e?.message || 'Detalhes indisponíveis' }));
+        console.error("Failed to select API key", e);
+        if (e instanceof TypeError && e.message.includes('aistudio')) {
+            setError(t('errors.aistudioUnavailable'));
+        } else {
+            setError(t('errors.apiKeySelectionFailed', { details: e?.message || 'Detalhes indisponíveis' }));
+        }
     }
   };
 
@@ -124,7 +117,6 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
     let ai: GoogleGenAI;
     
     if (!bypassKeyCheck) {
-        if (!checkAiStudio()) return;
         try {
             const hasKey = await (window as any).aistudio.hasSelectedApiKey();
             if (!hasKey) {
@@ -133,9 +125,15 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
                 setFeedbackMessage('');
                 return;
             }
-        } catch(e) {
+        } catch(e: any) {
             console.error("Error checking for API key:", e);
-            checkAiStudio(); // Sets unavailable message
+            if (e instanceof TypeError && e.message.includes('aistudio')) {
+                setError(t('errors.aistudioUnavailable'));
+            } else {
+                 setError(t('errors.generic'));
+            }
+            setIsLoading(false);
+            setFeedbackMessage('');
             return;
         }
     }
