@@ -49,7 +49,6 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   const [foundAttendee, setFoundAttendee] = useState<Attendee | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string>('');
   const [apiKeyNeeded, setApiKeyNeeded] = useState(false);
-  const [aiEnvStatus, setAiEnvStatus] = useState<'initializing' | 'ready' | 'unavailable'>('initializing');
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -59,32 +58,6 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   useEffect(() => {
     attendeesRef.current = attendees;
   }, [attendees]);
-
-  // Poll for AI Studio environment to resolve race condition, with a timeout.
-  useEffect(() => {
-    const POLLING_INTERVAL = 200;
-    const TIMEOUT = 5000; // 5 seconds
-
-    const intervalId = setInterval(() => {
-        if (typeof (window as any).aistudio?.openSelectKey === 'function') {
-            clearInterval(intervalId);
-            clearTimeout(timeoutId);
-            setAiEnvStatus('ready');
-        }
-    }, POLLING_INTERVAL);
-
-    const timeoutId = setTimeout(() => {
-        clearInterval(intervalId);
-        if (typeof (window as any).aistudio?.openSelectKey !== 'function') {
-           setAiEnvStatus('unavailable');
-        }
-    }, TIMEOUT);
-
-    return () => {
-        clearInterval(intervalId);
-        clearTimeout(timeoutId);
-    };
-  }, []);
 
   const sectorMap = useMemo(() => new Map(sectors.map(s => [s.id, s])), [sectors]);
   const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s])), [suppliers]);
@@ -117,11 +90,13 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   }, [stopScanningProcess]);
 
   const handleSelectKey = async () => {
+    // Just-In-Time check for AI environment
+    if (typeof (window as any).aistudio?.openSelectKey !== 'function') {
+        setError(t('errors.aistudioUnavailable'));
+        return;
+    }
+
     try {
-        if (typeof (window as any).aistudio?.openSelectKey !== 'function') {
-            setError(t('errors.aistudioUnavailable'));
-            return;
-        }
         await (window as any).aistudio.openSelectKey();
         await handleStartScanning(true);
     } catch (e: any) {
@@ -147,14 +122,15 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
       
     setIsLoading(true);
     
+    // Just-In-Time check for AI environment
+    if (typeof (window as any).aistudio?.hasSelectedApiKey !== 'function') {
+        setError(t('errors.aistudioUnavailable'));
+        setIsLoading(false);
+        return;
+    }
+
     let ai: GoogleGenAI;
     try {
-        if (typeof (window as any).aistudio?.hasSelectedApiKey !== 'function') {
-            setError(t('errors.aistudioUnavailable'));
-            setIsLoading(false);
-            return;
-        }
-
         if (!bypassKeyCheck) {
             const hasKey = await (window as any).aistudio.hasSelectedApiKey();
             if (!hasKey) {
@@ -319,27 +295,14 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
     setApiKeyNeeded(false);
   };
 
-  const renderContent = () => {
-    if (aiEnvStatus === 'initializing') {
-        return (
-            <div className="flex flex-col items-center justify-center aspect-square">
-                <SpinnerIcon className="w-12 h-12 text-gray-400" />
-                <p className="mt-4 text-gray-400">{t('ai.initializing')}</p>
-            </div>
-        );
-    }
-    
-    if (aiEnvStatus === 'unavailable') {
-        return (
-            <div className="flex flex-col items-center justify-center aspect-square bg-red-500/10 text-red-400 text-center p-4 rounded-lg">
-                <XMarkIcon className="w-12 h-12" />
-                <p className="mt-4 font-semibold">{t('errors.aistudioUnavailable')}</p>
-            </div>
-        );
-    }
-
-    return (
-      <>
+  return (
+    <div className="w-full max-w-2xl mx-auto">
+      <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
+        <h2 className="text-3xl font-bold text-white mb-6 flex items-center justify-center gap-3">
+          <FaceSmileIcon className="w-8 h-8"/>
+          {t('fastCheckin.title')}
+        </h2>
+        
         <div className="relative w-full max-w-md mx-auto aspect-square bg-black rounded-lg overflow-hidden border-2 border-gray-600 shadow-lg">
           {foundAttendee ? (
             <div className="w-full h-full flex flex-col items-center justify-center p-4 bg-gray-900">
@@ -386,8 +349,7 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
           {!isScanning && !isLoading ? (
             <button 
                 onClick={() => handleStartScanning()} 
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-4 rounded-lg transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
-                disabled={aiEnvStatus !== 'ready'}
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-4 rounded-lg transition-colors"
             >
               {t('fastCheckin.start')}
             </button>
@@ -403,18 +365,6 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
              )
           )}
         </div>
-      </>
-    );
-  };
-
-  return (
-    <div className="w-full max-w-2xl mx-auto">
-      <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
-        <h2 className="text-3xl font-bold text-white mb-6 flex items-center justify-center gap-3">
-          <FaceSmileIcon className="w-8 h-8"/>
-          {t('fastCheckin.title')}
-        </h2>
-        {renderContent()}
       </div>
     </div>
   );
