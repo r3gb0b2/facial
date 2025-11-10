@@ -28,8 +28,6 @@ const imageUrlToPartData = async (url: string): Promise<{ base64: string; mimeTy
     });
 };
 
-type AiEnvStatus = 'checking' | 'ready' | 'unavailable';
-
 const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose, onConfirm }) => {
   const { t } = useTranslation();
   const [verificationPhoto, setVerificationPhoto] = useState<string | null>(null);
@@ -37,39 +35,14 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
   const [verificationResult, setVerificationResult] = useState<'MATCH' | 'NO_MATCH' | 'ERROR' | null>(null);
   const [verificationMessage, setVerificationMessage] = useState('');
   const [apiKeyNeeded, setApiKeyNeeded] = useState(false);
-  const [aiEnvStatus, setAiEnvStatus] = useState<AiEnvStatus>('checking');
 
-  // Reset state when a new attendee is selected and check for AI environment
+  // Reset state when a new attendee is selected
   useEffect(() => {
     setVerificationPhoto(null);
     setIsVerifying(false);
     setVerificationResult(null);
     setVerificationMessage('');
     setApiKeyNeeded(false);
-    setAiEnvStatus('checking');
-
-    // Polling logic for AI Studio environment
-    const checkAiStudio = () => typeof (window as any).aistudio?.openSelectKey === 'function';
-
-    if (checkAiStudio()) {
-        setAiEnvStatus('ready');
-        return;
-    }
-
-    const maxRetries = 6;
-    let retries = 0;
-    const interval = setInterval(() => {
-        retries++;
-        if (checkAiStudio()) {
-            setAiEnvStatus('ready');
-            clearInterval(interval);
-        } else if (retries >= maxRetries) {
-            setAiEnvStatus('unavailable');
-            clearInterval(interval);
-        }
-    }, 500);
-
-    return () => clearInterval(interval);
   }, [attendee]);
   
   const handleSelectKey = async () => {
@@ -78,10 +51,15 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
         // Assume key is selected and bypass the check to avoid race condition
         handleVerification(true);
     } catch (e: any) {
-        const errorMessage = e?.message || 'Detalhes indisponíveis';
-        console.error("Failed to open API key selection", e);
-        setVerificationResult('ERROR');
-        setVerificationMessage(t('errors.apiKeySelectionFailed', { details: errorMessage }));
+        if (e instanceof TypeError && e.message.toLowerCase().includes('aistudio')) {
+            setVerificationResult('ERROR');
+            setVerificationMessage(t('errors.aistudioUnavailable'));
+        } else {
+            const errorMessage = e?.message || 'Detalhes indisponíveis';
+            console.error("Failed to open API key selection", e);
+            setVerificationResult('ERROR');
+            setVerificationMessage(t('errors.apiKeySelectionFailed', { details: errorMessage }));
+        }
     }
   };
 
@@ -107,11 +85,16 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
         }
         ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     } catch (e: any) {
-        console.error("AI SDK Initialization failed:", e);
-        setVerificationResult('ERROR');
-        setVerificationMessage(t('errors.apiKeyNeeded'));
+        if (e instanceof TypeError && e.message.toLowerCase().includes('aistudio')) {
+            setVerificationResult('ERROR');
+            setVerificationMessage(t('errors.aistudioUnavailable'));
+        } else {
+            console.error("AI SDK Initialization failed:", e);
+            setVerificationResult('ERROR');
+            setVerificationMessage(t('errors.apiKeyNeeded'));
+            setApiKeyNeeded(true);
+        }
         setIsVerifying(false);
-        setApiKeyNeeded(true);
         return;
     }
 
@@ -195,52 +178,39 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
                 <h3 className="text-lg font-semibold text-gray-300 mb-2">{t('verificationModal.liveVerification')}</h3>
                 <WebcamCapture onCapture={setVerificationPhoto} capturedImage={verificationPhoto} allowUpload={true} />
                 
-                {aiEnvStatus === 'checking' && (
-                    <div className="mt-4 text-center p-3">
-                        <SpinnerIcon className="w-6 h-6 mx-auto text-gray-400" />
-                        <p className="text-sm text-gray-400 mt-2">{t('ai.initializing')}</p>
-                    </div>
-                )}
-                {aiEnvStatus === 'unavailable' && (
-                    <div className="mt-4 text-center p-3 rounded-lg border border-yellow-500/50 bg-yellow-500/10">
-                        <p className="text-sm font-medium text-yellow-400">{t('errors.aistudioUnavailable')}</p>
-                    </div>
-                )}
-                {aiEnvStatus === 'ready' && (
-                    <>
-                        {verificationPhoto && !verificationResult && !apiKeyNeeded && (
-                            <div className="mt-4 w-full">
-                                <button
-                                    onClick={() => handleVerification()}
-                                    disabled={isVerifying}
-                                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 disabled:bg-indigo-400 disabled:cursor-wait"
-                                >
-                                    {isVerifying ? <SpinnerIcon className="w-5 h-5"/> : <SparklesIcon className="w-5 h-5"/>}
-                                    {isVerifying ? 'Verificando...' : 'Verificar com IA'}
-                                </button>
-                            </div>
-                        )}
-                         {verificationMessage && (
-                            <div className={`mt-4 text-center p-3 rounded-lg border ${resultBoxClass} flex items-center justify-center gap-2`}>
-                                 {verificationResult === 'MATCH' && <CheckCircleIcon className="w-5 h-5" />}
-                                 {verificationResult === 'NO_MATCH' && <XMarkIcon className="w-5 h-5" />}
-                                 {verificationResult === 'ERROR' && <XMarkIcon className="w-5 h-5" />}
-                                 <p className="text-sm font-medium">{verificationMessage}</p>
-                            </div>
-                        )}
-                        {apiKeyNeeded && (
-                            <div className="mt-4 w-full">
-                                <button
-                                    onClick={handleSelectKey}
-                                    className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2"
-                                >
-                                   <KeyIcon className="w-5 h-5"/>
-                                   {t('apiKey.selectButton')}
-                                </button>
-                            </div>
-                        )}
-                    </>
-                )}
+                <>
+                    {verificationPhoto && !verificationResult && !apiKeyNeeded && (
+                        <div className="mt-4 w-full">
+                            <button
+                                onClick={() => handleVerification()}
+                                disabled={isVerifying}
+                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 disabled:bg-indigo-400 disabled:cursor-wait"
+                            >
+                                {isVerifying ? <SpinnerIcon className="w-5 h-5"/> : <SparklesIcon className="w-5 h-5"/>}
+                                {isVerifying ? 'Verificando...' : 'Verificar com IA'}
+                            </button>
+                        </div>
+                    )}
+                     {verificationMessage && (
+                        <div className={`mt-4 text-center p-3 rounded-lg border ${resultBoxClass} flex items-center justify-center gap-2`}>
+                             {verificationResult === 'MATCH' && <CheckCircleIcon className="w-5 h-5" />}
+                             {verificationResult === 'NO_MATCH' && <XMarkIcon className="w-5 h-5" />}
+                             {verificationResult === 'ERROR' && <XMarkIcon className="w-5 h-5" />}
+                             <p className="text-sm font-medium">{verificationMessage}</p>
+                        </div>
+                    )}
+                    {apiKeyNeeded && (
+                        <div className="mt-4 w-full">
+                            <button
+                                onClick={handleSelectKey}
+                                className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2"
+                            >
+                               <KeyIcon className="w-5 h-5"/>
+                               {t('apiKey.selectButton')}
+                            </button>
+                        </div>
+                    )}
+                </>
               </div>
             </div>
         </div>
