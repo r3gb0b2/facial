@@ -3,7 +3,7 @@ import { Attendee, CheckinStatus, Sector, Supplier } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import * as api from '../../firebase/service.ts';
 import { GoogleGenAI } from '@google/genai';
-import { FaceSmileIcon, SpinnerIcon, CheckCircleIcon, XMarkIcon } from '../icons.tsx';
+import { FaceSmileIcon, SpinnerIcon, CheckCircleIcon, XMarkIcon, KeyIcon } from '../icons.tsx';
 import AttendeeCard from '../AttendeeCard.tsx';
 
 interface FastCheckinViewProps {
@@ -48,6 +48,8 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   const [isLoading, setIsLoading] = useState(false);
   const [foundAttendee, setFoundAttendee] = useState<Attendee | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string>('');
+  const [aiEnvStatus, setAiEnvStatus] = useState<'initializing' | 'ready' | 'unavailable'>('initializing');
+  const [apiKeyNeeded, setApiKeyNeeded] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -57,6 +59,26 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   useEffect(() => {
     attendeesRef.current = attendees;
   }, [attendees]);
+
+  // Poll for AI Studio environment
+  useEffect(() => {
+    const POLLING_INTERVAL = 200;
+    const TIMEOUT = 5000;
+    const intervalId = setInterval(() => {
+        if (typeof (window as any).aistudio?.openSelectKey === 'function') {
+            clearInterval(intervalId);
+            clearTimeout(timeoutId);
+            setAiEnvStatus('ready');
+        }
+    }, POLLING_INTERVAL);
+    const timeoutId = setTimeout(() => {
+        clearInterval(intervalId);
+        if (typeof (window as any).aistudio?.openSelectKey !== 'function') {
+           setAiEnvStatus('unavailable');
+        }
+    }, TIMEOUT);
+    return () => { clearInterval(intervalId); clearTimeout(timeoutId); };
+  }, []);
 
   const sectorMap = useMemo(() => new Map(sectors.map(s => [s.id, s])), [sectors]);
   const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s])), [suppliers]);
@@ -82,17 +104,28 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   }, [stopCamera]);
 
   useEffect(() => {
-    // Cleanup on unmount
-    return () => {
-      stopScanningProcess();
-    };
+    return () => stopScanningProcess();
   }, [stopScanningProcess]);
+  
+  const handleSelectKey = async () => {
+    try {
+        await (window as any).aistudio.openSelectKey();
+        await handleStartScanning(true);
+    } catch (e: any) {
+        if (e instanceof TypeError && e.message.toLowerCase().includes('aistudio')) {
+            setError(t('errors.aistudioUnavailable'));
+        } else {
+            setError(t('errors.apiKeySelectionFailed', { details: e?.message || 'Detalhes indisponíveis' }));
+        }
+    }
+  };
 
-  const handleStartScanning = async () => {
+  const handleStartScanning = async (bypassKeyCheck = false) => {
     if (isScanning || isLoading) return;
     
     setFoundAttendee(null);
     setFeedbackMessage('');
+    setApiKeyNeeded(false);
 
     const initialPendingAttendees = attendeesRef.current.filter(a => a.status === CheckinStatus.PENDING);
     if (initialPendingAttendees.length === 0) {
@@ -102,50 +135,48 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
       
     setIsLoading(true);
     setFeedbackMessage(t('fastCheckin.analyzing'));
+    
+    let ai: GoogleGenAI;
+    try {
+        if (!bypassKeyCheck) {
+            const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+            if (!hasKey) {
+                setApiKeyNeeded(true);
+                setIsLoading(false);
+                setFeedbackMessage('');
+                return;
+            }
+        }
+        ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+    } catch (e: any) {
+        if (e instanceof Error && e.message.toLowerCase().includes('api key must be set')) {
+            setApiKeyNeeded(true);
+        } else if (e instanceof TypeError && e.message.toLowerCase().includes('aistudio')) {
+            setError(t('errors.aistudioUnavailable'));
+        } else {
+            setError(t('errors.apiKeyNeeded'));
+            setApiKeyNeeded(true);
+        }
+        setIsLoading(false);
+        setFeedbackMessage('');
+        return;
+    }
 
     try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
         streamRef.current = stream;
         const video = videoRef.current;
-        if (!video) {
-            throw new Error("Video element not found.");
-        }
+        if (!video) throw new Error("Video element not found.");
         
         video.srcObject = stream;
         
         await new Promise<void>((resolve, reject) => {
-            video.onloadedmetadata = () => {
-            video.play().then(resolve).catch(reject);
-            };
-            video.onerror = () => {
-                const mediaError = video.error;
-                let message = 'Erro desconhecido ao reproduzir o vídeo.';
-                if (mediaError) {
-                    switch (mediaError.code) {
-                        case mediaError.MEDIA_ERR_ABORTED:
-                            message = 'A reprodução de vídeo foi abortada.';
-                            break;
-                        case mediaError.MEDIA_ERR_NETWORK:
-                            message = 'Um erro de rede impediu o carregamento do vídeo.';
-                            break;
-                        case mediaError.MEDIA_ERR_DECODE:
-                            message = 'Erro na decodificação do vídeo.';
-                            break;
-                        case mediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
-                            message = 'Formato de vídeo não suportado.';
-                            break;
-                        default:
-                            message = `Ocorreu um erro inesperado no vídeo (Código: ${mediaError.code})`;
-                    }
-                }
-                reject(new Error(message));
-            };
+            video.onloadedmetadata = () => video.play().then(resolve).catch(reject);
+            video.onerror = () => reject(new Error('Erro no elemento de vídeo.'));
         });
 
         setIsScanning(true);
-        setIsLoading(false); // Loading is done, scanning has begun
+        setIsLoading(false);
         
         let matchFound = false;
 
@@ -221,12 +252,11 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
                 }
             } catch (error: any) {
                 console.error("Error during scanning interval:", error);
-                const errorMessage = error.message?.toLowerCase() || '';
-                if (errorMessage.includes("api key not valid") || errorMessage.includes("requested entity was not found")) {
+                if (error.message?.includes("Requested entity was not found")) {
                     setError(t('errors.apiKeyInvalid'));
+                    setApiKeyNeeded(true);
                 } else {
-                    const detailedError = `${t('fastCheckin.aiError')} (${error.message || 'Erro de API desconhecido'})`;
-                    setError(detailedError);
+                    setError(`${t('fastCheckin.aiError')} (${error.message || 'Erro de API'})`);
                 }
                 stopScanningProcess();
             }
@@ -246,6 +276,57 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
     stopScanningProcess();
     setFoundAttendee(null);
     setFeedbackMessage('');
+    setApiKeyNeeded(false);
+  };
+  
+  const renderControls = () => {
+    if (aiEnvStatus === 'unavailable') {
+        return <p className="mt-6 text-center text-red-400">{t('errors.aistudioUnavailable')}</p>;
+    }
+    if (aiEnvStatus === 'initializing') {
+        return (
+            <button disabled className="mt-6 w-full bg-gray-500 text-white font-bold py-4 px-4 rounded-lg flex items-center justify-center gap-2">
+                <SpinnerIcon className="w-5 h-5"/>
+                {t('ai.initializing')}
+            </button>
+        );
+    }
+    if (apiKeyNeeded) {
+        return (
+             <div className="mt-6">
+                <p className="text-center text-yellow-400 mb-2">{t('errors.apiKeyNeeded')}</p>
+                <button 
+                    onClick={handleSelectKey}
+                    className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-4 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+                >
+                    <KeyIcon className="w-5 h-5" />
+                    {t('apiKey.selectButton')}
+                </button>
+            </div>
+        );
+    }
+    if (foundAttendee) {
+        return (
+            <button onClick={reset} className="mt-6 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-4 rounded-lg transition-colors">
+              {t('fastCheckin.checkNext')}
+            </button>
+        );
+    }
+    if (isScanning || isLoading) {
+         return (
+            <button onClick={reset} className="mt-6 w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-4 rounded-lg transition-colors">
+              {t('fastCheckin.stop')}
+            </button>
+         );
+    }
+    return (
+        <button 
+            onClick={() => handleStartScanning()}
+            className="mt-6 w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-4 rounded-lg transition-colors"
+        >
+          {t('fastCheckin.start')}
+        </button>
+    );
   };
 
   return (
@@ -282,30 +363,17 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
                   <p className="text-white font-semibold text-lg">{feedbackMessage || t('fastCheckin.analyzing')}</p>
                 </div>
               )}
+               {feedbackMessage && !isLoading && !isScanning && !foundAttendee &&
+                <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-center p-4">
+                    <p className="text-white font-semibold text-lg">{feedbackMessage}</p>
+                </div>
+               }
             </>
           )}
         </div>
         
-        <div className="mt-6">
-          {!isScanning && !isLoading ? (
-            <button 
-                onClick={handleStartScanning} 
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-4 rounded-lg transition-colors"
-            >
-              {t('fastCheckin.start')}
-            </button>
-          ) : (
-             foundAttendee ? (
-                <button onClick={reset} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-4 rounded-lg transition-colors">
-                  {t('fastCheckin.checkNext')}
-                </button>
-             ) : (
-                <button onClick={reset} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-4 rounded-lg transition-colors">
-                  {t('fastCheckin.stop')}
-                </button>
-             )
-          )}
-        </div>
+        {renderControls()}
+        
       </div>
     </div>
   );

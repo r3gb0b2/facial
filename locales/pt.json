@@ -21,6 +21,8 @@
     "fastCheckin.cameraError": "Não foi possível acessar a câmera. Verifique as permissões.",
     "fastCheckin.noPending": "Nenhum colaborador com check-in pendente.",
     "fastCheckin.aiError": "Erro na verificação com IA. Tente novamente.",
+    "ai.initializing": "Inicializando ambiente de IA...",
+    "apiKey.selectButton": "Selecionar Chave de API",
     "login.title": "Acessar Painel",
     "login.usernameLabel": "Usuário",
     "login.usernamePlaceholder": "Digite seu usuário",
@@ -260,6 +262,9 @@
     "users.admin.managementNotice": "Você só pode gerenciar os usuários de check-in que você criou.",
     "errors.registrationLimitReached": "O limite de cadastros para este fornecedor foi atingido.",
     "errors.generic": "Ocorreu um erro inesperado.",
-    "errors.apiKeyInvalid": "A chave de API configurada no ambiente é inválida ou não tem as permissões necessárias. Verifique a configuração da plataforma."
+    "errors.apiKeyInvalid": "A chave de API selecionada é inválida ou não foi encontrada. Por favor, selecione outra chave.",
+    "errors.aistudioUnavailable": "Recurso de IA indisponível: A interface de configuração da IA (aistudio) não foi encontrada neste ambiente. Verifique a configuração da plataforma.",
+    "errors.apiKeyNeeded": "Uma chave de API é necessária para usar este recurso. Por favor, selecione uma chave.",
+    "errors.apiKeySelectionFailed": "Falha ao selecionar a chave de API: {details}"
   }
 }
