@@ -49,11 +49,21 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   const [foundAttendee, setFoundAttendee] = useState<Attendee | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string>('');
   const [apiKeyNeeded, setApiKeyNeeded] = useState(false);
+  const [isAiAvailable, setIsAiAvailable] = useState(true);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const attendeesRef = useRef(attendees);
+
+  const getAiStudio = useCallback(() => {
+    const aiStudio = (window as any).aistudio;
+    if (!aiStudio) {
+      setIsAiAvailable(false);
+      throw new Error(t('errors.aistudioUnavailable'));
+    }
+    return aiStudio;
+  }, [t]);
 
   useEffect(() => {
     attendeesRef.current = attendees;
@@ -91,9 +101,10 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
 
   const handleSelectKey = async () => {
     try {
-        await (window as any).aistudio.openSelectKey();
+        const aistudio = getAiStudio();
+        await aistudio.openSelectKey();
         // Assume key is selected and bypass the check to avoid race condition
-        handleStartScanning(true);
+        await handleStartScanning(true);
     } catch (e: any) {
         const errorMessage = e?.message || 'Detalhes indisponíveis';
         console.error("Failed to open API key selection:", e);
@@ -108,6 +119,7 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
     setFoundAttendee(null);
     setFeedbackMessage('');
     setApiKeyNeeded(false);
+    setIsAiAvailable(true);
 
     const initialPendingAttendees = attendeesRef.current.filter(a => a.status === CheckinStatus.PENDING);
     if (initialPendingAttendees.length === 0) {
@@ -120,7 +132,8 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
     let ai: GoogleGenAI;
     try {
         if (!bypassKeyCheck) {
-            const hasKey = await (window as any).aistudio.hasSelectedApiKey();
+            const aistudio = getAiStudio();
+            const hasKey = await aistudio.hasSelectedApiKey();
             if (!hasKey) {
                 setApiKeyNeeded(true);
                 setFeedbackMessage(t('errors.apiKeyNeeded'));
@@ -131,9 +144,12 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
         ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     } catch (e: any) {
         console.error("AI SDK Initialization failed:", e);
-        setApiKeyNeeded(true);
-        setFeedbackMessage(t('errors.apiKeyNeeded'));
+        setError(t('errors.apiKeySelectionFailed', { details: e.message }));
         setIsLoading(false);
+        // Only show the button if the environment is OK but a key is needed
+        if (e.message !== t('errors.aistudioUnavailable')) {
+            setApiKeyNeeded(true);
+        }
         return;
     }
 
@@ -281,26 +297,27 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
     setFoundAttendee(null);
     setFeedbackMessage('');
     setApiKeyNeeded(false);
+    setIsAiAvailable(true);
   };
 
   const renderOverlay = () => {
     if (isLoading && !foundAttendee) {
-      return (
-        <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-center p-4">
-          <SpinnerIcon className="w-12 h-12 text-white mb-4" />
-          <p className="text-white font-semibold text-lg">{feedbackMessage}</p>
-        </div>
-      );
-    }
-    if (apiKeyNeeded) {
+        if (apiKeyNeeded && isAiAvailable) {
+            return (
+                <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-center p-6">
+                    <KeyIcon className="w-12 h-12 text-yellow-400 mb-4" />
+                    <p className="text-white font-semibold text-lg mb-2">{t('apiKey.selectMessage')}</p>
+                    <p className="text-gray-400 text-sm mb-6">{feedbackMessage}</p>
+                     <button onClick={handleSelectKey} className="w-full max-w-xs bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded-lg transition-colors">
+                        {t('apiKey.selectButton')}
+                    </button>
+                </div>
+            );
+        }
         return (
-            <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-center p-6">
-                <KeyIcon className="w-12 h-12 text-yellow-400 mb-4" />
-                <p className="text-white font-semibold text-lg mb-2">{t('apiKey.selectMessage')}</p>
-                <p className="text-gray-400 text-sm mb-6">{feedbackMessage}</p>
-                 <button onClick={handleSelectKey} className="w-full max-w-xs bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded-lg transition-colors">
-                    {t('apiKey.selectButton')}
-                </button>
+            <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-center p-4">
+              <SpinnerIcon className="w-12 h-12 text-white mb-4" />
+              <p className="text-white font-semibold text-lg">{feedbackMessage}</p>
             </div>
         );
     }

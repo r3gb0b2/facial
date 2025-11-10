@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Attendee } from '../types.ts';
-import WebcamCapture from './WebcamCapture.tsx';
-import { CheckCircleIcon, XMarkIcon, SparklesIcon, SpinnerIcon, KeyIcon } from './icons.tsx';
-import { useTranslation } from '../hooks/useTranslation.tsx';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Attendee } from '../../types.ts';
+import WebcamCapture from '../WebcamCapture.tsx';
+import { CheckCircleIcon, XMarkIcon, SparklesIcon, SpinnerIcon, KeyIcon } from '../icons.tsx';
+import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { GoogleGenAI } from '@google/genai';
 
 interface VerificationModalProps {
@@ -36,6 +36,16 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
   const [verificationResult, setVerificationResult] = useState<'MATCH' | 'NO_MATCH' | 'ERROR' | null>(null);
   const [verificationMessage, setVerificationMessage] = useState('');
   const [apiKeyNeeded, setApiKeyNeeded] = useState(false);
+  const [isAiAvailable, setIsAiAvailable] = useState(true);
+
+  const getAiStudio = useCallback(() => {
+    const aiStudio = (window as any).aistudio;
+    if (!aiStudio) {
+      setIsAiAvailable(false);
+      throw new Error(t('errors.aistudioUnavailable'));
+    }
+    return aiStudio;
+  }, [t]);
 
 
   // Reset state when a new attendee is selected
@@ -45,15 +55,18 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
     setVerificationResult(null);
     setVerificationMessage('');
     setApiKeyNeeded(false);
+    setIsAiAvailable(true);
   }, [attendee]);
   
   const handleSelectKey = async () => {
     try {
-        if (!(window as any).aistudio || typeof (window as any).aistudio.openSelectKey !== 'function') {
-            throw new Error("A função para selecionar a chave de API (aistudio.openSelectKey) não está disponível neste ambiente.");
-        }
-        await (window as any).aistudio.openSelectKey();
-        handleVerification();
+        const aistudio = getAiStudio();
+        await aistudio.openSelectKey();
+        // Assume key is selected and bypass the check to avoid race condition
+        setApiKeyNeeded(false);
+        setVerificationResult(null);
+        setVerificationMessage('');
+        await handleVerification(true);
     } catch (e: any) {
         const errorMessage = e?.message || 'Detalhes indisponíveis';
         console.error("Failed to open API key selection", e);
@@ -62,7 +75,7 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
     }
   };
 
-  const handleVerification = async () => {
+  const handleVerification = async (bypassKeyCheck = false) => {
     if (!verificationPhoto) return;
 
     setIsVerifying(true);
@@ -72,22 +85,27 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
 
     let ai: GoogleGenAI;
     try {
-        const hasKey = await (window as any).aistudio.hasSelectedApiKey();
-        if (!hasKey) {
-            setApiKeyNeeded(true);
-            setVerificationResult('ERROR');
-            setVerificationMessage(t('errors.apiKeyNeeded'));
-            setIsVerifying(false);
-            return;
+        if (!bypassKeyCheck) {
+            const aistudio = getAiStudio();
+            const hasKey = await aistudio.hasSelectedApiKey();
+            if (!hasKey) {
+                setApiKeyNeeded(true);
+                setVerificationResult('ERROR');
+                setVerificationMessage(t('errors.apiKeyNeeded'));
+                setIsVerifying(false);
+                return;
+            }
         }
         ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     } catch (e: any) {
         console.error("AI SDK Initialization failed:", e);
         setVerificationResult('ERROR');
-        // This catch block might be redundant if hasSelectedApiKey is reliable, but it's a good safeguard.
-        setVerificationMessage(t('errors.apiKeyNeeded'));
+        setVerificationMessage(t('errors.apiKeySelectionFailed', { details: e.message }));
         setIsVerifying(false);
-        setApiKeyNeeded(true);
+        // Only show the button if the environment is OK but a key is needed
+        if (e.message !== t('errors.aistudioUnavailable')) {
+            setApiKeyNeeded(true);
+        }
         return;
     }
 
@@ -173,7 +191,7 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
                 {verificationPhoto && !verificationResult && !apiKeyNeeded && (
                     <div className="mt-4 w-full">
                         <button
-                            onClick={handleVerification}
+                            onClick={() => handleVerification()}
                             disabled={isVerifying}
                             className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 disabled:bg-indigo-400 disabled:cursor-wait"
                         >
@@ -190,7 +208,7 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
                          <p className="text-sm font-medium">{verificationMessage}</p>
                     </div>
                 )}
-                {apiKeyNeeded && (
+                {apiKeyNeeded && isAiAvailable && (
                     <div className="mt-4 w-full">
                         <button
                             onClick={handleSelectKey}
