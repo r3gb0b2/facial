@@ -49,8 +49,12 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  // FIX: Use ReturnType<typeof setInterval> for browser compatibility instead of NodeJS.Timeout.
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const attendeesRef = useRef(attendees);
+
+  useEffect(() => {
+    attendeesRef.current = attendees;
+  }, [attendees]);
   
   const sectorMap = useMemo(() => new Map(sectors.map(s => [s.id, s])), [sectors]);
   const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s])), [suppliers]);
@@ -96,8 +100,8 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
       setIsLoading(true);
       setFeedbackMessage(t('fastCheckin.analyzing'));
 
-      const pendingAttendees = attendees.filter(a => a.status === CheckinStatus.PENDING);
-      if (pendingAttendees.length === 0) {
+      const initialPendingAttendees = attendees.filter(a => a.status === CheckinStatus.PENDING);
+      if (initialPendingAttendees.length === 0) {
           setFeedbackMessage(t('fastCheckin.noPending'));
           setIsLoading(false);
           // Don't stop scanning immediately, allow user to see the message
@@ -110,6 +114,14 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
 
       intervalRef.current = setInterval(async () => {
         if (matchFound || !videoRef.current) return;
+
+        // Refresh the list of pending attendees in every interval to avoid stale state
+        const pendingAttendees = attendeesRef.current.filter(a => a.status === CheckinStatus.PENDING);
+        if (pendingAttendees.length === 0) {
+            setFeedbackMessage(t('fastCheckin.noPending'));
+            stopScanningProcess();
+            return;
+        }
 
         try {
             const canvas = document.createElement('canvas');
@@ -141,7 +153,10 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
                         parts.push({ text: `CPF: ${attendee.cpf}` });
                     }
                 });
-    
+                
+                // Don't call API if there are no photos to compare with
+                if (parts.length <= 2) continue;
+
                 const response = await ai.models.generateContent({
                     model: 'gemini-2.5-flash',
                     contents: { parts },
