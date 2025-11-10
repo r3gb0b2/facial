@@ -196,16 +196,19 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
                     }
                 }
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error during scanning interval:", error);
-            setError(t('fastCheckin.aiError'));
+            const errorMessage = `${t('fastCheckin.aiError')} ${error.message || 'Erro de API desconhecido'}`;
+            setError(errorMessage);
             stopScanningProcess();
         }
       }, 4000);
 
-    } catch (err) {
-      setError(t('fastCheckin.cameraError'));
-      console.error(err);
+    } catch (err: any) {
+      const baseMessage = t('fastCheckin.cameraError');
+      const detailedMessage = `${baseMessage} (Código: ${err.name || 'Desconhecido'})`;
+      setError(detailedMessage);
+      console.error("Error starting camera for fast check-in:", err);
       stopScanningProcess();
       setFeedbackMessage(''); // Clear any optimistic messages
     }
