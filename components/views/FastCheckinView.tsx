@@ -48,7 +48,6 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   const [isLoading, setIsLoading] = useState(false);
   const [foundAttendee, setFoundAttendee] = useState<Attendee | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string>('');
-  const [aiEnvStatus, setAiEnvStatus] = useState<'initializing' | 'ready' | 'unavailable'>('initializing');
   const [apiKeyNeeded, setApiKeyNeeded] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -59,33 +58,6 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   useEffect(() => {
     attendeesRef.current = attendees;
   }, [attendees]);
-
-  // Poll for AI Studio environment to resolve race condition
-  useEffect(() => {
-    const POLLING_INTERVAL = 200;
-    const TIMEOUT = 5000;
-
-    const intervalId = setInterval(() => {
-        // Check for the function that is actually used to select a key
-        if (typeof (window as any).aistudio?.openSelectKey === 'function') {
-            clearInterval(intervalId);
-            clearTimeout(timeoutId);
-            setAiEnvStatus('ready');
-        }
-    }, POLLING_INTERVAL);
-
-    const timeoutId = setTimeout(() => {
-        clearInterval(intervalId);
-        if (typeof (window as any).aistudio?.openSelectKey !== 'function') {
-           setAiEnvStatus('unavailable');
-        }
-    }, TIMEOUT);
-
-    return () => {
-        clearInterval(intervalId);
-        clearTimeout(timeoutId);
-    };
-  }, []);
 
   const sectorMap = useMemo(() => new Map(sectors.map(s => [s.id, s])), [sectors]);
   const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s])), [suppliers]);
@@ -119,19 +91,26 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
 
   const handleSelectKey = async () => {
     try {
+        if (typeof (window as any).aistudio?.openSelectKey !== 'function') {
+            throw new Error("aistudioUnavailable");
+        }
         await (window as any).aistudio.openSelectKey();
         // Assume key is selected and bypass the check to avoid race condition
         await handleStartScanning(true);
     } catch (e: any) {
-        const errorMessage = e?.message || 'Detalhes indisponíveis';
-        console.error("Failed to open API key selection", e);
-        setError(t('errors.apiKeySelectionFailed', { details: errorMessage }));
+        if (e.message === "aistudioUnavailable") {
+            setError(t('errors.aistudioUnavailable'));
+        } else {
+            const errorMessage = e?.message || 'Detalhes indisponíveis';
+            console.error("Failed to open API key selection", e);
+            setError(t('errors.apiKeySelectionFailed', { details: errorMessage }));
+        }
     }
   };
 
 
   const handleStartScanning = async (bypassKeyCheck = false) => {
-    if (isScanning || isLoading || aiEnvStatus !== 'ready') return;
+    if (isScanning || isLoading) return;
     
     setFoundAttendee(null);
     setFeedbackMessage('');
@@ -145,8 +124,12 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
       
     setIsLoading(true);
 
-    let ai: GoogleGenAI;
     try {
+        if (typeof (window as any).aistudio?.hasSelectedApiKey !== 'function') {
+            throw new Error("aistudioUnavailable");
+        }
+
+        let ai: GoogleGenAI;
         if (!bypassKeyCheck) {
             const hasKey = await (window as any).aistudio.hasSelectedApiKey();
             if (!hasKey) {
@@ -157,150 +140,146 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
             }
         }
         ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-    } catch (e: any) {
-        setIsLoading(false);
-        console.error("AI SDK Initialization failed:", e);
-        setApiKeyNeeded(true);
-        setFeedbackMessage(t('errors.apiKeyNeeded'));
-        return;
-    }
 
-    setFeedbackMessage(t('fastCheckin.analyzing'));
+        setFeedbackMessage(t('fastCheckin.analyzing'));
 
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-      streamRef.current = stream;
-      const video = videoRef.current;
-      if (!video) {
-        throw new Error("Video element not found.");
-      }
-      
-      video.srcObject = stream;
-      
-      await new Promise<void>((resolve, reject) => {
-        video.onloadedmetadata = () => {
-          video.play().then(resolve).catch(reject);
-        };
-        video.onerror = () => {
-            const mediaError = video.error;
-            let message = 'Erro desconhecido ao reproduzir o vídeo.';
-            if (mediaError) {
-                switch (mediaError.code) {
-                    case mediaError.MEDIA_ERR_ABORTED:
-                        message = 'A reprodução de vídeo foi abortada.';
-                        break;
-                    case mediaError.MEDIA_ERR_NETWORK:
-                        message = 'Um erro de rede impediu o carregamento do vídeo.';
-                        break;
-                    case mediaError.MEDIA_ERR_DECODE:
-                        message = 'Erro na decodificação do vídeo.';
-                        break;
-                    case mediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
-                        message = 'Formato de vídeo não suportado.';
-                        break;
-                    default:
-                        message = `Ocorreu um erro inesperado no vídeo (Código: ${mediaError.code})`;
-                }
-            }
-            reject(new Error(message));
-        };
-      });
-
-      setIsScanning(true);
-      
-      let matchFound = false;
-
-      intervalRef.current = setInterval(async () => {
-        if (matchFound || !videoRef.current || videoRef.current.paused || videoRef.current.ended) return;
-
-        const pendingAttendees = attendeesRef.current.filter(a => a.status === CheckinStatus.PENDING);
-        if (pendingAttendees.length === 0) {
-            setFeedbackMessage(t('fastCheckin.noPending'));
-            stopScanningProcess();
-            return;
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+        streamRef.current = stream;
+        const video = videoRef.current;
+        if (!video) {
+            throw new Error("Video element not found.");
         }
+        
+        video.srcObject = stream;
+        
+        await new Promise<void>((resolve, reject) => {
+            video.onloadedmetadata = () => {
+            video.play().then(resolve).catch(reject);
+            };
+            video.onerror = () => {
+                const mediaError = video.error;
+                let message = 'Erro desconhecido ao reproduzir o vídeo.';
+                if (mediaError) {
+                    switch (mediaError.code) {
+                        case mediaError.MEDIA_ERR_ABORTED:
+                            message = 'A reprodução de vídeo foi abortada.';
+                            break;
+                        case mediaError.MEDIA_ERR_NETWORK:
+                            message = 'Um erro de rede impediu o carregamento do vídeo.';
+                            break;
+                        case mediaError.MEDIA_ERR_DECODE:
+                            message = 'Erro na decodificação do vídeo.';
+                            break;
+                        case mediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+                            message = 'Formato de vídeo não suportado.';
+                            break;
+                        default:
+                            message = `Ocorreu um erro inesperado no vídeo (Código: ${mediaError.code})`;
+                    }
+                }
+                reject(new Error(message));
+            };
+        });
 
-        try {
-            const canvas = document.createElement('canvas');
-            canvas.width = videoRef.current.videoWidth;
-            canvas.height = videoRef.current.videoHeight;
-            if (!canvas.width || !canvas.height) return;
+        setIsScanning(true);
+        setIsLoading(false); // Loading is done, scanning has begun
+        
+        let matchFound = false;
 
-            const context = canvas.getContext('2d');
-            if (!context) return;
-    
-            context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-            const dataUrl = canvas.toDataURL('image/png');
-            const [, base64] = dataUrl.split(',');
-            if (!base64) return;
-            const capturedFramePart = { inlineData: { data: base64, mimeType: 'image/png' } };
-    
-            const prompt = `You are a security system. Your task is to compare faces. The first image is a live photo from a camera. The subsequent images are registered photos of individuals. Compare the live photo with each registered photo. If you find a clear match, respond ONLY with the text 'MATCH:' followed by the index number of the matching registered photo (e.g., 'MATCH: 2' if the live photo matches the second registered photo). The first registered photo is index 1. If there is no clear match, respond ONLY with 'NO_MATCH'.`;
+        intervalRef.current = setInterval(async () => {
+            if (matchFound || !videoRef.current || videoRef.current.paused || videoRef.current.ended) return;
 
-            const BATCH_SIZE = 10;
-            for (let i = 0; i < pendingAttendees.length; i += BATCH_SIZE) {
-                if (matchFound) break;
-    
-                const batch = pendingAttendees.slice(i, i + BATCH_SIZE);
-                
-                const batchPhotoResults = await Promise.all(batch.map(async (attendee) => {
-                    const part = await imageUrlToPartData(attendee.photo);
-                    return { attendee, part };
-                }));
+            const pendingAttendees = attendeesRef.current.filter(a => a.status === CheckinStatus.PENDING);
+            if (pendingAttendees.length === 0) {
+                setFeedbackMessage(t('fastCheckin.noPending'));
+                stopScanningProcess();
+                return;
+            }
 
-                const validBatchData = batchPhotoResults.filter(result => result.part !== null);
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = videoRef.current.videoWidth;
+                canvas.height = videoRef.current.videoHeight;
+                if (!canvas.width || !canvas.height) return;
 
-                if (validBatchData.length === 0) continue;
+                const context = canvas.getContext('2d');
+                if (!context) return;
+        
+                context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+                const dataUrl = canvas.toDataURL('image/png');
+                const [, base64] = dataUrl.split(',');
+                if (!base64) return;
+                const capturedFramePart = { inlineData: { data: base64, mimeType: 'image/png' } };
+        
+                const prompt = `You are a security system. Your task is to compare faces. The first image is a live photo from a camera. The subsequent images are registered photos of individuals. Compare the live photo with each registered photo. If you find a clear match, respond ONLY with the text 'MATCH:' followed by the index number of the matching registered photo (e.g., 'MATCH: 2' if the live photo matches the second registered photo). The first registered photo is index 1. If there is no clear match, respond ONLY with 'NO_MATCH'.`;
 
-                const parts: any[] = [
-                    { text: prompt }, 
-                    capturedFramePart, 
-                    ...validBatchData.map(data => data.part!)
-                ];
+                const BATCH_SIZE = 10;
+                for (let i = 0; i < pendingAttendees.length; i += BATCH_SIZE) {
+                    if (matchFound) break;
+        
+                    const batch = pendingAttendees.slice(i, i + BATCH_SIZE);
+                    
+                    const batchPhotoResults = await Promise.all(batch.map(async (attendee) => {
+                        const part = await imageUrlToPartData(attendee.photo);
+                        return { attendee, part };
+                    }));
 
-                const response = await ai.models.generateContent({
-                    model: 'gemini-2.5-flash',
-                    contents: { parts },
-                });
+                    const validBatchData = batchPhotoResults.filter(result => result.part !== null);
 
-                const resultText = response.text?.trim().toUpperCase() || '';
-    
-                if (resultText.startsWith('MATCH:')) {
-                    const matchIndex = parseInt(resultText.replace('MATCH:', '').trim(), 10);
-                    if (!isNaN(matchIndex) && matchIndex > 0 && matchIndex <= validBatchData.length) {
-                        const { attendee: found } = validBatchData[matchIndex - 1];
-                        if (found) {
-                            matchFound = true;
-                            setFoundAttendee(found);
-                            await onUpdateStatus(found.id, CheckinStatus.CHECKED_IN);
-                            setFeedbackMessage(t('fastCheckin.checkinSuccess', { name: found.name }));
-                            stopScanningProcess();
-                            return;
+                    if (validBatchData.length === 0) continue;
+
+                    const parts: any[] = [
+                        { text: prompt }, 
+                        capturedFramePart, 
+                        ...validBatchData.map(data => data.part!)
+                    ];
+
+                    const response = await ai.models.generateContent({
+                        model: 'gemini-2.5-flash',
+                        contents: { parts },
+                    });
+
+                    const resultText = response.text?.trim().toUpperCase() || '';
+        
+                    if (resultText.startsWith('MATCH:')) {
+                        const matchIndex = parseInt(resultText.replace('MATCH:', '').trim(), 10);
+                        if (!isNaN(matchIndex) && matchIndex > 0 && matchIndex <= validBatchData.length) {
+                            const { attendee: found } = validBatchData[matchIndex - 1];
+                            if (found) {
+                                matchFound = true;
+                                setFoundAttendee(found);
+                                await onUpdateStatus(found.id, CheckinStatus.CHECKED_IN);
+                                setFeedbackMessage(t('fastCheckin.checkinSuccess', { name: found.name }));
+                                stopScanningProcess();
+                                return;
+                            }
                         }
                     }
                 }
+            } catch (error: any) {
+                console.error("Error during scanning interval:", error);
+                if (error.message?.includes("Requested entity was not found")) {
+                    setError(t('errors.apiKeyInvalid'));
+                    setApiKeyNeeded(true);
+                } else {
+                    const errorMessage = `${t('fastCheckin.aiError')} (${error.message || 'Erro de API desconhecido'})`;
+                    setError(errorMessage);
+                }
+                stopScanningProcess();
             }
-        } catch (error: any) {
-            console.error("Error during scanning interval:", error);
-            if (error.message?.includes("Requested entity was not found")) {
-                setError(t('errors.apiKeyInvalid'));
-                setApiKeyNeeded(true);
-            } else {
-                const errorMessage = `${t('fastCheckin.aiError')} (${error.message || 'Erro de API desconhecido'})`;
-                setError(errorMessage);
-            }
-            stopScanningProcess();
-        }
-      }, 4000);
+        }, 4000);
 
     } catch (err: any) {
-      const baseMessage = t('fastCheckin.cameraError');
-      const errorDetails = `(${err.name || 'Error'}: ${err.message || 'Detalhes indisponíveis'})`;
-      const detailedMessage = `${baseMessage} ${errorDetails}`;
-      setError(detailedMessage);
-      console.error("Error starting camera for fast check-in:", err);
-      stopScanningProcess();
-      setFeedbackMessage('');
+        if (err.message === "aistudioUnavailable") {
+            setError(t('errors.aistudioUnavailable'));
+        } else {
+            const baseMessage = t('fastCheckin.cameraError');
+            const errorDetails = `(${err.name || 'Error'}: ${err.message || 'Detalhes indisponíveis'})`;
+            setError(`${baseMessage} ${errorDetails}`);
+            console.error("Error starting camera for fast check-in:", err);
+        }
+        stopScanningProcess();
+        setFeedbackMessage('');
     }
   };
 
@@ -312,25 +291,6 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   };
 
   const renderContent = () => {
-    if (aiEnvStatus === 'initializing') {
-        return (
-            <div className="flex flex-col items-center justify-center aspect-square">
-                <SpinnerIcon className="w-12 h-12 text-white mb-4" />
-                <p className="text-white font-semibold text-lg">{t('ai.initializing')}</p>
-            </div>
-        );
-    }
-
-    if (aiEnvStatus === 'unavailable') {
-        return (
-             <div className="flex flex-col items-center justify-center aspect-square text-center">
-                <XMarkIcon className="w-12 h-12 text-red-400 mb-4" />
-                <p className="text-red-400 font-semibold text-lg">{t('errors.aistudioUnavailable')}</p>
-            </div>
-        );
-    }
-
-    // AI Env is Ready
     return (
       <>
         <div className="relative w-full max-w-md mx-auto aspect-square bg-black rounded-lg overflow-hidden border-2 border-gray-600 shadow-lg">
@@ -353,7 +313,7 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
           ) : (
             <>
               <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-              {(isLoading || isScanning) && (
+              {(isLoading || isScanning || apiKeyNeeded) && (
                 <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-center p-4">
                   {apiKeyNeeded ? (
                     <>
@@ -376,7 +336,7 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
         </div>
         
         <div className="mt-6">
-          {aiEnvStatus === 'ready' && !isScanning && !isLoading ? (
+          {!isScanning && !isLoading ? (
             <button onClick={() => handleStartScanning()} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-4 rounded-lg transition-colors">
               {t('fastCheckin.start')}
             </button>
@@ -386,7 +346,7 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
                   {t('fastCheckin.checkNext')}
                 </button>
              ) : (
-                <button onClick={reset} disabled={aiEnvStatus !== 'ready'} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-4 rounded-lg transition-colors disabled:bg-gray-500">
+                <button onClick={reset} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-4 rounded-lg transition-colors">
                   {t('fastCheckin.stop')}
                 </button>
              )
