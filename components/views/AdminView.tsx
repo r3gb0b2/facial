@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { User, Attendee, Supplier, Sector, Event, UserRole } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
@@ -11,10 +12,21 @@ import WristbandReportView from './WristbandReportView.tsx';
 import CheckinLogView from './CheckinLogView.tsx';
 import QRCodeScannerView from './QRCodeScannerView.tsx';
 import UserManagementView from './UserManagementView.tsx';
+import FastCheckinView from './FastCheckinView.tsx';
 import * as api from '../../firebase/service.ts';
-import { ArrowLeftOnRectangleIcon } from '../icons.tsx';
+import { 
+    ArrowLeftOnRectangleIcon, 
+    UsersIcon, 
+    QrCodeIcon,
+    CalendarIcon,
+    FingerPrintIcon,
+    BuildingOfficeIcon,
+    TagIcon,
+    ArrowUpTrayIcon,
+    FaceSmileIcon
+} from '../icons.tsx';
 
-type AdminTab = 'checkin' | 'register' | 'suppliers' | 'sectors' | 'companies' | 'spreadsheet' | 'reports' | 'logs' | 'scanner' | 'users';
+type AdminTab = 'checkin' | 'fastCheckin' | 'register' | 'suppliers' | 'sectors' | 'companies' | 'spreadsheet' | 'reports' | 'logs' | 'scanner' | 'users';
 
 interface AdminViewProps {
     user: User;
@@ -35,17 +47,18 @@ interface AdminViewProps {
     setError: (message: string) => void;
 }
 
-const TABS: { id: AdminTab, label: string, roles: UserRole[] }[] = [
-    { id: 'checkin', label: 'Check-in', roles: ['superadmin', 'admin', 'checkin'] },
-    { id: 'scanner', label: 'Scanner QR', roles: ['superadmin', 'admin', 'checkin'] },
-    { id: 'logs', label: 'Histórico', roles: ['superadmin', 'admin', 'checkin'] },
-    { id: 'register', label: 'Cadastrar', roles: ['superadmin', 'admin'] },
-    { id: 'suppliers', label: 'Fornecedores', roles: ['superadmin', 'admin'] },
-    { id: 'companies', label: 'Empresas', roles: ['superadmin', 'admin'] },
-    { id: 'sectors', label: 'Setores', roles: ['superadmin', 'admin'] },
-    { id: 'spreadsheet', label: 'Importar', roles: ['superadmin', 'admin'] },
-    { id: 'reports', label: 'Rel. Pulseiras', roles: ['superadmin', 'admin'] },
-    { id: 'users', label: 'Usuários', roles: ['superadmin', 'admin'] },
+const TABS: { id: AdminTab, labelKey: string, roles: UserRole[] }[] = [
+    { id: 'checkin', labelKey: 'admin.tabs.checkin', roles: ['superadmin', 'admin', 'checkin'] },
+    { id: 'fastCheckin', labelKey: 'admin.tabs.fastCheckin', roles: ['superadmin', 'admin', 'checkin'] },
+    { id: 'scanner', labelKey: 'admin.tabs.scanner', roles: ['superadmin', 'admin', 'checkin'] },
+    { id: 'logs', labelKey: 'admin.tabs.logs', roles: ['superadmin', 'admin', 'checkin'] },
+    { id: 'register', labelKey: 'admin.tabs.register', roles: ['superadmin', 'admin'] },
+    { id: 'suppliers', labelKey: 'admin.tabs.suppliers', roles: ['superadmin', 'admin'] },
+    { id: 'companies', labelKey: 'admin.tabs.companies', roles: ['superadmin', 'admin'] },
+    { id: 'sectors', labelKey: 'admin.tabs.sectors', roles: ['superadmin', 'admin'] },
+    { id: 'spreadsheet', labelKey: 'admin.tabs.spreadsheet', roles: ['superadmin', 'admin'] },
+    { id: 'reports', labelKey: 'admin.tabs.reports', roles: ['superadmin', 'admin'] },
+    { id: 'users', labelKey: 'admin.tabs.users', roles: ['superadmin', 'admin'] },
 ];
 
 
@@ -138,7 +151,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                                 onClick={() => setActiveTab(tab.id)}
                                 className={`px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${activeTab === tab.id ? 'border-b-2 border-indigo-500 text-white' : 'text-gray-400 hover:text-white'}`}
                             >
-                                {tab.label}
+                                {t(tab.labelKey)}
                             </button>
                         ))}
                     </div>
@@ -147,6 +160,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
             <main className="flex-grow overflow-y-auto rounded-lg">
                 <div className="py-6">
                     {activeTab === 'checkin' && <CheckinView {...checkinViewProps} />}
+                    {activeTab === 'fastCheckin' && <FastCheckinView attendees={eventData.attendees} onUpdateStatus={handleUpdateStatusForScanner} sectors={eventData.sectors} suppliers={eventData.suppliers} setError={setError} />}
                     {activeTab === 'register' && <RegisterView onRegister={onRegister} setError={setError} sectors={eventData.sectors} suppliers={eventData.suppliers} />}
                     {activeTab === 'suppliers' && <SupplierManagementView currentEventId={currentEventId} suppliers={eventData.suppliers} attendees={eventData.attendees} sectors={eventData.sectors} onAddSupplier={handleAddSupplier} onUpdateSupplier={handleUpdateSupplier} onDeleteSupplier={handleDeleteSupplier} onSupplierStatusUpdate={handleSupplierStatusUpdate} onRegenerateAdminToken={handleRegenerateAdminToken} onUpdateSectorsForSelectedAttendees={handleUpdateSectorsForAttendees} setError={setError} />}
                     {activeTab === 'sectors' && <SectorManagementView sectors={eventData.sectors} onAddSector={handleAddSector} onUpdateSector={handleUpdateSector} onDeleteSector={handleDeleteSector} setError={setError} />}

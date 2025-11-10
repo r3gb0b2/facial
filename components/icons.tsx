@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 interface IconProps extends React.SVGProps<SVGSVGElement> {}
@@ -143,5 +144,11 @@ export const QrCodeIcon: React.FC<IconProps> = (props) => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M9.75 9.75h4.5v4.5h-4.5z" />
     <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h1.5m13.5 0h1.5M12 3.75v1.5m0 13.5v1.5" />
     <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 8.25v-3h3V8.25h-3zm0 10.5v-3h3v3h-3zm10.5-10.5v-3h-3v3h3z" />
+  </svg>
+);
+
+export const FaceSmileIcon: React.FC<IconProps> = (props) => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15.182 15.182a4.5 4.5 0 01-6.364 0M21 12a9 9 0 11-18 0 9 9 0 0118 0zM9 9.75h.008v.008H9V9.75zm6 0h.008v.008H15V9.75z" />
   </svg>
 );
