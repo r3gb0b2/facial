@@ -1,5 +1,3 @@
-
-
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Attendee, CheckinStatus, Sector, Supplier } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
@@ -113,43 +111,45 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
       intervalRef.current = setInterval(async () => {
         if (matchFound || !videoRef.current) return;
 
-        const canvas = document.createElement('canvas');
-        canvas.width = videoRef.current.videoWidth;
-        canvas.height = videoRef.current.videoHeight;
-        const context = canvas.getContext('2d');
-        if (!context) return;
-
-        context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/png');
-        const [, base64] = dataUrl.split(',');
-        const capturedFramePart = { inlineData: { data: base64, mimeType: 'image/png' } };
-
-        const prompt = `Compare a pessoa na primeira imagem (da câmera) com as pessoas nas imagens seguintes. Responda APENAS com o CPF do colaborador correspondente se houver uma correspondência clara. Se não houver, responda 'NO_MATCH'.`;
-
-        const BATCH_SIZE = 10;
-        for (let i = 0; i < pendingAttendees.length; i += BATCH_SIZE) {
-            if (matchFound) break;
-
-            const batch = pendingAttendees.slice(i, i + BATCH_SIZE);
-            const parts: any[] = [{ text: prompt }, capturedFramePart];
-            
-            const attendeePhotoParts = await Promise.all(batch.map(a => imageUrlToPartData(a.photo)));
-
-            batch.forEach((attendee, index) => {
-                const photoPart = attendeePhotoParts[index];
-                if (photoPart) {
-                    parts.push(photoPart);
-                    parts.push({ text: `CPF: ${attendee.cpf}` });
-                }
-            });
-
-            try {
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = videoRef.current.videoWidth;
+            canvas.height = videoRef.current.videoHeight;
+            const context = canvas.getContext('2d');
+            if (!context) return;
+    
+            context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/png');
+            const [, base64] = dataUrl.split(',');
+            const capturedFramePart = { inlineData: { data: base64, mimeType: 'image/png' } };
+    
+            const prompt = `Compare a pessoa na primeira imagem (da câmera) com as pessoas nas imagens seguintes. Responda APENAS com o CPF do colaborador correspondente se houver uma correspondência clara. Se não houver, responda 'NO_MATCH'.`;
+    
+            const BATCH_SIZE = 10;
+            for (let i = 0; i < pendingAttendees.length; i += BATCH_SIZE) {
+                if (matchFound) break;
+    
+                const batch = pendingAttendees.slice(i, i + BATCH_SIZE);
+                const parts: any[] = [{ text: prompt }, capturedFramePart];
+                
+                const attendeePhotoParts = await Promise.all(batch.map(a => imageUrlToPartData(a.photo)));
+    
+                batch.forEach((attendee, index) => {
+                    const photoPart = attendeePhotoParts[index];
+                    if (photoPart) {
+                        parts.push(photoPart);
+                        parts.push({ text: `CPF: ${attendee.cpf}` });
+                    }
+                });
+    
                 const response = await ai.models.generateContent({
                     model: 'gemini-2.5-flash',
                     contents: { parts },
                 });
-                const resultCpf = response.text.trim().replace(/\D/g, '');
 
+                const resultText = response.text?.trim() || '';
+                const resultCpf = resultText.replace(/\D/g, '');
+    
                 if (resultCpf && resultCpf.length === 11) {
                     const found = pendingAttendees.find(a => a.cpf === resultCpf);
                     if (found) {
@@ -158,21 +158,22 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
                         await onUpdateStatus(found.id, CheckinStatus.CHECKED_IN);
                         setFeedbackMessage(t('fastCheckin.checkinSuccess', { name: found.name }));
                         stopScanningProcess();
-                        break;
+                        return; // Exit interval callback
                     }
                 }
-            } catch (error) {
-                console.error("Gemini API error:", error);
-                setError(t('fastCheckin.aiError'));
-                stopScanningProcess();
-                break;
             }
+        } catch (error) {
+            console.error("Error during scanning interval:", error);
+            setError(t('fastCheckin.aiError'));
+            stopScanningProcess();
         }
       }, 4000); // Analyze every 4 seconds
 
     } catch (err) {
       setError(t('fastCheckin.cameraError'));
       console.error(err);
+      setIsScanning(false);
+      setIsLoading(false);
     }
   };
 

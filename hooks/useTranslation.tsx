@@ -6,14 +6,10 @@ import React,
   ReactNode,
   useCallback
 } from 'react';
-import ptTranslations from '../locales/pt.json';
-
-// Basic translations structure
-const translations = {
-  pt: ptTranslations.pt,
-};
+import translations from '../locales/pt.json';
 
 type Language = 'pt';
+// Assuming the structure is { pt: { key: value } }
 type TranslationKey = keyof typeof translations.pt;
 
 interface LanguageContextType {
@@ -31,9 +27,9 @@ export const LanguageProvider: React.FC<{ children: ReactNode }> = ({ children }
 
   // FIX: Loosen key type to string to support dynamic keys
   const t = useCallback((key: string, ...args: (string | number | Record<string, string | number>)[]) => {
-    // FIX: Cast key to TranslationKey for object lookup to satisfy TypeScript
-    // FIX: Use the renamed state variable 'currentLanguage'.
-    let translation: string = translations[currentLanguage][key as TranslationKey] || key;
+    // Access the translations more robustly
+    const languageTranslations = translations[currentLanguage];
+    let translation: string = (languageTranslations as any)?.[key] || key;
     
     if (args.length > 0) {
         // Handle named placeholders e.g., t('key', { name: 'world' })
