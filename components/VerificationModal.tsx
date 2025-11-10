@@ -48,6 +48,13 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
   }, [attendee]);
   
   const handleSelectKey = async () => {
+    // Just-in-time check for the environment
+    if (typeof (window as any).aistudio?.openSelectKey !== 'function') {
+        setVerificationResult('ERROR');
+        setVerificationMessage(t('errors.aistudioUnavailable'));
+        return;
+    }
+
     try {
         await (window as any).aistudio.openSelectKey();
         // Assume key is selected and bypass the check to avoid race condition
@@ -72,6 +79,14 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
     setVerificationResult(null);
     setVerificationMessage('Analisando...');
     setApiKeyNeeded(false);
+
+    // Just-in-time check for the environment
+    if (typeof (window as any).aistudio?.hasSelectedApiKey !== 'function') {
+        setVerificationResult('ERROR');
+        setVerificationMessage(t('errors.aistudioUnavailable'));
+        setIsVerifying(false);
+        return;
+    }
 
     let ai: GoogleGenAI;
     try {

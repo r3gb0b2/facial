@@ -36,7 +36,6 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
   const [verificationResult, setVerificationResult] = useState<'MATCH' | 'NO_MATCH' | 'ERROR' | null>(null);
   const [verificationMessage, setVerificationMessage] = useState('');
   const [apiKeyNeeded, setApiKeyNeeded] = useState(false);
-  const [aiEnvStatus, setAiEnvStatus] = useState<'initializing' | 'ready' | 'unavailable'>('initializing');
 
 
   // Reset state when a new attendee is selected
@@ -47,30 +46,15 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
     setVerificationMessage('');
     setApiKeyNeeded(false);
   }, [attendee]);
-  
-  // Poll for the AI Studio environment
-  useEffect(() => {
-    const POLLING_LIMIT = 5; // 5 attempts
-    const POLLING_INTERVAL = 1000; // 1 second
-    let attempts = 0;
-
-    const intervalId = setInterval(() => {
-        if ((window as any).aistudio) {
-            setAiEnvStatus('ready');
-            clearInterval(intervalId);
-        } else {
-            attempts++;
-            if (attempts >= POLLING_LIMIT) {
-                setAiEnvStatus('unavailable');
-                clearInterval(intervalId);
-            }
-        }
-    }, POLLING_INTERVAL);
-
-    return () => clearInterval(intervalId);
-  }, []);
 
   const handleSelectKey = async () => {
+    // Just-in-time check for the environment
+    if (typeof (window as any).aistudio?.openSelectKey !== 'function') {
+        setVerificationResult('ERROR');
+        setVerificationMessage(t('errors.aistudioUnavailable'));
+        return;
+    }
+
     try {
         await (window as any).aistudio.openSelectKey();
         // Assume key is selected and bypass the check to avoid race condition
@@ -90,6 +74,14 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
     setVerificationResult(null);
     setVerificationMessage('Analisando...');
     setApiKeyNeeded(false);
+
+    // Just-in-time check for the environment
+    if (typeof (window as any).aistudio?.hasSelectedApiKey !== 'function') {
+        setVerificationResult('ERROR');
+        setVerificationMessage(t('errors.aistudioUnavailable'));
+        setIsVerifying(false);
+        return;
+    }
 
     let ai: GoogleGenAI;
     try {
@@ -173,25 +165,6 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
   }[verificationResult || ''] || '';
   
   const renderVerificationControls = () => {
-    if (aiEnvStatus === 'initializing') {
-        return (
-            <div className="mt-4 text-center p-3 rounded-lg bg-gray-700/50 flex items-center justify-center gap-2">
-                <SpinnerIcon className="w-5 h-5"/>
-                <p className="text-sm font-medium text-gray-300">{t('ai.initializing')}</p>
-            </div>
-        );
-    }
-
-    if (aiEnvStatus === 'unavailable') {
-        return (
-            <div className="mt-4 text-center p-3 rounded-lg border bg-red-500/20 text-red-300 border-red-500 flex items-center justify-center gap-2">
-                <XMarkIcon className="w-5 h-5" />
-                <p className="text-sm font-medium">{t('errors.aistudioUnavailable')}</p>
-            </div>
-        );
-    }
-    
-    // AI Env is 'ready'
     if (verificationPhoto && !verificationResult && !apiKeyNeeded) {
         return (
             <div className="mt-4 w-full">

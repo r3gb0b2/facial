@@ -49,7 +49,6 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   const [foundAttendee, setFoundAttendee] = useState<Attendee | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string>('');
   const [apiKeyNeeded, setApiKeyNeeded] = useState(false);
-  const [aiEnvStatus, setAiEnvStatus] = useState<'initializing' | 'ready' | 'unavailable'>('initializing');
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -59,28 +58,6 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   useEffect(() => {
     attendeesRef.current = attendees;
   }, [attendees]);
-  
-  // Poll for the AI Studio environment
-  useEffect(() => {
-    const POLLING_LIMIT = 5; // 5 attempts
-    const POLLING_INTERVAL = 1000; // 1 second
-    let attempts = 0;
-
-    const intervalId = setInterval(() => {
-        if ((window as any).aistudio) {
-            setAiEnvStatus('ready');
-            clearInterval(intervalId);
-        } else {
-            attempts++;
-            if (attempts >= POLLING_LIMIT) {
-                setAiEnvStatus('unavailable');
-                clearInterval(intervalId);
-            }
-        }
-    }, POLLING_INTERVAL);
-
-    return () => clearInterval(intervalId);
-  }, []);
 
   const sectorMap = useMemo(() => new Map(sectors.map(s => [s.id, s])), [sectors]);
   const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s])), [suppliers]);
@@ -113,6 +90,12 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   }, [stopScanningProcess]);
 
   const handleSelectKey = async () => {
+    // Just-in-time check for the environment
+    if (typeof (window as any).aistudio?.openSelectKey !== 'function') {
+        setError(t('errors.aistudioUnavailable'));
+        return;
+    }
+
     try {
         await (window as any).aistudio.openSelectKey();
         // Assume key is selected and bypass the check to avoid race condition
@@ -131,6 +114,12 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
     setFoundAttendee(null);
     setFeedbackMessage('');
     setApiKeyNeeded(false);
+
+    // Just-in-time check for the environment
+    if (typeof (window as any).aistudio?.hasSelectedApiKey !== 'function') {
+        setError(t('errors.aistudioUnavailable'));
+        return;
+    }
 
     const initialPendingAttendees = attendeesRef.current.filter(a => a.status === CheckinStatus.PENDING);
     if (initialPendingAttendees.length === 0) {
@@ -155,8 +144,12 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
     } catch (e: any) {
         setIsLoading(false);
         console.error("AI SDK Initialization failed:", e);
-        setApiKeyNeeded(true);
-        setFeedbackMessage(t('errors.apiKeyNeeded'));
+        if (e instanceof TypeError && e.message.toLowerCase().includes('aistudio')) {
+            setError(t('errors.aistudioUnavailable'));
+        } else {
+            setApiKeyNeeded(true);
+            setFeedbackMessage(t('errors.apiKeyNeeded'));
+        }
         return;
     }
 
@@ -307,25 +300,6 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   };
 
   const renderContent = () => {
-     if (aiEnvStatus === 'initializing') {
-        return (
-            <div className="text-center p-8">
-                <SpinnerIcon className="w-12 h-12 text-white mx-auto mb-4" />
-                <p className="text-lg font-semibold text-gray-300">{t('ai.initializing')}</p>
-            </div>
-        );
-    }
-    
-    if (aiEnvStatus === 'unavailable') {
-         return (
-            <div className="text-center p-8">
-                <XMarkIcon className="w-12 h-12 text-red-400 mx-auto mb-4" />
-                <p className="text-lg font-semibold text-red-300">{t('errors.aistudioUnavailable')}</p>
-            </div>
-        );
-    }
-
-    // AI Env is 'ready'
     return (
       <>
         <div className="relative w-full max-w-md mx-auto aspect-square bg-black rounded-lg overflow-hidden border-2 border-gray-600 shadow-lg">
