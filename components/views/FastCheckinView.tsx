@@ -49,21 +49,19 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   const [foundAttendee, setFoundAttendee] = useState<Attendee | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string>('');
   const [apiKeyNeeded, setApiKeyNeeded] = useState(false);
-  const [isAiAvailable, setIsAiAvailable] = useState(true);
+  const [isAiEnvironmentReady, setIsAiEnvironmentReady] = useState(true);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const attendeesRef = useRef(attendees);
 
-  const getAiStudio = useCallback(() => {
-    const aiStudio = (window as any).aistudio;
-    if (!aiStudio) {
-      setIsAiAvailable(false);
-      throw new Error(t('errors.aistudioUnavailable'));
+  useEffect(() => {
+    // Check for the AI environment once when the component mounts.
+    if (typeof (window as any).aistudio?.openSelectKey !== 'function') {
+        setIsAiEnvironmentReady(false);
     }
-    return aiStudio;
-  }, [t]);
+  }, []);
 
   useEffect(() => {
     attendeesRef.current = attendees;
@@ -100,8 +98,12 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   }, [stopScanningProcess]);
 
   const handleSelectKey = async () => {
+    if (!isAiEnvironmentReady) {
+        setError(t('errors.aistudioUnavailable'));
+        return;
+    }
     try {
-        const aistudio = getAiStudio();
+        const aistudio = (window as any).aistudio;
         await aistudio.openSelectKey();
         // Assume key is selected and bypass the check to avoid race condition
         await handleStartScanning(true);
@@ -115,11 +117,15 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
 
   const handleStartScanning = async (bypassKeyCheck = false) => {
     if (isScanning || isLoading) return;
+
+    if (!isAiEnvironmentReady) {
+        setError(t('errors.aistudioUnavailable'));
+        return;
+    }
     
     setFoundAttendee(null);
     setFeedbackMessage('');
     setApiKeyNeeded(false);
-    setIsAiAvailable(true);
 
     const initialPendingAttendees = attendeesRef.current.filter(a => a.status === CheckinStatus.PENDING);
     if (initialPendingAttendees.length === 0) {
@@ -131,8 +137,8 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
 
     let ai: GoogleGenAI;
     try {
+        const aistudio = (window as any).aistudio;
         if (!bypassKeyCheck) {
-            const aistudio = getAiStudio();
             const hasKey = await aistudio.hasSelectedApiKey();
             if (!hasKey) {
                 setApiKeyNeeded(true);
@@ -146,10 +152,7 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
         console.error("AI SDK Initialization failed:", e);
         setError(t('errors.apiKeySelectionFailed', { details: e.message }));
         setIsLoading(false);
-        // Only show the button if the environment is OK but a key is needed
-        if (e.message !== t('errors.aistudioUnavailable')) {
-            setApiKeyNeeded(true);
-        }
+        setApiKeyNeeded(true);
         return;
     }
 
@@ -297,12 +300,11 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
     setFoundAttendee(null);
     setFeedbackMessage('');
     setApiKeyNeeded(false);
-    setIsAiAvailable(true);
   };
 
   const renderOverlay = () => {
     if (isLoading && !foundAttendee) {
-        if (apiKeyNeeded && isAiAvailable) {
+        if (apiKeyNeeded) {
             return (
                 <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-center p-6">
                     <KeyIcon className="w-12 h-12 text-yellow-400 mb-4" />
@@ -332,48 +334,56 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
           {t('fastCheckin.title')}
         </h2>
         
-        <div className="relative w-full max-w-md mx-auto aspect-square bg-black rounded-lg overflow-hidden border-2 border-gray-600 shadow-lg">
-          {foundAttendee ? (
-            <div className="w-full h-full flex flex-col items-center justify-center p-4 bg-gray-900">
-               <div className="text-center mb-4">
-                 <CheckCircleIcon className="w-12 h-12 text-green-400 mx-auto" />
-                 <p className="text-lg font-bold text-green-300 mt-2">{feedbackMessage}</p>
-               </div>
-               <div className="w-full max-w-xs">
-                 <AttendeeCard 
-                    attendee={foundAttendee}
-                    onSelect={() => {}}
-                    sectorLabel={(foundAttendee.sectors.map(id => sectorMap.get(id)?.label).filter(Boolean).join(', '))}
-                    sectorColor={sectorMap.get(foundAttendee.sectors[0])?.color}
-                    supplierName={foundAttendee.supplierId ? supplierMap.get(foundAttendee.supplierId)?.name : ''}
-                 />
-               </div>
+        {!isAiEnvironmentReady ? (
+            <div className="text-center p-6 bg-gray-900/50 rounded-lg border border-yellow-500/50">
+                <p className="text-yellow-400 font-semibold">{t('errors.aistudioUnavailable')}</p>
             </div>
-          ) : (
+        ) : (
             <>
-              <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-              {renderOverlay()}
+                <div className="relative w-full max-w-md mx-auto aspect-square bg-black rounded-lg overflow-hidden border-2 border-gray-600 shadow-lg">
+                  {foundAttendee ? (
+                    <div className="w-full h-full flex flex-col items-center justify-center p-4 bg-gray-900">
+                       <div className="text-center mb-4">
+                         <CheckCircleIcon className="w-12 h-12 text-green-400 mx-auto" />
+                         <p className="text-lg font-bold text-green-300 mt-2">{feedbackMessage}</p>
+                       </div>
+                       <div className="w-full max-w-xs">
+                         <AttendeeCard 
+                            attendee={foundAttendee}
+                            onSelect={() => {}}
+                            sectorLabel={(foundAttendee.sectors.map(id => sectorMap.get(id)?.label).filter(Boolean).join(', '))}
+                            sectorColor={sectorMap.get(foundAttendee.sectors[0])?.color}
+                            supplierName={foundAttendee.supplierId ? supplierMap.get(foundAttendee.supplierId)?.name : ''}
+                         />
+                       </div>
+                    </div>
+                  ) : (
+                    <>
+                      <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                      {renderOverlay()}
+                    </>
+                  )}
+                </div>
+                
+                <div className="mt-6">
+                  {!isScanning && !isLoading ? (
+                    <button onClick={() => handleStartScanning()} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-4 rounded-lg transition-colors">
+                      {t('fastCheckin.start')}
+                    </button>
+                  ) : (
+                     foundAttendee ? (
+                        <button onClick={reset} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-4 rounded-lg transition-colors">
+                          {t('fastCheckin.checkNext')}
+                        </button>
+                     ) : (
+                        <button onClick={reset} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-4 rounded-lg transition-colors">
+                          {t('fastCheckin.stop')}
+                        </button>
+                     )
+                  )}
+                </div>
             </>
-          )}
-        </div>
-        
-        <div className="mt-6">
-          {!isScanning && !isLoading ? (
-            <button onClick={() => handleStartScanning()} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-4 rounded-lg transition-colors">
-              {t('fastCheckin.start')}
-            </button>
-          ) : (
-             foundAttendee ? (
-                <button onClick={reset} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-4 rounded-lg transition-colors">
-                  {t('fastCheckin.checkNext')}
-                </button>
-             ) : (
-                <button onClick={reset} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-4 rounded-lg transition-colors">
-                  {t('fastCheckin.stop')}
-                </button>
-             )
-          )}
-        </div>
+        )}
       </div>
     </div>
   );
