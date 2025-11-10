@@ -42,6 +42,8 @@ const imageUrlToPartData = async (url: string): Promise<{ inlineData: { data: st
     }
 };
 
+type AiEnvStatus = 'checking' | 'ready' | 'unavailable';
+
 const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, suppliers, onUpdateStatus, setError }) => {
   const { t } = useTranslation();
   const [isScanning, setIsScanning] = useState(false);
@@ -49,7 +51,7 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   const [foundAttendee, setFoundAttendee] = useState<Attendee | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string>('');
   const [apiKeyNeeded, setApiKeyNeeded] = useState(false);
-  const [isAiEnvironmentReady, setIsAiEnvironmentReady] = useState(true);
+  const [aiEnvStatus, setAiEnvStatus] = useState<AiEnvStatus>('checking');
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -57,10 +59,28 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   const attendeesRef = useRef(attendees);
 
   useEffect(() => {
-    // Check for the AI environment once when the component mounts.
-    if (typeof (window as any).aistudio?.openSelectKey !== 'function') {
-        setIsAiEnvironmentReady(false);
+    // Polling logic for AI Studio environment
+    const checkAiStudio = () => typeof (window as any).aistudio?.openSelectKey === 'function';
+
+    if (checkAiStudio()) {
+        setAiEnvStatus('ready');
+        return;
     }
+
+    const maxRetries = 6;
+    let retries = 0;
+    const interval = setInterval(() => {
+        retries++;
+        if (checkAiStudio()) {
+            setAiEnvStatus('ready');
+            clearInterval(interval);
+        } else if (retries >= maxRetries) {
+            setAiEnvStatus('unavailable');
+            clearInterval(interval);
+        }
+    }, 500);
+
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -98,10 +118,6 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   }, [stopScanningProcess]);
 
   const handleSelectKey = async () => {
-    if (!isAiEnvironmentReady) {
-        setError(t('errors.aistudioUnavailable'));
-        return;
-    }
     try {
         const aistudio = (window as any).aistudio;
         await aistudio.openSelectKey();
@@ -117,11 +133,6 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
 
   const handleStartScanning = async (bypassKeyCheck = false) => {
     if (isScanning || isLoading) return;
-
-    if (!isAiEnvironmentReady) {
-        setError(t('errors.aistudioUnavailable'));
-        return;
-    }
     
     setFoundAttendee(null);
     setFeedbackMessage('');
@@ -334,11 +345,18 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
           {t('fastCheckin.title')}
         </h2>
         
-        {!isAiEnvironmentReady ? (
+        {aiEnvStatus === 'checking' && (
+            <div className="text-center p-6">
+                <SpinnerIcon className="w-8 h-8 mx-auto text-gray-400" />
+                <p className="text-gray-400 mt-2">{t('ai.initializing')}</p>
+            </div>
+        )}
+        {aiEnvStatus === 'unavailable' && (
             <div className="text-center p-6 bg-gray-900/50 rounded-lg border border-yellow-500/50">
                 <p className="text-yellow-400 font-semibold">{t('errors.aistudioUnavailable')}</p>
             </div>
-        ) : (
+        )}
+        {aiEnvStatus === 'ready' && (
             <>
                 <div className="relative w-full max-w-md mx-auto aspect-square bg-black rounded-lg overflow-hidden border-2 border-gray-600 shadow-lg">
                   {foundAttendee ? (

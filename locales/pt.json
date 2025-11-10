@@ -265,6 +265,7 @@
     "errors.apiKeySelectionFailed": "Falha ao abrir a seleção de chave de API: {details}",
     "errors.aistudioUnavailable": "Recurso de IA indisponível: A interface de configuração da IA (aistudio) não foi encontrada neste ambiente. Verifique a configuração da plataforma.",
     "apiKey.selectButton": "Selecionar Chave de API",
-    "apiKey.selectMessage": "Para usar este recurso, uma chave de API da Gemini precisa ser selecionada."
+    "apiKey.selectMessage": "Para usar este recurso, uma chave de API da Gemini precisa ser selecionada.",
+    "ai.initializing": "Inicializando ambiente de IA..."
   }
 }
