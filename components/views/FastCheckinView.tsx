@@ -48,6 +48,7 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   const [isLoading, setIsLoading] = useState(false);
   const [foundAttendee, setFoundAttendee] = useState<Attendee | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string>('');
+  const [aiEnvStatus, setAiEnvStatus] = useState<'initializing' | 'ready' | 'unavailable'>('initializing');
   const [apiKeyNeeded, setApiKeyNeeded] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -58,6 +59,33 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   useEffect(() => {
     attendeesRef.current = attendees;
   }, [attendees]);
+
+  // Poll for AI Studio environment to resolve race condition
+  useEffect(() => {
+    const POLLING_INTERVAL = 200;
+    const TIMEOUT = 5000;
+
+    const intervalId = setInterval(() => {
+        // Check for the function that is actually used to select a key
+        if (typeof (window as any).aistudio?.openSelectKey === 'function') {
+            clearInterval(intervalId);
+            clearTimeout(timeoutId);
+            setAiEnvStatus('ready');
+        }
+    }, POLLING_INTERVAL);
+
+    const timeoutId = setTimeout(() => {
+        clearInterval(intervalId);
+        if (typeof (window as any).aistudio?.openSelectKey !== 'function') {
+           setAiEnvStatus('unavailable');
+        }
+    }, TIMEOUT);
+
+    return () => {
+        clearInterval(intervalId);
+        clearTimeout(timeoutId);
+    };
+  }, []);
 
   const sectorMap = useMemo(() => new Map(sectors.map(s => [s.id, s])), [sectors]);
   const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s])), [suppliers]);
@@ -90,36 +118,24 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   }, [stopScanningProcess]);
 
   const handleSelectKey = async () => {
-    // Just-in-time check for the environment
-    if (typeof (window as any).aistudio?.openSelectKey !== 'function') {
-        setError(t('errors.aistudioUnavailable'));
-        return;
-    }
-
     try {
         await (window as any).aistudio.openSelectKey();
         // Assume key is selected and bypass the check to avoid race condition
         await handleStartScanning(true);
     } catch (e: any) {
         const errorMessage = e?.message || 'Detalhes indisponíveis';
-        console.error("Failed to open API key selection:", e);
+        console.error("Failed to open API key selection", e);
         setError(t('errors.apiKeySelectionFailed', { details: errorMessage }));
     }
   };
 
 
   const handleStartScanning = async (bypassKeyCheck = false) => {
-    if (isScanning || isLoading) return;
+    if (isScanning || isLoading || aiEnvStatus !== 'ready') return;
     
     setFoundAttendee(null);
     setFeedbackMessage('');
     setApiKeyNeeded(false);
-
-    // Just-in-time check for the environment
-    if (typeof (window as any).aistudio?.hasSelectedApiKey !== 'function') {
-        setError(t('errors.aistudioUnavailable'));
-        return;
-    }
 
     const initialPendingAttendees = attendeesRef.current.filter(a => a.status === CheckinStatus.PENDING);
     if (initialPendingAttendees.length === 0) {
@@ -144,12 +160,8 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
     } catch (e: any) {
         setIsLoading(false);
         console.error("AI SDK Initialization failed:", e);
-        if (e instanceof TypeError && e.message.toLowerCase().includes('aistudio')) {
-            setError(t('errors.aistudioUnavailable'));
-        } else {
-            setApiKeyNeeded(true);
-            setFeedbackMessage(t('errors.apiKeyNeeded'));
-        }
+        setApiKeyNeeded(true);
+        setFeedbackMessage(t('errors.apiKeyNeeded'));
         return;
     }
 
@@ -300,6 +312,25 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   };
 
   const renderContent = () => {
+    if (aiEnvStatus === 'initializing') {
+        return (
+            <div className="flex flex-col items-center justify-center aspect-square">
+                <SpinnerIcon className="w-12 h-12 text-white mb-4" />
+                <p className="text-white font-semibold text-lg">{t('ai.initializing')}</p>
+            </div>
+        );
+    }
+
+    if (aiEnvStatus === 'unavailable') {
+        return (
+             <div className="flex flex-col items-center justify-center aspect-square text-center">
+                <XMarkIcon className="w-12 h-12 text-red-400 mb-4" />
+                <p className="text-red-400 font-semibold text-lg">{t('errors.aistudioUnavailable')}</p>
+            </div>
+        );
+    }
+
+    // AI Env is Ready
     return (
       <>
         <div className="relative w-full max-w-md mx-auto aspect-square bg-black rounded-lg overflow-hidden border-2 border-gray-600 shadow-lg">
@@ -345,7 +376,7 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
         </div>
         
         <div className="mt-6">
-          {!isScanning && !isLoading ? (
+          {aiEnvStatus === 'ready' && !isScanning && !isLoading ? (
             <button onClick={() => handleStartScanning()} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-4 rounded-lg transition-colors">
               {t('fastCheckin.start')}
             </button>
@@ -355,7 +386,7 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
                   {t('fastCheckin.checkNext')}
                 </button>
              ) : (
-                <button onClick={reset} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-4 rounded-lg transition-colors">
+                <button onClick={reset} disabled={aiEnvStatus !== 'ready'} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-4 px-4 rounded-lg transition-colors disabled:bg-gray-500">
                   {t('fastCheckin.stop')}
                 </button>
              )
