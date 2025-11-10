@@ -261,6 +261,9 @@
     "users.admin.managementNotice": "Você só pode gerenciar os usuários de check-in que você criou.",
     "errors.registrationLimitReached": "O limite de cadastros para este fornecedor foi atingido.",
     "errors.generic": "Ocorreu um erro inesperado.",
-    "errors.apiKeyNeeded": "Erro de Configuração: A chave da API para a IA é necessária. Por favor, selecione uma chave para continuar."
+    "errors.apiKeyNeeded": "Erro de Configuração: É necessário selecionar uma chave de API para a IA. Por favor, clique no botão para configurar.",
+    "errors.apiKeyInvalid": "A chave de API selecionada é inválida ou não tem as permissões necessárias. Por favor, selecione outra chave.",
+    "apiKey.selectButton": "Selecionar Chave de API",
+    "apiKey.selectMessage": "Para usar este recurso, uma chave de API da Gemini precisa ser selecionada."
   }
 }

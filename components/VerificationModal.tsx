@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Attendee } from '../types.ts';
 import WebcamCapture from './WebcamCapture.tsx';
-import { CheckCircleIcon, XMarkIcon, SparklesIcon, SpinnerIcon } from './icons.tsx';
+import { CheckCircleIcon, XMarkIcon, SparklesIcon, SpinnerIcon, KeyIcon } from './icons.tsx';
 import { useTranslation } from '../hooks/useTranslation.tsx';
 import { GoogleGenAI } from '@google/genai';
 
@@ -35,6 +35,8 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationResult, setVerificationResult] = useState<'MATCH' | 'NO_MATCH' | 'ERROR' | null>(null);
   const [verificationMessage, setVerificationMessage] = useState('');
+  const [apiKeyNeeded, setApiKeyNeeded] = useState(false);
+
 
   // Reset state when a new attendee is selected
   useEffect(() => {
@@ -42,7 +44,20 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
     setIsVerifying(false);
     setVerificationResult(null);
     setVerificationMessage('');
+    setApiKeyNeeded(false);
   }, [attendee]);
+  
+  const handleSelectKey = async () => {
+    try {
+        await (window as any).aistudio.openSelectKey();
+        // After user interaction, retry verification
+        handleVerification();
+    } catch(e) {
+        console.error("Failed to open API key selection", e);
+        setVerificationResult('ERROR');
+        setVerificationMessage(t('errors.generic'));
+    }
+  };
 
   const handleVerification = async () => {
     if (!verificationPhoto) return;
@@ -50,20 +65,26 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
     setIsVerifying(true);
     setVerificationResult(null);
     setVerificationMessage('Analisando...');
+    setApiKeyNeeded(false);
 
     let ai: GoogleGenAI;
     try {
         const hasKey = await (window as any).aistudio.hasSelectedApiKey();
         if (!hasKey) {
-            await (window as any).aistudio.openSelectKey();
+            setApiKeyNeeded(true);
+            setVerificationResult('ERROR');
+            setVerificationMessage(t('errors.apiKeyNeeded'));
+            setIsVerifying(false);
+            return;
         }
-        // After attempting to get a key, try to initialize the SDK.
         ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     } catch (e: any) {
         console.error("AI SDK Initialization failed:", e);
         setVerificationResult('ERROR');
+        // This catch block might be redundant if hasSelectedApiKey is reliable, but it's a good safeguard.
         setVerificationMessage(t('errors.apiKeyNeeded'));
         setIsVerifying(false);
+        setApiKeyNeeded(true);
         return;
     }
 
@@ -107,8 +128,14 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
 
     } catch (error: any) {
         console.error("AI Verification Error:", error);
-        setVerificationResult('ERROR');
-        setVerificationMessage('Ocorreu um erro na verificação com IA. Tente novamente ou verifique manualmente.');
+        if (error.message?.includes("Requested entity was not found")) {
+            setVerificationResult('ERROR');
+            setVerificationMessage(t('errors.apiKeyInvalid'));
+            setApiKeyNeeded(true);
+        } else {
+            setVerificationResult('ERROR');
+            setVerificationMessage('Ocorreu um erro na verificação com IA. Tente novamente ou verifique manualmente.');
+        }
     } finally {
         setIsVerifying(false);
     }
@@ -140,7 +167,7 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
               <div className="text-center">
                 <h3 className="text-lg font-semibold text-gray-300 mb-2">{t('verificationModal.liveVerification')}</h3>
                 <WebcamCapture onCapture={setVerificationPhoto} capturedImage={verificationPhoto} allowUpload={true} />
-                {verificationPhoto && !verificationResult && (
+                {verificationPhoto && !verificationResult && !apiKeyNeeded && (
                     <div className="mt-4 w-full">
                         <button
                             onClick={handleVerification}
@@ -152,12 +179,23 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
                         </button>
                     </div>
                 )}
-                {verificationMessage && (
+                 {verificationMessage && (
                     <div className={`mt-4 text-center p-3 rounded-lg border ${resultBoxClass} flex items-center justify-center gap-2`}>
                          {verificationResult === 'MATCH' && <CheckCircleIcon className="w-5 h-5" />}
                          {verificationResult === 'NO_MATCH' && <XMarkIcon className="w-5 h-5" />}
                          {verificationResult === 'ERROR' && <XMarkIcon className="w-5 h-5" />}
                          <p className="text-sm font-medium">{verificationMessage}</p>
+                    </div>
+                )}
+                {apiKeyNeeded && (
+                    <div className="mt-4 w-full">
+                        <button
+                            onClick={handleSelectKey}
+                            className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2"
+                        >
+                           <KeyIcon className="w-5 h-5"/>
+                           {t('apiKey.selectButton')}
+                        </button>
                     </div>
                 )}
               </div>
