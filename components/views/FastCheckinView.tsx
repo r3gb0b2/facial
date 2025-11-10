@@ -49,6 +49,7 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   const [foundAttendee, setFoundAttendee] = useState<Attendee | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string>('');
   const [apiKeyNeeded, setApiKeyNeeded] = useState(false);
+  const [aiEnvStatus, setAiEnvStatus] = useState<'initializing' | 'ready'>('initializing');
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -58,6 +59,20 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   useEffect(() => {
     attendeesRef.current = attendees;
   }, [attendees]);
+
+  // Wait indefinitely for the AI Studio environment to be ready.
+  useEffect(() => {
+    const POLLING_INTERVAL = 200;
+    const intervalId = setInterval(() => {
+        if (typeof (window as any).aistudio?.openSelectKey === 'function') {
+            clearInterval(intervalId);
+            setAiEnvStatus('ready');
+        }
+    }, POLLING_INTERVAL);
+
+    // Cleanup on unmount
+    return () => clearInterval(intervalId);
+  }, []);
 
   const sectorMap = useMemo(() => new Map(sectors.map(s => [s.id, s])), [sectors]);
   const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s])), [suppliers]);
@@ -91,20 +106,12 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
 
   const handleSelectKey = async () => {
     try {
-        if (typeof (window as any).aistudio?.openSelectKey !== 'function') {
-            throw new Error("aistudioUnavailable");
-        }
         await (window as any).aistudio.openSelectKey();
-        // Assume key is selected and bypass the check to avoid race condition
         await handleStartScanning(true);
     } catch (e: any) {
-        if (e.message === "aistudioUnavailable") {
-            setError(t('errors.aistudioUnavailable'));
-        } else {
-            const errorMessage = e?.message || 'Detalhes indisponíveis';
-            console.error("Failed to open API key selection", e);
-            setError(t('errors.apiKeySelectionFailed', { details: errorMessage }));
-        }
+        const errorMessage = e?.message || 'Detalhes indisponíveis';
+        console.error("Failed to open API key selection", e);
+        setError(t('errors.apiKeySelectionFailed', { details: errorMessage }));
     }
   };
 
@@ -123,13 +130,9 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
     }
       
     setIsLoading(true);
-
+    
+    let ai: GoogleGenAI;
     try {
-        if (typeof (window as any).aistudio?.hasSelectedApiKey !== 'function') {
-            throw new Error("aistudioUnavailable");
-        }
-
-        let ai: GoogleGenAI;
         if (!bypassKeyCheck) {
             const hasKey = await (window as any).aistudio.hasSelectedApiKey();
             if (!hasKey) {
@@ -140,7 +143,15 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
             }
         }
         ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+    } catch(e: any) {
+        console.error("AI SDK Initialization failed:", e);
+        setError(t('errors.apiKeyNeeded'));
+        setApiKeyNeeded(true);
+        setIsLoading(false);
+        return;
+    }
 
+    try {
         setFeedbackMessage(t('fastCheckin.analyzing'));
 
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
@@ -270,14 +281,10 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
         }, 4000);
 
     } catch (err: any) {
-        if (err.message === "aistudioUnavailable") {
-            setError(t('errors.aistudioUnavailable'));
-        } else {
-            const baseMessage = t('fastCheckin.cameraError');
-            const errorDetails = `(${err.name || 'Error'}: ${err.message || 'Detalhes indisponíveis'})`;
-            setError(`${baseMessage} ${errorDetails}`);
-            console.error("Error starting camera for fast check-in:", err);
-        }
+        const baseMessage = t('fastCheckin.cameraError');
+        const errorDetails = `(${err.name || 'Error'}: ${err.message || 'Detalhes indisponíveis'})`;
+        setError(`${baseMessage} ${errorDetails}`);
+        console.error("Error starting camera for fast check-in:", err);
         stopScanningProcess();
         setFeedbackMessage('');
     }
@@ -291,6 +298,15 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   };
 
   const renderContent = () => {
+    if (aiEnvStatus === 'initializing') {
+        return (
+            <div className="flex flex-col items-center justify-center aspect-square">
+                <SpinnerIcon className="w-12 h-12 text-gray-400" />
+                <p className="mt-4 text-gray-400">{t('ai.initializing')}</p>
+            </div>
+        );
+    }
+
     return (
       <>
         <div className="relative w-full max-w-md mx-auto aspect-square bg-black rounded-lg overflow-hidden border-2 border-gray-600 shadow-lg">
@@ -337,7 +353,11 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
         
         <div className="mt-6">
           {!isScanning && !isLoading ? (
-            <button onClick={() => handleStartScanning()} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-4 rounded-lg transition-colors">
+            <button 
+                onClick={() => handleStartScanning()} 
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-4 rounded-lg transition-colors disabled:bg-gray-600 disabled:cursor-not-allowed"
+                disabled={aiEnvStatus !== 'ready'}
+            >
               {t('fastCheckin.start')}
             </button>
           ) : (

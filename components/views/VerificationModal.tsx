@@ -36,6 +36,22 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
   const [verificationResult, setVerificationResult] = useState<'MATCH' | 'NO_MATCH' | 'ERROR' | null>(null);
   const [verificationMessage, setVerificationMessage] = useState('');
   const [apiKeyNeeded, setApiKeyNeeded] = useState(false);
+  const [aiEnvStatus, setAiEnvStatus] = useState<'initializing' | 'ready'>('initializing');
+
+  // Wait indefinitely for the AI Studio environment to be ready.
+  useEffect(() => {
+    const POLLING_INTERVAL = 200;
+    const intervalId = setInterval(() => {
+        if (typeof (window as any).aistudio?.openSelectKey === 'function') {
+            clearInterval(intervalId);
+            setAiEnvStatus('ready');
+        }
+    }, POLLING_INTERVAL);
+
+    // Cleanup on unmount
+    return () => clearInterval(intervalId);
+  }, []);
+
 
   // Reset state when a new attendee is selected
   useEffect(() => {
@@ -48,22 +64,14 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
 
   const handleSelectKey = async () => {
     try {
-        if (typeof (window as any).aistudio?.openSelectKey !== 'function') {
-            throw new Error("aistudioUnavailable");
-        }
         await (window as any).aistudio.openSelectKey();
         // Assume key is selected and bypass the check to avoid race condition
         handleVerification(true);
     } catch (e: any) {
-        if (e.message === "aistudioUnavailable") {
-            setVerificationResult('ERROR');
-            setVerificationMessage(t('errors.aistudioUnavailable'));
-        } else {
-            const errorMessage = e?.message || 'Detalhes indisponíveis';
-            console.error("Failed to open API key selection", e);
-            setVerificationResult('ERROR');
-            setVerificationMessage(t('errors.apiKeySelectionFailed', { details: errorMessage }));
-        }
+        const errorMessage = e?.message || 'Detalhes indisponíveis';
+        console.error("Failed to open API key selection", e);
+        setVerificationResult('ERROR');
+        setVerificationMessage(t('errors.apiKeySelectionFailed', { details: errorMessage }));
     }
   };
 
@@ -75,11 +83,8 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
     setVerificationMessage('Analisando...');
     setApiKeyNeeded(false);
 
+    let ai: GoogleGenAI;
     try {
-        if (typeof (window as any).aistudio?.hasSelectedApiKey !== 'function') {
-            throw new Error("aistudioUnavailable");
-        }
-        
         if (!bypassKeyCheck) {
             const hasKey = await (window as any).aistudio.hasSelectedApiKey();
             if (!hasKey) {
@@ -90,8 +95,18 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
                 return;
             }
         }
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+        ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+    } catch (e: any) {
+        console.error("AI SDK Initialization failed:", e);
+        setVerificationResult('ERROR');
+        setVerificationMessage(t('errors.apiKeyNeeded'));
+        setApiKeyNeeded(true);
+        setIsVerifying(false);
+        return;
+    }
 
+
+    try {
         // Prepare registered photo
         const registeredPhotoData = await imageUrlToPartData(attendee.photo);
         const registeredPhotoPart = {
@@ -129,15 +144,12 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
         }
 
     } catch (error: any) {
-        if (error.message === "aistudioUnavailable") {
-            setVerificationResult('ERROR');
-            setVerificationMessage(t('errors.aistudioUnavailable'));
-        } else if (error.message?.includes("Requested entity was not found")) {
+        console.error("AI Verification Error:", error);
+        if (error.message?.includes("Requested entity was not found")) {
             setVerificationResult('ERROR');
             setVerificationMessage(t('errors.apiKeyInvalid'));
             setApiKeyNeeded(true);
         } else {
-            console.error("AI Verification Error:", error);
             setVerificationResult('ERROR');
             setVerificationMessage('Ocorreu um erro na verificação com IA. Tente novamente ou verifique manualmente.');
         }
@@ -215,15 +227,24 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
               </div>
               <div className="text-center">
                 <h3 className="text-lg font-semibold text-gray-300 mb-2">{t('verificationModal.liveVerification')}</h3>
-                <WebcamCapture onCapture={setVerificationPhoto} capturedImage={verificationPhoto} allowUpload={true} />
-                {renderVerificationControls()}
+                {aiEnvStatus === 'initializing' ? (
+                    <div className="flex flex-col items-center justify-center aspect-square bg-gray-900 rounded-lg">
+                        <SpinnerIcon className="w-8 h-8 text-gray-400" />
+                        <p className="mt-4 text-gray-400">{t('ai.initializing')}</p>
+                    </div>
+                ) : (
+                  <>
+                    <WebcamCapture onCapture={setVerificationPhoto} capturedImage={verificationPhoto} allowUpload={true} />
+                    {renderVerificationControls()}
+                  </>
+                )}
               </div>
             </div>
         </div>
         <div className="p-6 bg-gray-900/50 rounded-b-2xl flex-shrink-0">
             <button
                 onClick={onConfirm}
-                disabled={!verificationPhoto || verificationResult !== 'MATCH' || isVerifying}
+                disabled={!verificationPhoto || verificationResult !== 'MATCH' || isVerifying || aiEnvStatus !== 'ready'}
                 className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-gray-600 disabled:cursor-not-allowed"
             >
                 <CheckCircleIcon className="w-6 h-6"/>
