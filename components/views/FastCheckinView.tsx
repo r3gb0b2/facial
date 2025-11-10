@@ -3,7 +3,7 @@ import { Attendee, CheckinStatus, Sector, Supplier } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import * as api from '../../firebase/service.ts';
 import { GoogleGenAI } from '@google/genai';
-import { FaceSmileIcon, SpinnerIcon, CheckCircleIcon, KeyIcon, XMarkIcon } from '../icons.tsx';
+import { FaceSmileIcon, SpinnerIcon, CheckCircleIcon, XMarkIcon } from '../icons.tsx';
 import AttendeeCard from '../AttendeeCard.tsx';
 
 interface FastCheckinViewProps {
@@ -48,7 +48,6 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   const [isLoading, setIsLoading] = useState(false);
   const [foundAttendee, setFoundAttendee] = useState<Attendee | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string>('');
-  const [apiKeyNeeded, setApiKeyNeeded] = useState(false);
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -89,30 +88,11 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
     };
   }, [stopScanningProcess]);
 
-  const handleSelectKey = async () => {
-    // Just-In-Time check for AI environment
-    if (typeof (window as any).aistudio?.openSelectKey !== 'function') {
-        setError(t('errors.aistudioUnavailable'));
-        return;
-    }
-
-    try {
-        await (window as any).aistudio.openSelectKey();
-        await handleStartScanning(true);
-    } catch (e: any) {
-        const errorMessage = e?.message || 'Detalhes indisponíveis';
-        console.error("Failed to open API key selection", e);
-        setError(t('errors.apiKeySelectionFailed', { details: errorMessage }));
-    }
-  };
-
-
-  const handleStartScanning = async (bypassKeyCheck = false) => {
+  const handleStartScanning = async () => {
     if (isScanning || isLoading) return;
     
     setFoundAttendee(null);
     setFeedbackMessage('');
-    setApiKeyNeeded(false);
 
     const initialPendingAttendees = attendeesRef.current.filter(a => a.status === CheckinStatus.PENDING);
     if (initialPendingAttendees.length === 0) {
@@ -121,36 +101,10 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
     }
       
     setIsLoading(true);
-    
-    // Just-In-Time check for AI environment
-    if (typeof (window as any).aistudio?.hasSelectedApiKey !== 'function') {
-        setError(t('errors.aistudioUnavailable'));
-        setIsLoading(false);
-        return;
-    }
-
-    let ai: GoogleGenAI;
-    try {
-        if (!bypassKeyCheck) {
-            const hasKey = await (window as any).aistudio.hasSelectedApiKey();
-            if (!hasKey) {
-                setApiKeyNeeded(true);
-                setFeedbackMessage(t('errors.apiKeyNeeded'));
-                setIsLoading(false);
-                return;
-            }
-        }
-        ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
-    } catch(e: any) {
-        console.error("AI SDK Initialization failed:", e);
-        setError(t('errors.apiKeyNeeded'));
-        setApiKeyNeeded(true);
-        setIsLoading(false);
-        return;
-    }
+    setFeedbackMessage(t('fastCheckin.analyzing'));
 
     try {
-        setFeedbackMessage(t('fastCheckin.analyzing'));
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
         streamRef.current = stream;
@@ -267,12 +221,12 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
                 }
             } catch (error: any) {
                 console.error("Error during scanning interval:", error);
-                if (error.message?.includes("Requested entity was not found")) {
+                const errorMessage = error.message?.toLowerCase() || '';
+                if (errorMessage.includes("api key not valid") || errorMessage.includes("requested entity was not found")) {
                     setError(t('errors.apiKeyInvalid'));
-                    setApiKeyNeeded(true);
                 } else {
-                    const errorMessage = `${t('fastCheckin.aiError')} (${error.message || 'Erro de API desconhecido'})`;
-                    setError(errorMessage);
+                    const detailedError = `${t('fastCheckin.aiError')} (${error.message || 'Erro de API desconhecido'})`;
+                    setError(detailedError);
                 }
                 stopScanningProcess();
             }
@@ -292,7 +246,6 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
     stopScanningProcess();
     setFoundAttendee(null);
     setFeedbackMessage('');
-    setApiKeyNeeded(false);
   };
 
   return (
@@ -323,22 +276,10 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
           ) : (
             <>
               <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
-              {(isLoading || isScanning || apiKeyNeeded) && (
+              {(isLoading || isScanning) && (
                 <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center text-center p-4">
-                  {apiKeyNeeded ? (
-                    <>
-                      <KeyIcon className="w-12 h-12 text-yellow-400 mb-4" />
-                      <p className="text-white font-semibold text-lg mb-6">{feedbackMessage}</p>
-                      <button onClick={handleSelectKey} className="w-full max-w-xs bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded-lg transition-colors">
-                        {t('apiKey.selectButton')}
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <SpinnerIcon className="w-12 h-12 text-white mb-4" />
-                      <p className="text-white font-semibold text-lg">{feedbackMessage || t('fastCheckin.analyzing')}</p>
-                    </>
-                  )}
+                  <SpinnerIcon className="w-12 h-12 text-white mb-4" />
+                  <p className="text-white font-semibold text-lg">{feedbackMessage || t('fastCheckin.analyzing')}</p>
                 </div>
               )}
             </>
@@ -348,7 +289,7 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
         <div className="mt-6">
           {!isScanning && !isLoading ? (
             <button 
-                onClick={() => handleStartScanning()} 
+                onClick={handleStartScanning} 
                 className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-4 rounded-lg transition-colors"
             >
               {t('fastCheckin.start')}
