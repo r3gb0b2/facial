@@ -18,6 +18,7 @@ interface FastCheckinViewProps {
 const imageUrlToPartData = async (url: string): Promise<{ inlineData: { data: string; mimeType: string; } } | null> => {
     try {
         const response = await fetch(url);
+        if (!response.ok) return null;
         const blob = await response.blob();
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -25,13 +26,14 @@ const imageUrlToPartData = async (url: string): Promise<{ inlineData: { data: st
                 const dataUrl = reader.result as string;
                 const [header, base64] = dataUrl.split(',');
                 if (!base64) {
-                    reject(new Error("Invalid data URL"));
+                    // Handles cases where the data URL is malformed
+                    resolve(null);
                     return;
                 }
                 const mimeType = header.match(/:(.*?);/)?.[1] || blob.type || 'image/png';
                 resolve({ inlineData: { data: base64, mimeType } });
             };
-            reader.onerror = reject;
+            reader.onerror = () => resolve(null); // Resolve with null on read error
             reader.readAsDataURL(blob);
         });
     } catch (error) {
@@ -113,7 +115,7 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
       let matchFound = false;
 
       intervalRef.current = setInterval(async () => {
-        if (matchFound || !videoRef.current) return;
+        if (matchFound || !videoRef.current || !videoRef.current.videoWidth) return;
 
         // Refresh the list of pending attendees in every interval to avoid stale state
         const pendingAttendees = attendeesRef.current.filter(a => a.status === CheckinStatus.PENDING);
@@ -133,47 +135,55 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
             context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
             const dataUrl = canvas.toDataURL('image/png');
             const [, base64] = dataUrl.split(',');
+            if (!base64) return;
             const capturedFramePart = { inlineData: { data: base64, mimeType: 'image/png' } };
     
-            const prompt = `Compare a pessoa na primeira imagem (da câmera) com as pessoas nas imagens seguintes. Responda APENAS com o CPF do colaborador correspondente se houver uma correspondência clara. Se não houver, responda 'NO_MATCH'.`;
-    
+            const prompt = `You are a security system. Your task is to compare faces. The first image is a live photo from a camera. The subsequent images are registered photos of individuals. Compare the live photo with each registered photo. If you find a clear match, respond ONLY with the text 'MATCH:' followed by the index number of the matching registered photo (e.g., 'MATCH: 2' if the live photo matches the second registered photo). The first registered photo is index 1. If there is no clear match, respond ONLY with 'NO_MATCH'.`;
+
             const BATCH_SIZE = 10;
             for (let i = 0; i < pendingAttendees.length; i += BATCH_SIZE) {
                 if (matchFound) break;
     
                 const batch = pendingAttendees.slice(i, i + BATCH_SIZE);
-                const parts: any[] = [{ text: prompt }, capturedFramePart];
                 
-                const attendeePhotoParts = await Promise.all(batch.map(a => imageUrlToPartData(a.photo)));
-    
-                batch.forEach((attendee, index) => {
-                    const photoPart = attendeePhotoParts[index];
-                    if (photoPart) {
-                        parts.push(photoPart);
-                        parts.push({ text: `CPF: ${attendee.cpf}` });
-                    }
-                });
-                
-                // Don't call API if there are no photos to compare with
-                if (parts.length <= 2) continue;
+                // Asynchronously convert all images and associate them with the original attendee
+                const batchPhotoResults = await Promise.all(batch.map(async (attendee) => {
+                    const part = await imageUrlToPartData(attendee.photo);
+                    return { attendee, part };
+                }));
+
+                // Filter out any attendees whose images failed to load
+                const validBatchData = batchPhotoResults.filter(result => result.part !== null);
+
+                if (validBatchData.length === 0) continue;
+
+                const parts: any[] = [
+                    { text: prompt }, 
+                    capturedFramePart, 
+                    ...validBatchData.map(data => data.part!)
+                ];
 
                 const response = await ai.models.generateContent({
                     model: 'gemini-2.5-flash',
                     contents: { parts },
                 });
 
-                const resultText = response.text?.trim() || '';
-                const resultCpf = resultText.replace(/\D/g, '');
+                const resultText = response.text?.trim().toUpperCase() || '';
     
-                if (resultCpf && resultCpf.length === 11) {
-                    const found = pendingAttendees.find(a => a.cpf === resultCpf);
-                    if (found) {
-                        matchFound = true;
-                        setFoundAttendee(found);
-                        await onUpdateStatus(found.id, CheckinStatus.CHECKED_IN);
-                        setFeedbackMessage(t('fastCheckin.checkinSuccess', { name: found.name }));
-                        stopScanningProcess();
-                        return; // Exit interval callback
+                if (resultText.startsWith('MATCH:')) {
+                    const matchIndex = parseInt(resultText.replace('MATCH:', '').trim(), 10);
+                    // Check if the index is valid for our validBatchData array
+                    if (!isNaN(matchIndex) && matchIndex > 0 && matchIndex <= validBatchData.length) {
+                        // The model's index is 1-based. Our array is 0-based.
+                        const { attendee: found } = validBatchData[matchIndex - 1];
+                        if (found) {
+                            matchFound = true;
+                            setFoundAttendee(found);
+                            await onUpdateStatus(found.id, CheckinStatus.CHECKED_IN);
+                            setFeedbackMessage(t('fastCheckin.checkinSuccess', { name: found.name }));
+                            stopScanningProcess();
+                            return; // Exit interval callback
+                        }
                     }
                 }
             }
