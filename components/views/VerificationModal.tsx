@@ -46,21 +46,29 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
     setApiKeyNeeded(false);
   }, [attendee]);
   
+  const checkAiStudio = (): boolean => {
+      if (typeof (window as any).aistudio?.openSelectKey !== 'function' || typeof (window as any).aistudio?.hasSelectedApiKey !== 'function') {
+          setVerificationResult('ERROR');
+          setVerificationMessage(t('errors.aistudioUnavailable'));
+          setIsVerifying(false);
+          setApiKeyNeeded(false);
+          return false;
+      }
+      return true;
+  };
+
   const handleSelectKey = async () => {
+    if (!checkAiStudio()) return;
+    
     try {
         await (window as any).aistudio.openSelectKey();
         // Assume key is selected and bypass the check to avoid race condition
         await handleVerification(true);
     } catch (e: any) {
-        if (e instanceof TypeError && e.message.toLowerCase().includes('aistudio')) {
-            setVerificationResult('ERROR');
-            setVerificationMessage(t('errors.aistudioUnavailable'));
-        } else {
-            const errorMessage = e?.message || 'Detalhes indisponíveis';
-            console.error("Failed to open API key selection", e);
-            setVerificationResult('ERROR');
-            setVerificationMessage(t('errors.apiKeySelectionFailed', { details: errorMessage }));
-        }
+        const errorMessage = e?.message || 'Detalhes indisponíveis';
+        console.error("Failed to open API key selection", e);
+        setVerificationResult('ERROR');
+        setVerificationMessage(t('errors.apiKeySelectionFailed', { details: errorMessage }));
     }
   };
 
@@ -73,8 +81,10 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
     setApiKeyNeeded(false);
 
     let ai: GoogleGenAI;
-    try {
-        if (!bypassKeyCheck) {
+    
+    if (!bypassKeyCheck) {
+        if (!checkAiStudio()) return;
+        try {
             const hasKey = await (window as any).aistudio.hasSelectedApiKey();
             if (!hasKey) {
                 setApiKeyNeeded(true);
@@ -83,18 +93,19 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
                 setIsVerifying(false);
                 return;
             }
+        } catch (e) {
+             console.error("Error checking for API key:", e);
+             checkAiStudio(); // This will set the unavailable message
+             return;
         }
+    }
+
+    try {
         ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     } catch (e: any) {
-        if (e instanceof TypeError && e.message.toLowerCase().includes('aistudio')) {
-            setVerificationResult('ERROR');
-            setVerificationMessage(t('errors.aistudioUnavailable'));
-        } else {
-            console.error("AI SDK Initialization failed:", e);
-            setVerificationResult('ERROR');
-            setVerificationMessage(t('errors.apiKeyNeeded'));
-            setApiKeyNeeded(true);
-        }
+        console.error("AI SDK Initialization failed:", e);
+        setVerificationResult('ERROR');
+        setVerificationMessage(t('errors.generic'));
         setIsVerifying(false);
         return;
     }

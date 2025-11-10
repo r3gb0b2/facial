@@ -86,16 +86,25 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
     return () => stopScanningProcess();
   }, [stopScanningProcess]);
   
+  const checkAiStudio = (): boolean => {
+      if (typeof (window as any).aistudio?.openSelectKey !== 'function' || typeof (window as any).aistudio?.hasSelectedApiKey !== 'function') {
+          setError(t('errors.aistudioUnavailable'));
+          setIsLoading(false);
+          setFeedbackMessage('');
+          setApiKeyNeeded(false);
+          return false;
+      }
+      return true;
+  };
+
   const handleSelectKey = async () => {
+    if (!checkAiStudio()) return;
+
     try {
         await (window as any).aistudio.openSelectKey();
         await handleStartScanning(true);
     } catch (e: any) {
-        if (e instanceof TypeError && e.message.toLowerCase().includes('aistudio')) {
-            setError(t('errors.aistudioUnavailable'));
-        } else {
-            setError(t('errors.apiKeySelectionFailed', { details: e?.message || 'Detalhes indisponíveis' }));
-        }
+        setError(t('errors.apiKeySelectionFailed', { details: e?.message || 'Detalhes indisponíveis' }));
     }
   };
 
@@ -111,13 +120,12 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
         setFeedbackMessage(t('fastCheckin.noPending'));
         return;
     }
-      
-    setIsLoading(true);
-    setFeedbackMessage(t('fastCheckin.analyzing'));
     
     let ai: GoogleGenAI;
-    try {
-        if (!bypassKeyCheck) {
+    
+    if (!bypassKeyCheck) {
+        if (!checkAiStudio()) return;
+        try {
             const hasKey = await (window as any).aistudio.hasSelectedApiKey();
             if (!hasKey) {
                 setApiKeyNeeded(true);
@@ -125,15 +133,20 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
                 setFeedbackMessage('');
                 return;
             }
+        } catch(e) {
+            console.error("Error checking for API key:", e);
+            checkAiStudio(); // Sets unavailable message
+            return;
         }
+    }
+    
+    setIsLoading(true);
+    setFeedbackMessage(t('fastCheckin.analyzing'));
+
+    try {
         ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     } catch (e: any) {
-        if (e instanceof TypeError && e.message.toLowerCase().includes('aistudio')) {
-            setError(t('errors.aistudioUnavailable'));
-        } else {
-            setError(t('errors.apiKeyNeeded'));
-            setApiKeyNeeded(true);
-        }
+        setError(t('errors.generic'));
         setIsLoading(false);
         setFeedbackMessage('');
         return;
