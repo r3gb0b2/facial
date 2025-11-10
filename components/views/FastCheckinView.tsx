@@ -91,12 +91,15 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
 
   const handleSelectKey = async () => {
     try {
+        if (!(window as any).aistudio || typeof (window as any).aistudio.openSelectKey !== 'function') {
+            throw new Error("A função para selecionar a chave de API (aistudio.openSelectKey) não está disponível neste ambiente.");
+        }
         await (window as any).aistudio.openSelectKey();
-        // After user interaction, retry starting the scan
         handleStartScanning();
-    } catch(e) {
-        console.error("Failed to open API key selection", e);
-        setError(t('errors.generic'));
+    } catch (e: any) {
+        const errorMessage = e?.message || 'Detalhes indisponíveis';
+        console.error("Failed to open API key selection:", e);
+        setError(t('errors.apiKeySelectionFailed', { details: errorMessage }));
     }
   };
 

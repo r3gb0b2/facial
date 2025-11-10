@@ -49,13 +49,16 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
   
   const handleSelectKey = async () => {
     try {
+        if (!(window as any).aistudio || typeof (window as any).aistudio.openSelectKey !== 'function') {
+            throw new Error("A função para selecionar a chave de API (aistudio.openSelectKey) não está disponível neste ambiente.");
+        }
         await (window as any).aistudio.openSelectKey();
-        // After user interaction, retry verification
         handleVerification();
-    } catch(e) {
+    } catch (e: any) {
+        const errorMessage = e?.message || 'Detalhes indisponíveis';
         console.error("Failed to open API key selection", e);
         setVerificationResult('ERROR');
-        setVerificationMessage(t('errors.generic'));
+        setVerificationMessage(t('errors.apiKeySelectionFailed', { details: errorMessage }));
     }
   };
 

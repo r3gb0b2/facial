@@ -263,6 +263,7 @@
     "errors.generic": "Ocorreu um erro inesperado.",
     "errors.apiKeyNeeded": "Erro de Configuração: É necessário selecionar uma chave de API para a IA. Por favor, clique no botão para configurar.",
     "errors.apiKeyInvalid": "A chave de API selecionada é inválida ou não tem as permissões necessárias. Por favor, selecione outra chave.",
+    "errors.apiKeySelectionFailed": "Falha ao abrir a seleção de chave de API: {details}",
     "apiKey.selectButton": "Selecionar Chave de API",
     "apiKey.selectMessage": "Para usar este recurso, uma chave de API da Gemini precisa ser selecionada."
   }
