@@ -25,6 +25,10 @@
     "ai.initializing": "Inicializando ambiente de IA...",
     "ai.initializingError": "Falha ao inicializar o serviço de IA",
     "apiKey.selectButton": "Selecionar Chave de API",
+    "apiKey.enterPrompt": "Para usar os recursos de IA, por favor, insira sua chave de API do Google Gemini.",
+    "apiKey.inputPlaceholder": "Cole sua chave de API aqui",
+    "apiKey.saveButton": "Salvar e Continuar",
+    "apiKey.getItHere": "Obtenha uma chave no Google AI Studio",
     "login.title": "Acessar Painel",
     "login.usernameLabel": "Usuário",
     "login.usernamePlaceholder": "Digite seu usuário",
@@ -266,9 +270,9 @@
     "users.admin.managementNotice": "Você só pode gerenciar os usuários de check-in que você criou.",
     "errors.registrationLimitReached": "O limite de cadastros para este fornecedor foi atingido.",
     "errors.generic": "Ocorreu um erro inesperado.",
-    "errors.apiKeyInvalid": "A chave de API selecionada é inválida ou não foi encontrada. Por favor, selecione outra chave.",
+    "errors.apiKeyInvalid": "A chave de API fornecida é inválida ou não foi encontrada. Por favor, tente novamente.",
     "errors.aistudioUnavailable": "Recurso de IA indisponível: A interface de configuração da IA (aistudio) não foi encontrada neste ambiente. Verifique a configuração da plataforma.",
-    "errors.apiKeyNeeded": "Uma chave de API é necessária para usar este recurso. Por favor, selecione uma chave.",
+    "errors.apiKeyNeeded": "Por favor, insira sua chave de API do Gemini para usar este recurso.",
     "errors.apiKeySelectionFailed": "Falha ao selecionar a chave de API: {details}",
     "errors.apiKeyCheckFailed": "Falha ao verificar a chave de API"
   }

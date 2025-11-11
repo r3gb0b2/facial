@@ -36,7 +36,8 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationResult, setVerificationResult] = useState<'MATCH' | 'NO_MATCH' | 'ERROR' | null>(null);
   const [verificationMessage, setVerificationMessage] = useState('');
-  const [apiKeyNeeded, setApiKeyNeeded] = useState(false);
+  const [isAskingForKey, setIsAskingForKey] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState('');
 
   // Reset state when a new attendee is selected
   useEffect(() => {
@@ -44,68 +45,41 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
     setIsVerifying(false);
     setVerificationResult(null);
     setVerificationMessage('');
-    setApiKeyNeeded(false);
+    setIsAskingForKey(false);
   }, [attendee]);
   
-  const handleSelectKey = async () => {
-    // Proactively check if aistudio API is available
-    if (typeof (window as any).aistudio?.openSelectKey !== 'function') {
-        setVerificationResult('ERROR');
-        setVerificationMessage(t('errors.aistudioUnavailable'));
-        return;
+  const handleSaveKey = async () => {
+    if (!apiKeyInput.trim()) {
+      setVerificationResult('ERROR');
+      setVerificationMessage("Por favor, insira uma chave de API válida.");
+      return;
     }
-    try {
-        await (window as any).aistudio.openSelectKey();
-        // Assume key is selected and bypass the check to avoid race condition
-        await handleVerification(true);
-    } catch (e: any) {
-        console.error("Failed to open API key selection", e);
-        const errorMessage = e?.message || 'Detalhes indisponíveis';
-        setVerificationResult('ERROR');
-        setVerificationMessage(t('errors.apiKeySelectionFailed', { details: errorMessage }));
-    }
+    sessionStorage.setItem('gemini-api-key', apiKeyInput.trim());
+    setIsAskingForKey(false);
+    setApiKeyInput('');
+    await handleVerification();
   };
 
-  const handleVerification = async (bypassKeyCheck = false) => {
+  const handleVerification = async () => {
     if (!verificationPhoto) return;
 
     setIsVerifying(true);
     setVerificationResult(null);
     setVerificationMessage('Analisando...');
-    setApiKeyNeeded(false);
+    setIsAskingForKey(false);
 
-    let ai: GoogleGenAI;
-    
-    // Proactively check if aistudio API is available
-    if (typeof (window as any).aistudio?.hasSelectedApiKey !== 'function') {
+    const savedApiKey = sessionStorage.getItem('gemini-api-key');
+    if (!savedApiKey) {
+        setIsAskingForKey(true);
         setVerificationResult('ERROR');
-        setVerificationMessage(t('errors.aistudioUnavailable'));
+        setVerificationMessage(t('errors.apiKeyNeeded'));
         setIsVerifying(false);
         return;
     }
 
-    if (!bypassKeyCheck) {
-        try {
-            const hasKey = await (window as any).aistudio.hasSelectedApiKey();
-            if (!hasKey) {
-                setApiKeyNeeded(true);
-                setVerificationResult('ERROR');
-                setVerificationMessage(t('errors.apiKeyNeeded'));
-                setIsVerifying(false);
-                return;
-            }
-        } catch (e: any) {
-             console.error("Error checking for API key:", e);
-             setVerificationResult('ERROR');
-             const details = e.message || 'Detalhes indisponíveis.';
-             setVerificationMessage(`${t('errors.apiKeyCheckFailed')}: ${details}`);
-             setIsVerifying(false);
-             return;
-        }
-    }
-
+    let ai: GoogleGenAI;
     try {
-        ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+        ai = new GoogleGenAI({ apiKey: savedApiKey });
     } catch (e: any) {
         console.error("AI SDK Initialization failed:", e);
         setVerificationResult('ERROR');
@@ -114,7 +88,6 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
         setIsVerifying(false);
         return;
     }
-
 
     try {
         // Prepare registered photo
@@ -155,10 +128,11 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
 
     } catch (error: any) {
         console.error("AI Verification Error:", error);
-        if (error.message?.includes("Requested entity was not found")) {
+        if (error.message?.includes("API key not valid")) {
             setVerificationResult('ERROR');
             setVerificationMessage(t('errors.apiKeyInvalid'));
-            setApiKeyNeeded(true);
+            sessionStorage.removeItem('gemini-api-key');
+            setIsAskingForKey(true);
         } else {
             setVerificationResult('ERROR');
             setVerificationMessage('Ocorreu um erro na verificação com IA. Tente novamente ou verifique manualmente.');
@@ -175,16 +149,27 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
   }[verificationResult || ''] || '';
   
   const renderVerificationControls = () => {
-    if (apiKeyNeeded) {
+    if (isAskingForKey) {
         return (
-            <div className="mt-4 w-full">
+             <div className="mt-4 w-full space-y-2">
+                 <p className="text-center text-yellow-400 text-sm mb-2">{t('apiKey.enterPrompt')}</p>
+                 <input
+                    type="password"
+                    value={apiKeyInput}
+                    onChange={(e) => setApiKeyInput(e.target.value)}
+                    placeholder={t('apiKey.inputPlaceholder')}
+                    className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"
+                 />
                 <button
-                    onClick={handleSelectKey}
-                    className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2"
+                    onClick={handleSaveKey}
+                    className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2"
                 >
                    <KeyIcon className="w-5 h-5"/>
-                   {t('apiKey.selectButton')}
+                   {t('apiKey.saveButton')}
                 </button>
+                 <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="block text-center text-sm text-indigo-400 hover:underline">
+                    {t('apiKey.getItHere')}
+                </a>
             </div>
         );
     }
@@ -204,7 +189,7 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
         return (
             <div className="mt-4 w-full">
                 <button
-                    onClick={() => handleVerification()}
+                    onClick={handleVerification}
                     disabled={isVerifying}
                     className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 disabled:bg-indigo-400 disabled:cursor-wait"
                 >
