@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { User, Attendee, Supplier, Sector, Event, UserRole } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
