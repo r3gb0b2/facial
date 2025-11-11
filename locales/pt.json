@@ -23,6 +23,7 @@
     "fastCheckin.noPending": "Nenhum colaborador com check-in pendente.",
     "fastCheckin.aiError": "Erro na verificação com IA. Tente novamente.",
     "ai.initializing": "Inicializando ambiente de IA...",
+    "ai.initializingError": "Falha ao inicializar o serviço de IA",
     "apiKey.selectButton": "Selecionar Chave de API",
     "login.title": "Acessar Painel",
     "login.usernameLabel": "Usuário",
@@ -268,6 +269,7 @@
     "errors.apiKeyInvalid": "A chave de API selecionada é inválida ou não foi encontrada. Por favor, selecione outra chave.",
     "errors.aistudioUnavailable": "Recurso de IA indisponível: A interface de configuração da IA (aistudio) não foi encontrada neste ambiente. Verifique a configuração da plataforma.",
     "errors.apiKeyNeeded": "Uma chave de API é necessária para usar este recurso. Por favor, selecione uma chave.",
-    "errors.apiKeySelectionFailed": "Falha ao selecionar a chave de API: {details}"
+    "errors.apiKeySelectionFailed": "Falha ao selecionar a chave de API: {details}",
+    "errors.apiKeyCheckFailed": "Falha ao verificar a chave de API"
   }
 }

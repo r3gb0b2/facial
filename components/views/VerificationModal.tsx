@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Attendee } from '../../types.ts';
 import WebcamCapture from '../WebcamCapture.tsx';
@@ -92,7 +93,8 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
                 setVerificationMessage(t('errors.aistudioUnavailable'));
              } else {
                 setVerificationResult('ERROR');
-                setVerificationMessage(t('errors.generic'));
+                const details = e.message || 'Detalhes indisponíveis.';
+                setVerificationMessage(`${t('errors.apiKeyCheckFailed')}: ${details}`);
              }
              setIsVerifying(false);
              return;
@@ -104,7 +106,8 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
     } catch (e: any) {
         console.error("AI SDK Initialization failed:", e);
         setVerificationResult('ERROR');
-        setVerificationMessage(t('errors.generic'));
+        const details = e.message || 'Verifique o console para mais detalhes.';
+        setVerificationMessage(`${t('ai.initializingError')}: ${details}`);
         setIsVerifying(false);
         return;
     }

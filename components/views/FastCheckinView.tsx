@@ -131,7 +131,8 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
             if (e instanceof TypeError && e.message.includes('aistudio')) {
                 setError(t('errors.aistudioUnavailable'));
             } else {
-                 setError(t('errors.generic'));
+                 const details = e.message || 'Detalhes indisponíveis.';
+                 setError(`${t('errors.apiKeyCheckFailed')}: ${details}`);
             }
             setIsLoading(false);
             setFeedbackMessage('');
@@ -145,7 +146,9 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
     try {
         ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
     } catch (e: any) {
-        setError(t('errors.generic'));
+        console.error("Falha ao inicializar o SDK da IA:", e);
+        const details = e.message || 'Verifique o console para mais detalhes.';
+        setError(`${t('ai.initializingError')}: ${details}`);
         setIsLoading(false);
         setFeedbackMessage('');
         return;
