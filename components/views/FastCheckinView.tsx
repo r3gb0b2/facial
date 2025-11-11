@@ -1,5 +1,4 @@
 
-
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Attendee, CheckinStatus, Sector, Supplier } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
@@ -89,16 +88,17 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   }, [stopScanningProcess]);
   
   const handleSelectKey = async () => {
+    // Proactively check if aistudio API is available
+    if (typeof (window as any).aistudio?.openSelectKey !== 'function') {
+        setError(t('errors.aistudioUnavailable'));
+        return;
+    }
     try {
         await (window as any).aistudio.openSelectKey();
         await handleStartScanning(true);
     } catch (e: any) {
         console.error("Failed to select API key", e);
-        if (e instanceof TypeError && e.message.includes('aistudio')) {
-            setError(t('errors.aistudioUnavailable'));
-        } else {
-            setError(t('errors.apiKeySelectionFailed', { details: e?.message || 'Detalhes indisponíveis' }));
-        }
+        setError(t('errors.apiKeySelectionFailed', { details: e?.message || 'Detalhes indisponíveis' }));
     }
   };
 
@@ -117,6 +117,14 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
     
     let ai: GoogleGenAI;
     
+    // Proactively check if aistudio API is available
+    if (typeof (window as any).aistudio?.hasSelectedApiKey !== 'function') {
+        setError(t('errors.aistudioUnavailable'));
+        setIsLoading(false);
+        setFeedbackMessage('');
+        return;
+    }
+
     if (!bypassKeyCheck) {
         try {
             const hasKey = await (window as any).aistudio.hasSelectedApiKey();
@@ -128,12 +136,8 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
             }
         } catch(e: any) {
             console.error("Error checking for API key:", e);
-            if (e instanceof TypeError && e.message.includes('aistudio')) {
-                setError(t('errors.aistudioUnavailable'));
-            } else {
-                 const details = e.message || 'Detalhes indisponíveis.';
-                 setError(`${t('errors.apiKeyCheckFailed')}: ${details}`);
-            }
+            const details = e.message || 'Detalhes indisponíveis.';
+            setError(`${t('errors.apiKeyCheckFailed')}: ${details}`);
             setIsLoading(false);
             setFeedbackMessage('');
             return;

@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { Attendee } from '../../types.ts';
 import WebcamCapture from '../WebcamCapture.tsx';
@@ -49,20 +48,21 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
   }, [attendee]);
   
   const handleSelectKey = async () => {
+    // Proactively check if aistudio API is available
+    if (typeof (window as any).aistudio?.openSelectKey !== 'function') {
+        setVerificationResult('ERROR');
+        setVerificationMessage(t('errors.aistudioUnavailable'));
+        return;
+    }
     try {
         await (window as any).aistudio.openSelectKey();
         // Assume key is selected and bypass the check to avoid race condition
         await handleVerification(true);
     } catch (e: any) {
         console.error("Failed to open API key selection", e);
-        if (e instanceof TypeError && e.message.includes('aistudio')) {
-            setVerificationResult('ERROR');
-            setVerificationMessage(t('errors.aistudioUnavailable'));
-        } else {
-            const errorMessage = e?.message || 'Detalhes indisponíveis';
-            setVerificationResult('ERROR');
-            setVerificationMessage(t('errors.apiKeySelectionFailed', { details: errorMessage }));
-        }
+        const errorMessage = e?.message || 'Detalhes indisponíveis';
+        setVerificationResult('ERROR');
+        setVerificationMessage(t('errors.apiKeySelectionFailed', { details: errorMessage }));
     }
   };
 
@@ -76,6 +76,14 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
 
     let ai: GoogleGenAI;
     
+    // Proactively check if aistudio API is available
+    if (typeof (window as any).aistudio?.hasSelectedApiKey !== 'function') {
+        setVerificationResult('ERROR');
+        setVerificationMessage(t('errors.aistudioUnavailable'));
+        setIsVerifying(false);
+        return;
+    }
+
     if (!bypassKeyCheck) {
         try {
             const hasKey = await (window as any).aistudio.hasSelectedApiKey();
@@ -88,14 +96,9 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
             }
         } catch (e: any) {
              console.error("Error checking for API key:", e);
-             if (e instanceof TypeError && e.message.includes('aistudio')) {
-                setVerificationResult('ERROR');
-                setVerificationMessage(t('errors.aistudioUnavailable'));
-             } else {
-                setVerificationResult('ERROR');
-                const details = e.message || 'Detalhes indisponíveis.';
-                setVerificationMessage(`${t('errors.apiKeyCheckFailed')}: ${details}`);
-             }
+             setVerificationResult('ERROR');
+             const details = e.message || 'Detalhes indisponíveis.';
+             setVerificationMessage(`${t('errors.apiKeyCheckFailed')}: ${details}`);
              setIsVerifying(false);
              return;
         }
