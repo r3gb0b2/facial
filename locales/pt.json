@@ -1,4 +1,3 @@
-
 {
   "pt": {
     "admin.tabs.checkin": "Check-in",
@@ -16,7 +15,7 @@
     "fastCheckin.start": "Iniciar Check-in Facial",
     "fastCheckin.stop": "Parar Câmera",
     "fastCheckin.analyzing": "Analisando... Por favor, olhe para a câmera.",
-    "fastCheckin.noMatch": "Nenhum colaborador pendente encontrado. Tente novamente.",
+    "fastCheckin.noMatch": "Nenhum rosto correspondente encontrado. Verificando novamente...",
     "fastCheckin.checkinSuccess": "Check-in de {name} confirmado!",
     "fastCheckin.checkNext": "Verificar Próximo",
     "fastCheckin.cameraError": "Não foi possível acessar a câmera. Verifique as permissões.",

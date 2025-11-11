@@ -176,7 +176,7 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
                 if (!base64) return;
                 const capturedFramePart = { inlineData: { data: base64, mimeType: 'image/png' } };
         
-                const prompt = `You are a security system. Your task is to compare faces. The first image is a live photo from a camera. The subsequent images are registered photos of individuals. Compare the live photo with each registered photo. If you find a clear match, respond ONLY with the text 'MATCH:' followed by the index number of the matching registered photo (e.g., 'MATCH: 2' if the live photo matches the second registered photo). The first registered photo is index 1. If there is no clear match, respond ONLY with 'NO_MATCH'.`;
+                const prompt = `You are a sophisticated facial recognition system. Your task is to identify a person. The first image is from a live camera feed. The following images are from a database of registered attendees. Carefully compare the face in the live feed with each registered attendee's photo. Account for minor variations in lighting, angle, and expression. If you are confident that the person in the live feed matches one of the registered attendees, respond ONLY with 'MATCH:' followed by the corresponding index number (starting from 1 for the first registered photo). For example, 'MATCH: 3'. If you cannot find a confident match, respond ONLY with 'NO_MATCH'.`;
 
                 const BATCH_SIZE = 10;
                 for (let i = 0; i < pendingAttendees.length; i += BATCH_SIZE) {
@@ -221,6 +221,11 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
                         }
                     }
                 }
+                
+                if (!matchFound) {
+                    setFeedbackMessage(t('fastCheckin.noMatch'));
+                }
+
             } catch (error: any) {
                 console.error("Error during scanning interval:", error);
                 if (error.message?.includes("API key not valid")) {

@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Attendee } from '../../types.ts';
 import WebcamCapture from '../WebcamCapture.tsx';
@@ -109,7 +110,7 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
             },
         };
         
-        const prompt = "Analyze the two images provided. Are they of the same person? Respond ONLY with the word 'MATCH' if they are the same person, or 'NO_MATCH' if they are different people. Do not add any other explanation, punctuation, or formatting.";
+        const prompt = "You are a facial verification expert. Your task is to determine if two photos are of the same person. The first photo is a registered image from a database. The second photo is a live capture. Carefully compare the two faces, accounting for minor variations in lighting, angle, and expression. Respond ONLY with the word 'MATCH' if you are confident they are the same person. Respond ONLY with 'NO_MATCH' if they are different people. Do not add any other text, formatting, or punctuation.";
 
         const response = await ai.models.generateContent({
             model: 'gemini-2.5-flash',
