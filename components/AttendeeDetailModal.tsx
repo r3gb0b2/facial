@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Attendee, CheckinStatus, Sector, Supplier, User } from '../types.ts';
 import { useTranslation } from '../hooks/useTranslation.tsx';
-import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon, SpinnerIcon } from './icons.tsx';
+import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon, SpinnerIcon, SparklesIcon } from './icons.tsx';
 import QRCodeDisplay from './QRCodeDisplay.tsx';
+import VerificationModal from './VerificationModal.tsx';
 
 interface AttendeeDetailModalProps {
   user: User;
@@ -51,6 +52,8 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   const [wristbands, setWristbands] = useState(attendee.wristbands || {});
   const [wristbandErrorSectors, setWristbandErrorSectors] = useState<Set<string>>(new Set());
   const [showWristbandSuccess, setShowWristbandSuccess] = useState(false);
+  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
+  const [isFaceVerified, setIsFaceVerified] = useState(false);
   const [editData, setEditData] = useState({
     name: attendee.name,
     cpf: attendee.cpf,
@@ -76,9 +79,11 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
       supplierId: attendee.supplierId || '',
     });
     setWristbands(attendee.wristbands || {});
-    setIsEditing(false); // Reset editing state when attendee changes
+    setIsEditing(false);
     setShowWristbandSuccess(false);
     setWristbandErrorSectors(new Set());
+    setIsFaceVerified(false);
+    setIsVerificationModalOpen(false);
   }, [attendee, sectors]);
 
   const statusInfo = {
@@ -138,6 +143,11 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     if (window.confirm(t('attendeeDetail.deleteConfirm', attendee.name))) {
       onDelete(attendee.id);
     }
+  };
+
+  const handleVerificationSuccess = () => {
+    setIsVerificationModalOpen(false);
+    setIsFaceVerified(true);
   };
 
   const handleUpdateWristbands = async () => {
@@ -551,31 +561,45 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     if (isEditing || attendee.status === CheckinStatus.SUBSTITUTION_REQUEST || attendee.status === CheckinStatus.SECTOR_CHANGE_REQUEST || attendee.status === CheckinStatus.PENDING_APPROVAL) return null;
 
     if (attendee.status === CheckinStatus.PENDING) {
-      return (
-        <div className="space-y-4">
-          {attendeeSectors.map(sector => (
-            <div key={sector.id}>
-              <label htmlFor={`wristband-${sector.id}`} className="block text-sm font-medium text-gray-300 mb-1">
-                {t('attendeeDetail.wristbandLabel')} ({sector.label})
-              </label>
-              <input
-                type="text"
-                id={`wristband-${sector.id}`}
-                value={wristbands[sector.id] || ''}
-                onChange={(e) => handleWristbandChange(sector.id, e.target.value)}
-                className={`w-full bg-gray-900 border rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 ${wristbandErrorSectors.has(sector.id) ? 'border-red-500 ring-red-500' : 'border-gray-600 focus:ring-indigo-500'}`}
-                placeholder={t('attendeeDetail.wristbandPlaceholder')}
-              />
+      if (isFaceVerified) {
+        return (
+          <div className="space-y-4">
+            <div className="text-center p-3 rounded-lg bg-green-500/20 text-green-300 border border-green-500 flex items-center justify-center gap-2">
+                <CheckCircleIcon className="w-5 h-5" />
+                <p className="text-sm font-medium">{t('verificationModal.faceVerified')}</p>
             </div>
-          ))}
-          <button onClick={handleUpdateWristbands} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2">
-            <CheckCircleIcon className="w-5 h-5"/>
-            {t('statusUpdateModal.confirmCheckin')}
-          </button>
-           {showWristbandSuccess && (
-                <p className="text-sm text-center text-green-400">{t('attendeeDetail.wristbandUpdateSuccess')}</p>
-           )}
-        </div>
+            {attendeeSectors.map(sector => (
+              <div key={sector.id}>
+                <label htmlFor={`wristband-${sector.id}`} className="block text-sm font-medium text-gray-300 mb-1">
+                  {t('attendeeDetail.wristbandLabel')} ({sector.label})
+                </label>
+                <input
+                  type="text"
+                  id={`wristband-${sector.id}`}
+                  value={wristbands[sector.id] || ''}
+                  onChange={(e) => handleWristbandChange(sector.id, e.target.value)}
+                  className={`w-full bg-gray-900 border rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 ${wristbandErrorSectors.has(sector.id) ? 'border-red-500 ring-red-500' : 'border-gray-600 focus:ring-indigo-500'}`}
+                  placeholder={t('attendeeDetail.wristbandPlaceholder')}
+                />
+              </div>
+            ))}
+            <button onClick={handleUpdateWristbands} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2">
+              <CheckCircleIcon className="w-5 h-5"/>
+              {t('statusUpdateModal.confirmCheckin')}
+            </button>
+             {showWristbandSuccess && (
+                  <p className="text-sm text-center text-green-400">{t('attendeeDetail.wristbandUpdateSuccess')}</p>
+             )}
+          </div>
+        );
+      }
+      return (
+          <div className="space-y-4">
+            <button onClick={() => setIsVerificationModalOpen(true)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2">
+                <SparklesIcon className="w-5 h-5"/>
+                {t('verificationModal.button.verifyFace')}
+            </button>
+          </div>
       );
     }
     
@@ -657,46 +681,55 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg border border-gray-700 flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div className="p-6 border-b border-gray-700 flex-shrink-0">
-          <div className="flex justify-between items-start">
-            <div className="flex items-start gap-4">
-              <img src={attendee.photo} alt={attendee.name} className="w-24 h-24 object-contain rounded-lg bg-black border-2 border-gray-600" />
-              <div>
-                <h2 className="text-2xl font-bold text-white">{isEditing ? editData.name : attendee.name}</h2>
-                <div className={`mt-1 inline-flex px-2 py-1 text-xs font-bold rounded ${statusInfo.bg} ${statusInfo.text}`}>
-                  {statusInfo.label}
+    <>
+      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+        <div className="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg border border-gray-700 flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
+          {/* Header */}
+          <div className="p-6 border-b border-gray-700 flex-shrink-0">
+            <div className="flex justify-between items-start">
+              <div className="flex items-start gap-4">
+                <img src={attendee.photo} alt={attendee.name} className="w-24 h-24 object-contain rounded-lg bg-black border-2 border-gray-600" />
+                <div>
+                  <h2 className="text-2xl font-bold text-white">{isEditing ? editData.name : attendee.name}</h2>
+                  <div className={`mt-1 inline-flex px-2 py-1 text-xs font-bold rounded ${statusInfo.bg} ${statusInfo.text}`}>
+                    {statusInfo.label}
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="flex gap-2">
-              {user.role !== 'checkin' && !isEditing && attendee.status !== CheckinStatus.SUBSTITUTION_REQUEST && attendee.status !== CheckinStatus.SECTOR_CHANGE_REQUEST && attendee.status !== CheckinStatus.PENDING_APPROVAL &&(
-                <button onClick={() => setIsEditing(true)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700">
-                  <PencilIcon className="w-5 h-5" />
+              <div className="flex gap-2">
+                {user.role !== 'checkin' && !isEditing && attendee.status !== CheckinStatus.SUBSTITUTION_REQUEST && attendee.status !== CheckinStatus.SECTOR_CHANGE_REQUEST && attendee.status !== CheckinStatus.PENDING_APPROVAL &&(
+                  <button onClick={() => setIsEditing(true)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700">
+                    <PencilIcon className="w-5 h-5" />
+                  </button>
+                )}
+                <button onClick={onClose} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700">
+                  <XMarkIcon className="w-5 h-5" />
                 </button>
-              )}
-              <button onClick={onClose} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700">
-                <XMarkIcon className="w-5 h-5" />
-              </button>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Scrollable Body */}
-        <div className="p-6 overflow-y-auto">
-            <div className="space-y-6">
-                {renderContent()}
-                {renderCheckinSection()}
-            </div>
-        </div>
+          {/* Scrollable Body */}
+          <div className="p-6 overflow-y-auto">
+              <div className="space-y-6">
+                  {renderContent()}
+                  {renderCheckinSection()}
+              </div>
+          </div>
 
-        {/* Footer */}
-        <div className="p-6 bg-gray-900/50 rounded-b-2xl flex-shrink-0 border-t border-gray-700">
-          {renderFooter()}
+          {/* Footer */}
+          <div className="p-6 bg-gray-900/50 rounded-b-2xl flex-shrink-0 border-t border-gray-700">
+            {renderFooter()}
+          </div>
         </div>
       </div>
-    </div>
+      {isVerificationModalOpen && (
+        <VerificationModal 
+            attendee={attendee}
+            onClose={() => setIsVerificationModalOpen(false)}
+            onConfirm={handleVerificationSuccess}
+        />
+      )}
+    </>
   );
 };
