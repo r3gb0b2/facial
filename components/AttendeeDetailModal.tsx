@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Attendee, CheckinStatus, Sector, Supplier, User } from '../types.ts';
 import { useTranslation } from '../hooks/useTranslation.tsx';
-import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon, SpinnerIcon, SparklesIcon } from './icons.tsx';
+import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon, SpinnerIcon } from './icons.tsx';
 import QRCodeDisplay from './QRCodeDisplay.tsx';
-import VerificationModal from './VerificationModal.tsx';
 
 interface AttendeeDetailModalProps {
   user: User;
@@ -52,8 +51,6 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   const [wristbands, setWristbands] = useState(attendee.wristbands || {});
   const [wristbandErrorSectors, setWristbandErrorSectors] = useState<Set<string>>(new Set());
   const [showWristbandSuccess, setShowWristbandSuccess] = useState(false);
-  const [isVerificationModalOpen, setIsVerificationModalOpen] = useState(false);
-  const [isFaceVerified, setIsFaceVerified] = useState(false);
   const [editData, setEditData] = useState({
     name: attendee.name,
     cpf: attendee.cpf,
@@ -82,8 +79,6 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     setIsEditing(false);
     setShowWristbandSuccess(false);
     setWristbandErrorSectors(new Set());
-    setIsFaceVerified(false);
-    setIsVerificationModalOpen(false);
   }, [attendee, sectors]);
 
   const statusInfo = {
@@ -140,14 +135,9 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   };
 
   const handleDelete = () => {
-    if (window.confirm(t('attendeeDetail.deleteConfirm', attendee.name))) {
+    if (window.confirm(t('attendeeDetail.deleteConfirm', { name: attendee.name }))) {
       onDelete(attendee.id);
     }
-  };
-
-  const handleVerificationSuccess = () => {
-    setIsVerificationModalOpen(false);
-    setIsFaceVerified(true);
   };
 
   const handleUpdateWristbands = async () => {
@@ -174,7 +164,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
 
     setWristbandErrorSectors(errors);
     if (errors.size > 0) {
-      setError(t('attendeeDetail.wristbandsDuplicateError', duplicateNumbers.join(', ')));
+      setError(t('attendeeDetail.wristbandsDuplicateError', { numbers: duplicateNumbers.join(', ') }));
       return;
     }
     
@@ -561,45 +551,31 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     if (isEditing || attendee.status === CheckinStatus.SUBSTITUTION_REQUEST || attendee.status === CheckinStatus.SECTOR_CHANGE_REQUEST || attendee.status === CheckinStatus.PENDING_APPROVAL) return null;
 
     if (attendee.status === CheckinStatus.PENDING) {
-      if (isFaceVerified) {
-        return (
-          <div className="space-y-4">
-            <div className="text-center p-3 rounded-lg bg-green-500/20 text-green-300 border border-green-500 flex items-center justify-center gap-2">
-                <CheckCircleIcon className="w-5 h-5" />
-                <p className="text-sm font-medium">{t('verificationModal.faceVerified')}</p>
-            </div>
-            {attendeeSectors.map(sector => (
-              <div key={sector.id}>
-                <label htmlFor={`wristband-${sector.id}`} className="block text-sm font-medium text-gray-300 mb-1">
-                  {t('attendeeDetail.wristbandLabel')} ({sector.label})
-                </label>
-                <input
-                  type="text"
-                  id={`wristband-${sector.id}`}
-                  value={wristbands[sector.id] || ''}
-                  onChange={(e) => handleWristbandChange(sector.id, e.target.value)}
-                  className={`w-full bg-gray-900 border rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 ${wristbandErrorSectors.has(sector.id) ? 'border-red-500 ring-red-500' : 'border-gray-600 focus:ring-indigo-500'}`}
-                  placeholder={t('attendeeDetail.wristbandPlaceholder')}
-                />
-              </div>
-            ))}
-            <button onClick={handleUpdateWristbands} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2">
-              <CheckCircleIcon className="w-5 h-5"/>
-              {t('statusUpdateModal.confirmCheckin')}
-            </button>
-             {showWristbandSuccess && (
-                  <p className="text-sm text-center text-green-400">{t('attendeeDetail.wristbandUpdateSuccess')}</p>
-             )}
-          </div>
-        );
-      }
       return (
-          <div className="space-y-4">
-            <button onClick={() => setIsVerificationModalOpen(true)} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2">
-                <SparklesIcon className="w-5 h-5"/>
-                {t('verificationModal.button.verifyFace')}
-            </button>
-          </div>
+        <div className="space-y-4 pt-4 border-t border-gray-700/50">
+          {attendeeSectors.map(sector => (
+            <div key={sector.id}>
+              <label htmlFor={`wristband-${sector.id}`} className="block text-sm font-medium text-gray-300 mb-1">
+                {t('attendeeDetail.wristbandLabel')} ({sector.label})
+              </label>
+              <input
+                type="text"
+                id={`wristband-${sector.id}`}
+                value={wristbands[sector.id] || ''}
+                onChange={(e) => handleWristbandChange(sector.id, e.target.value)}
+                className={`w-full bg-gray-900 border rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 ${wristbandErrorSectors.has(sector.id) ? 'border-red-500 ring-red-500' : 'border-gray-600 focus:ring-indigo-500'}`}
+                placeholder={t('attendeeDetail.wristbandPlaceholder')}
+              />
+            </div>
+          ))}
+          <button onClick={handleUpdateWristbands} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2">
+            <CheckCircleIcon className="w-5 h-5"/>
+            {t('statusUpdateModal.confirmCheckin')}
+          </button>
+           {showWristbandSuccess && (
+                <p className="text-sm text-center text-green-400">{t('attendeeDetail.wristbandUpdateSuccess')}</p>
+           )}
+        </div>
       );
     }
     
@@ -723,13 +699,6 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
           </div>
         </div>
       </div>
-      {isVerificationModalOpen && (
-        <VerificationModal 
-            attendee={attendee}
-            onClose={() => setIsVerificationModalOpen(false)}
-            onConfirm={handleVerificationSuccess}
-        />
-      )}
     </>
   );
 };

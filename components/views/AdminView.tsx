@@ -13,7 +13,6 @@ import WristbandReportView from './WristbandReportView.tsx';
 import CheckinLogView from './CheckinLogView.tsx';
 import QRCodeScannerView from './QRCodeScannerView.tsx';
 import UserManagementView from './UserManagementView.tsx';
-import FastCheckinView from './FastCheckinView.tsx';
 import * as api from '../../firebase/service.ts';
 import { 
     ArrowLeftOnRectangleIcon, 
@@ -23,11 +22,10 @@ import {
     FingerPrintIcon,
     BuildingOfficeIcon,
     TagIcon,
-    ArrowUpTrayIcon,
-    FaceSmileIcon
+    ArrowUpTrayIcon
 } from '../icons.tsx';
 
-type AdminTab = 'checkin' | 'fastCheckin' | 'register' | 'suppliers' | 'sectors' | 'companies' | 'spreadsheet' | 'reports' | 'logs' | 'scanner' | 'users';
+type AdminTab = 'checkin' | 'register' | 'suppliers' | 'sectors' | 'companies' | 'spreadsheet' | 'reports' | 'logs' | 'scanner' | 'users';
 
 interface AdminViewProps {
     user: User;
@@ -50,7 +48,6 @@ interface AdminViewProps {
 
 const TABS: { id: AdminTab, labelKey: string, roles: UserRole[] }[] = [
     { id: 'checkin', labelKey: 'admin.tabs.checkin', roles: ['superadmin', 'admin', 'checkin'] },
-    { id: 'fastCheckin', labelKey: 'admin.tabs.fastCheckin', roles: ['superadmin', 'admin', 'checkin'] },
     { id: 'scanner', labelKey: 'admin.tabs.scanner', roles: ['superadmin', 'admin', 'checkin'] },
     { id: 'logs', labelKey: 'admin.tabs.logs', roles: ['superadmin', 'admin', 'checkin'] },
     { id: 'register', labelKey: 'admin.tabs.register', roles: ['superadmin', 'admin'] },
@@ -161,7 +158,6 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
             <main className="flex-grow overflow-y-auto rounded-lg">
                 <div className="py-6">
                     {activeTab === 'checkin' && <CheckinView {...checkinViewProps} />}
-                    {activeTab === 'fastCheckin' && <FastCheckinView attendees={eventData.attendees} onUpdateStatus={handleUpdateStatusForScanner} sectors={eventData.sectors} suppliers={eventData.suppliers} setError={setError} />}
                     {activeTab === 'register' && <RegisterView onRegister={onRegister} setError={setError} sectors={eventData.sectors} suppliers={eventData.suppliers} />}
                     {activeTab === 'suppliers' && <SupplierManagementView currentEventId={currentEventId} suppliers={eventData.suppliers} attendees={eventData.attendees} sectors={eventData.sectors} onAddSupplier={handleAddSupplier} onUpdateSupplier={handleUpdateSupplier} onDeleteSupplier={handleDeleteSupplier} onSupplierStatusUpdate={handleSupplierStatusUpdate} onRegenerateAdminToken={handleRegenerateAdminToken} onUpdateSectorsForSelectedAttendees={handleUpdateSectorsForAttendees} setError={setError} />}
                     {activeTab === 'sectors' && <SectorManagementView sectors={eventData.sectors} onAddSector={handleAddSector} onUpdateSector={handleUpdateSector} onDeleteSector={handleDeleteSector} setError={setError} />}

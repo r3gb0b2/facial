@@ -1,9 +1,10 @@
 
 
+
 import React, { useState, useEffect } from 'react';
 import { Attendee } from '../../types.ts';
 import WebcamCapture from '../WebcamCapture.tsx';
-import { CheckCircleIcon, XMarkIcon, SparklesIcon, SpinnerIcon, KeyIcon } from '../icons.tsx';
+import { CheckCircleIcon, XMarkIcon, SparklesIcon, SpinnerIcon } from '../icons.tsx';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { GoogleGenAI } from '@google/genai';
 
@@ -37,8 +38,6 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
   const [isVerifying, setIsVerifying] = useState(false);
   const [verificationResult, setVerificationResult] = useState<'MATCH' | 'NO_MATCH' | 'ERROR' | null>(null);
   const [verificationMessage, setVerificationMessage] = useState('');
-  const [isAskingForKey, setIsAskingForKey] = useState(false);
-  const [apiKeyInput, setApiKeyInput] = useState('');
 
   // Reset state when a new attendee is selected
   useEffect(() => {
@@ -46,20 +45,8 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
     setIsVerifying(false);
     setVerificationResult(null);
     setVerificationMessage('');
-    setIsAskingForKey(false);
   }, [attendee]);
   
-  const handleSaveKey = async () => {
-    if (!apiKeyInput.trim()) {
-      setVerificationResult('ERROR');
-      setVerificationMessage("Por favor, insira uma chave de API válida.");
-      return;
-    }
-    sessionStorage.setItem('gemini-api-key', apiKeyInput.trim());
-    setIsAskingForKey(false);
-    setApiKeyInput('');
-    await handleVerification();
-  };
 
   const handleVerification = async () => {
     if (!verificationPhoto) return;
@@ -67,11 +54,9 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
     setIsVerifying(true);
     setVerificationResult(null);
     setVerificationMessage('Analisando...');
-    setIsAskingForKey(false);
 
-    const savedApiKey = sessionStorage.getItem('gemini-api-key');
-    if (!savedApiKey) {
-        setIsAskingForKey(true);
+    // FIX: Use API_KEY from environment variables as per guidelines.
+    if (!process.env.API_KEY) {
         setVerificationResult('ERROR');
         setVerificationMessage(t('errors.apiKeyNeeded'));
         setIsVerifying(false);
@@ -80,7 +65,7 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
 
     let ai: GoogleGenAI;
     try {
-        ai = new GoogleGenAI({ apiKey: savedApiKey });
+        ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     } catch (e: any) {
         console.error("AI SDK Initialization failed:", e);
         setVerificationResult('ERROR');
@@ -132,8 +117,6 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
         if (error.message?.includes("API key not valid")) {
             setVerificationResult('ERROR');
             setVerificationMessage(t('errors.apiKeyInvalid'));
-            sessionStorage.removeItem('gemini-api-key');
-            setIsAskingForKey(true);
         } else {
             setVerificationResult('ERROR');
             setVerificationMessage('Ocorreu um erro na verificação com IA. Tente novamente ou verifique manualmente.');
@@ -150,31 +133,6 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
   }[verificationResult || ''] || '';
   
   const renderVerificationControls = () => {
-    if (isAskingForKey) {
-        return (
-             <div className="mt-4 w-full space-y-2">
-                 <p className="text-center text-yellow-400 text-sm mb-2">{t('apiKey.enterPrompt')}</p>
-                 <input
-                    type="password"
-                    value={apiKeyInput}
-                    onChange={(e) => setApiKeyInput(e.target.value)}
-                    placeholder={t('apiKey.inputPlaceholder')}
-                    className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"
-                 />
-                <button
-                    onClick={handleSaveKey}
-                    className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2"
-                >
-                   <KeyIcon className="w-5 h-5"/>
-                   {t('apiKey.saveButton')}
-                </button>
-                 <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="block text-center text-sm text-indigo-400 hover:underline">
-                    {t('apiKey.getItHere')}
-                </a>
-            </div>
-        );
-    }
-
     if (verificationMessage) {
         return (
             <div className={`mt-4 text-center p-3 rounded-lg border ${resultBoxClass} flex items-center justify-center gap-2`}>

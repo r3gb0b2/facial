@@ -1,10 +1,11 @@
 
+
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Attendee, CheckinStatus, Sector, Supplier } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import * as api from '../../firebase/service.ts';
 import { GoogleGenAI } from '@google/genai';
-import { FaceSmileIcon, SpinnerIcon, CheckCircleIcon, XMarkIcon, KeyIcon } from '../icons.tsx';
+import { FaceSmileIcon, SpinnerIcon, CheckCircleIcon, XMarkIcon } from '../icons.tsx';
 import AttendeeCard from '../AttendeeCard.tsx';
 
 interface FastCheckinViewProps {
@@ -49,8 +50,6 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
   const [isLoading, setIsLoading] = useState(false);
   const [foundAttendee, setFoundAttendee] = useState<Attendee | null>(null);
   const [feedbackMessage, setFeedbackMessage] = useState<string>('');
-  const [isAskingForKey, setIsAskingForKey] = useState(false);
-  const [apiKeyInput, setApiKeyInput] = useState('');
   
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -88,23 +87,11 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
     return () => stopScanningProcess();
   }, [stopScanningProcess]);
   
-  const handleSaveKey = async () => {
-    if (!apiKeyInput.trim()) {
-        setError("Por favor, insira uma chave de API válida.");
-        return;
-    }
-    sessionStorage.setItem('gemini-api-key', apiKeyInput.trim());
-    setIsAskingForKey(false);
-    setApiKeyInput('');
-    await handleStartScanning();
-  };
-
   const handleStartScanning = async () => {
     if (isScanning || isLoading) return;
     
     setFoundAttendee(null);
     setFeedbackMessage('');
-    setIsAskingForKey(false);
 
     const initialPendingAttendees = attendeesRef.current.filter(a => a.status === CheckinStatus.PENDING);
     if (initialPendingAttendees.length === 0) {
@@ -112,9 +99,9 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
         return;
     }
     
-    const savedApiKey = sessionStorage.getItem('gemini-api-key');
-    if (!savedApiKey) {
-        setIsAskingForKey(true);
+    // FIX: Use API_KEY from environment variables as per guidelines.
+    if (!process.env.API_KEY) {
+        setError(t('errors.apiKeyNeeded'));
         return;
     }
 
@@ -123,7 +110,7 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
     let ai: GoogleGenAI;
 
     try {
-        ai = new GoogleGenAI({ apiKey: savedApiKey });
+        ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     } catch (e: any) {
         console.error("Falha ao inicializar o SDK da IA:", e);
         const details = e.message || 'Verifique o console para mais detalhes.';
@@ -230,8 +217,6 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
                 console.error("Error during scanning interval:", error);
                 if (error.message?.includes("API key not valid")) {
                     setError(t('errors.apiKeyInvalid'));
-                    sessionStorage.removeItem('gemini-api-key');
-                    setIsAskingForKey(true);
                 } else {
                     setError(`${t('fastCheckin.aiError')} (${error.message || 'Erro de API'})`);
                 }
@@ -253,34 +238,9 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
     stopScanningProcess();
     setFoundAttendee(null);
     setFeedbackMessage('');
-    setIsAskingForKey(false);
   };
   
   const renderControls = () => {
-    if (isAskingForKey) {
-        return (
-             <div className="mt-6 space-y-3">
-                <p className="text-center text-yellow-400 text-sm">{t('apiKey.enterPrompt')}</p>
-                <input
-                    type="password"
-                    value={apiKeyInput}
-                    onChange={(e) => setApiKeyInput(e.target.value)}
-                    placeholder={t('apiKey.inputPlaceholder')}
-                    className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                />
-                <button 
-                    onClick={handleSaveKey}
-                    className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
-                >
-                    <KeyIcon className="w-5 h-5" />
-                    {t('apiKey.saveButton')}
-                </button>
-                 <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="block text-center text-sm text-indigo-400 hover:underline">
-                    {t('apiKey.getItHere')}
-                </a>
-            </div>
-        );
-    }
     if (foundAttendee) {
         return (
             <button onClick={reset} className="mt-6 w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 px-4 rounded-lg transition-colors">
