@@ -108,7 +108,7 @@ const WristbandReportView: React.FC<WristbandReportViewProps> = ({ attendees, se
               </div>
               <p className="text-2xl font-bold text-indigo-400 mt-1">{stat.delivered}</p>
               <p className="text-xs text-gray-400 uppercase font-semibold">
-                {t('wristbandReport.stats.deliveredOf', stat.delivered, stat.total)}
+                {t('wristbandReport.stats.deliveredOf', { delivered: stat.delivered, total: stat.total })}
               </p>
             </div>
           ))}
