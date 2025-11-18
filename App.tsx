@@ -20,7 +20,7 @@ const App: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     
     // States for public link routes
-    const [supplierInfo, setSupplierInfo] = useState<{ data: Supplier & { eventId: string }, name: string, sectors: Sector[] } | null>(null);
+    const [supplierInfo, setSupplierInfo] = useState<{ data: Supplier & { eventId: string }, name: string, sectors: Sector[], allowPhotoChange: boolean } | null>(null);
     const [supplierAdminData, setSupplierAdminData] = useState<{ eventName: string, attendees: Attendee[], eventId: string, supplierId: string, supplier: Supplier, sectors: Sector[] } | null>(null);
     const [publicLinkError, setPublicLinkError] = useState<string | null>(null);
 
@@ -155,9 +155,9 @@ const App: React.FC = () => {
     };
 
     // CRUD operations passed down to AdminView
-    const handleCreateEvent = async (name: string, modules?: EventModules) => {
+    const handleCreateEvent = async (name: string, modules?: EventModules, allowPhotoChange?: boolean) => {
         if (!user) return;
-        const newEventRef = await api.createEvent(name, modules);
+        const newEventRef = await api.createEvent(name, modules, allowPhotoChange);
         const newEventId = newEventRef.id;
 
         if (user.role === 'admin') {
@@ -173,9 +173,9 @@ const App: React.FC = () => {
         }
     };
 
-    const handleUpdateEvent = async (id: string, name: string, modules?: EventModules) => {
+    const handleUpdateEvent = async (id: string, name: string, modules?: EventModules, allowPhotoChange?: boolean) => {
         if (!user) return;
-        await api.updateEvent(id, name, modules);
+        await api.updateEvent(id, name, modules, allowPhotoChange);
         await refreshAndFilterEvents(user);
     };
 
@@ -239,7 +239,7 @@ const App: React.FC = () => {
             return <SupplierAdminView {...supplierAdminData} />;
         }
         if (supplierInfo) {
-             const { data: supplierData, name: eventName, sectors } = supplierInfo;
+             const { data: supplierData, name: eventName, sectors, allowPhotoChange } = supplierInfo;
              // Here we can't easily check the limit without a subscription.
              // The check is performed inside the registration modal instead.
             return (
@@ -252,6 +252,7 @@ const App: React.FC = () => {
                       eventName={eventName}
                       supplierName={supplierData.name}
                       supplierInfo={supplierInfo}
+                      allowPhotoChange={allowPhotoChange}
                     />
                 </div>
             );

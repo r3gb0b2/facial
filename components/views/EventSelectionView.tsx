@@ -8,8 +8,8 @@ interface EventSelectionViewProps {
   user: User;
   events: Event[];
   onSelectEvent: (eventId: string) => void;
-  onCreateEvent: (name: string, modules?: EventModules) => void;
-  onUpdateEvent: (id: string, name:string, modules?: EventModules) => void;
+  onCreateEvent: (name: string, modules?: EventModules, allowPhotoChange?: boolean) => void;
+  onUpdateEvent: (id: string, name:string, modules?: EventModules, allowPhotoChange?: boolean) => void;
   onDeleteEvent: (id: string) => void;
   onLogout: () => void;
 }
@@ -29,11 +29,11 @@ const EventSelectionView: React.FC<EventSelectionViewProps> = ({ user, events, o
       setIsModalOpen(false);
   };
   
-  const handleSaveEvent = (name: string, eventId?: string, modules?: EventModules) => {
+  const handleSaveEvent = (name: string, eventId?: string, modules?: EventModules, allowPhotoChange?: boolean) => {
       if (eventId) {
-          onUpdateEvent(eventId, name, modules);
+          onUpdateEvent(eventId, name, modules, allowPhotoChange);
       } else {
-          onCreateEvent(name, modules);
+          onCreateEvent(name, modules, allowPhotoChange);
       }
       handleCloseModal();
   };

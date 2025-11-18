@@ -14,7 +14,7 @@ export const getEvents = async (): Promise<Event[]> => {
     return getCollectionData<Event>(snapshot);
 };
 
-export const createEvent = (name: string, modules?: EventModules): Promise<firebase.firestore.DocumentReference> => {
+export const createEvent = (name: string, modules?: EventModules, allowPhotoChange?: boolean): Promise<firebase.firestore.DocumentReference> => {
     return db.collection('events').add({
         name,
         createdAt: FieldValue.serverTimestamp(),
@@ -25,14 +25,18 @@ export const createEvent = (name: string, modules?: EventModules): Promise<fireb
             companies: true,
             spreadsheet: true,
             reports: true
-        }
+        },
+        allowPhotoChange: allowPhotoChange !== undefined ? allowPhotoChange : true // Default to allowing changes
     });
 };
 
-export const updateEvent = (id: string, name: string, modules?: EventModules) => {
+export const updateEvent = (id: string, name: string, modules?: EventModules, allowPhotoChange?: boolean) => {
     const data: any = { name };
     if (modules) {
         data.modules = modules;
+    }
+    if (allowPhotoChange !== undefined) {
+        data.allowPhotoChange = allowPhotoChange;
     }
     return db.collection('events').doc(id).update(data);
 };
@@ -352,23 +356,24 @@ export const updateSupplierStatus = (eventId: string, supplierId: string, active
 export const subscribeToSupplierForRegistration = (
     eventId: string,
     supplierId: string,
-    callback: (data: { data: Supplier & { eventId: string }, name: string, sectors: Sector[] } | null) => void,
+    callback: (data: { data: Supplier & { eventId: string }, name: string, sectors: Sector[], allowPhotoChange: boolean } | null) => void,
     onError: (error: Error) => void
 ) => {
     const data = {
         eventName: null as string | null,
+        allowPhotoChange: true as boolean, // Default
         supplier: null as (Supplier & { eventId: string }) | null,
         allSectors: null as Sector[] | null,
     };
 
     const updateCallback = () => {
         if (data.eventName !== null && data.supplier !== null && data.allSectors !== null) {
-            const { eventName, supplier, allSectors } = data;
+            const { eventName, supplier, allSectors, allowPhotoChange } = data;
             const validSectorIds = new Set(allSectors.map(s => s.id));
             const dataForUI = { ...supplier };
             dataForUI.sectors = (supplier.sectors || []).filter(sectorId => validSectorIds.has(sectorId));
             dataForUI.subCompanies = (supplier.subCompanies || []).filter(sc => validSectorIds.has(sc.sector));
-            callback({ data: dataForUI, name: eventName, sectors: allSectors });
+            callback({ data: dataForUI, name: eventName, sectors: allSectors, allowPhotoChange });
         }
     };
     
@@ -385,7 +390,9 @@ export const subscribeToSupplierForRegistration = (
             handleError(new Error("Event not found"));
             return;
         }
-        data.eventName = eventSnap.data()?.name || 'Evento';
+        const eventData = eventSnap.data();
+        data.eventName = eventData?.name || 'Evento';
+        data.allowPhotoChange = eventData?.allowPhotoChange !== undefined ? eventData.allowPhotoChange : true;
         updateCallback();
     }, handleError);
     unsubscribes.push(eventUnsub);

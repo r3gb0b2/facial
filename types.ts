@@ -55,6 +55,7 @@ export interface Event {
   name: string;
   createdAt: FirebaseTimestamp;
   modules?: EventModules;
+  allowPhotoChange?: boolean; // If true, existing users from other events can update their photo
 }
 
 export interface SubCompany {

@@ -15,9 +15,10 @@ interface RegisterViewProps {
   supplierName?: string;
   supplierInfo?: { data: Supplier & { eventId: string } };
   currentEventId?: string;
+  allowPhotoChange?: boolean;
 }
 
-const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, sectors, suppliers = [], predefinedSector, eventName, supplierName, supplierInfo, currentEventId }) => {
+const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, sectors, suppliers = [], predefinedSector, eventName, supplierName, supplierInfo, currentEventId, allowPhotoChange = true }) => {
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [cpf, setCpf] = useState('');
@@ -29,6 +30,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
   const [isCheckingCpf, setIsCheckingCpf] = useState(false);
   const [cpfCheckMessage, setCpfCheckMessage] = useState('');
   const [existingAttendeeFound, setExistingAttendeeFound] = useState(false);
+  const [isPhotoLocked, setIsPhotoLocked] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   
   const isSupplierWithMultipleSectors = Array.isArray(predefinedSector);
@@ -98,6 +100,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
     setPhoto(null);
     setCpfCheckMessage('');
     setExistingAttendeeFound(false);
+    setIsPhotoLocked(false);
     // Do not clear supplier selection in admin view to make bulk registration easier
     // setSelectedSupplierId(''); 
     if (hasSubCompanies) {
@@ -134,6 +137,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
     setPhoto(null);
     setName('');
     setExistingAttendeeFound(false);
+    setIsPhotoLocked(false);
 
     try {
         // Determine the event ID to check against.
@@ -154,11 +158,17 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
               // Strictly block registration only if the user is already in THIS event
               setCpfCheckMessage(t('register.cpfAlreadyRegistered'));
               setExistingAttendeeFound(true);
+              setIsPhotoLocked(true); // Always lock if already registered
             } else {
               // User found in another event - allow registration, but pre-fill data
               // Do NOT set existingAttendeeFound to true (which blocks form), just show a message
               setCpfCheckMessage(t('register.cpfFound'));
               setExistingAttendeeFound(false); 
+              
+              // If changing photo is NOT allowed, lock the photo component
+              if (!allowPhotoChange) {
+                 setIsPhotoLocked(true);
+              }
             }
         } else {
             setCpfCheckMessage(t('register.cpfNotFound'));
@@ -404,10 +414,10 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
             </div>
           </div>
           <div className="flex flex-col items-center">
-              <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting || isCheckingCpf || existingAttendeeFound} allowUpload={isAdminView} />
-              {existingAttendeeFound && (
+              <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting || isCheckingCpf || isPhotoLocked} allowUpload={isAdminView} />
+              {isPhotoLocked && (
                 <p className="text-sm mt-2 text-yellow-400 text-center px-4">
-                  {t('register.photoLocked')}
+                  {existingAttendeeFound ? t('register.photoLocked') : t('register.photoLockedPolicy')}
                 </p>
               )}
           </div>

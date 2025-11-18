@@ -6,7 +6,7 @@ import { XMarkIcon } from './icons.tsx';
 interface EventModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (name: string, eventId?: string, modules?: EventModules) => void;
+  onSave: (name: string, eventId?: string, modules?: EventModules, allowPhotoChange?: boolean) => void;
   eventToEdit?: Event | null;
 }
 
@@ -23,15 +23,18 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, eventT
   const { t } = useTranslation();
   const [eventName, setEventName] = useState('');
   const [modules, setModules] = useState<EventModules>(defaultModules);
+  const [allowPhotoChange, setAllowPhotoChange] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (eventToEdit) {
       setEventName(eventToEdit.name);
       setModules(eventToEdit.modules || defaultModules);
+      setAllowPhotoChange(eventToEdit.allowPhotoChange !== undefined ? eventToEdit.allowPhotoChange : true);
     } else {
       setEventName('');
       setModules(defaultModules);
+      setAllowPhotoChange(true);
     }
     setError('');
   }, [eventToEdit, isOpen]);
@@ -43,7 +46,7 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, eventT
       setError(t('events.modal.error'));
       return;
     }
-    onSave(eventName, eventToEdit?.id, modules);
+    onSave(eventName, eventToEdit?.id, modules, allowPhotoChange);
   };
   
   const toggleModule = (key: keyof EventModules) => {
@@ -79,6 +82,19 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, eventT
               autoFocus
             />
             {error && <p className="text-red-400 text-sm mt-1">{error}</p>}
+            
+             <div className="flex items-center mt-3">
+                <input
+                    type="checkbox"
+                    id="allowPhotoChange"
+                    checked={allowPhotoChange}
+                    onChange={(e) => setAllowPhotoChange(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                />
+                <label htmlFor="allowPhotoChange" className="ml-2 text-sm text-gray-300 cursor-pointer select-none">
+                    {t('events.modal.allowPhotoChange')}
+                </label>
+            </div>
           </div>
           
           <div>
