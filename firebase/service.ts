@@ -1,7 +1,7 @@
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
 import { db, storage, FieldValue, Timestamp } from './config.ts';
-import { Attendee, CheckinStatus, Event, Supplier, Sector, SubCompany, User } from '../types.ts';
+import { Attendee, CheckinStatus, Event, Supplier, Sector, SubCompany, User, EventModules } from '../types.ts';
 import { v4 as uuidv4 } from 'uuid';
 
 // Helper to extract data and id from snapshots
@@ -14,15 +14,27 @@ export const getEvents = async (): Promise<Event[]> => {
     return getCollectionData<Event>(snapshot);
 };
 
-export const createEvent = (name: string): Promise<firebase.firestore.DocumentReference> => {
+export const createEvent = (name: string, modules?: EventModules): Promise<firebase.firestore.DocumentReference> => {
     return db.collection('events').add({
         name,
         createdAt: FieldValue.serverTimestamp(),
+        modules: modules || { // Default all to true if not provided
+            scanner: true,
+            logs: true,
+            register: true,
+            companies: true,
+            spreadsheet: true,
+            reports: true
+        }
     });
 };
 
-export const updateEvent = (id: string, name: string) => {
-    return db.collection('events').doc(id).update({ name });
+export const updateEvent = (id: string, name: string, modules?: EventModules) => {
+    const data: any = { name };
+    if (modules) {
+        data.modules = modules;
+    }
+    return db.collection('events').doc(id).update(data);
 };
 
 export const deleteEvent = (id: string) => {

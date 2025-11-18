@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as api from './firebase/service.ts';
-import { User, Event, Attendee, Supplier, Sector, UserRole } from './types.ts';
+import { User, Event, Attendee, Supplier, Sector, UserRole, EventModules } from './types.ts';
 import { useTranslation } from './hooks/useTranslation.tsx';
 import LoginView from './components/views/LoginView.tsx';
 import EventSelectionView from './components/views/EventSelectionView.tsx';
@@ -155,9 +155,9 @@ const App: React.FC = () => {
     };
 
     // CRUD operations passed down to AdminView
-    const handleCreateEvent = async (name: string) => {
+    const handleCreateEvent = async (name: string, modules?: EventModules) => {
         if (!user) return;
-        const newEventRef = await api.createEvent(name);
+        const newEventRef = await api.createEvent(name, modules);
         const newEventId = newEventRef.id;
 
         if (user.role === 'admin') {
@@ -173,9 +173,9 @@ const App: React.FC = () => {
         }
     };
 
-    const handleUpdateEvent = async (id: string, name: string) => {
+    const handleUpdateEvent = async (id: string, name: string, modules?: EventModules) => {
         if (!user) return;
-        await api.updateEvent(id, name);
+        await api.updateEvent(id, name, modules);
         await refreshAndFilterEvents(user);
     };
 
@@ -278,6 +278,7 @@ const App: React.FC = () => {
             <AdminView
                 user={user}
                 eventData={eventData}
+                currentEvent={events.find(e => e.id === currentEventId)!}
                 currentEventId={currentEventId}
                 currentEventName={events.find(e => e.id === currentEventId)?.name || ''}
                 onBackToEvents={handleBackToEvents}

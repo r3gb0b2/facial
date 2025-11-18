@@ -1,25 +1,37 @@
 import React, { useState, useEffect } from 'react';
-import { Event } from '../types.ts';
+import { Event, EventModules } from '../types.ts';
 import { useTranslation } from '../hooks/useTranslation.tsx';
 import { XMarkIcon } from './icons.tsx';
 
 interface EventModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (name: string, eventId?: string) => void;
+  onSave: (name: string, eventId?: string, modules?: EventModules) => void;
   eventToEdit?: Event | null;
 }
+
+const defaultModules: EventModules = {
+    scanner: true,
+    logs: true,
+    register: true,
+    companies: true,
+    spreadsheet: true,
+    reports: true,
+};
 
 const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, eventToEdit }) => {
   const { t } = useTranslation();
   const [eventName, setEventName] = useState('');
+  const [modules, setModules] = useState<EventModules>(defaultModules);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (eventToEdit) {
       setEventName(eventToEdit.name);
+      setModules(eventToEdit.modules || defaultModules);
     } else {
       setEventName('');
+      setModules(defaultModules);
     }
     setError('');
   }, [eventToEdit, isOpen]);
@@ -31,7 +43,14 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, eventT
       setError(t('events.modal.error'));
       return;
     }
-    onSave(eventName, eventToEdit?.id);
+    onSave(eventName, eventToEdit?.id, modules);
+  };
+  
+  const toggleModule = (key: keyof EventModules) => {
+      setModules(prev => ({
+          ...prev,
+          [key]: !prev[key]
+      }));
   };
 
   return (
@@ -45,7 +64,7 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, eventT
             <XMarkIcon className="w-6 h-6" />
           </button>
         </div>
-        <div className="p-8 space-y-4">
+        <div className="p-8 space-y-6">
           <div>
             <label htmlFor="eventName" className="block text-sm font-medium text-gray-300 mb-1">
               {t('events.modal.nameLabel')}
@@ -61,6 +80,29 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, eventT
             />
             {error && <p className="text-red-400 text-sm mt-1">{error}</p>}
           </div>
+          
+          <div>
+              <label className="block text-sm font-medium text-gray-300 mb-3">
+                  {t('events.modal.modulesLabel')}
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                  {Object.keys(defaultModules).map((key) => (
+                       <div key={key} className="flex items-center space-x-3 p-2 bg-gray-900/50 rounded-lg border border-gray-700">
+                            <input
+                                type="checkbox"
+                                id={`module-${key}`}
+                                checked={modules[key as keyof EventModules]}
+                                onChange={() => toggleModule(key as keyof EventModules)}
+                                className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                            />
+                            <label htmlFor={`module-${key}`} className="text-sm text-gray-200 cursor-pointer select-none">
+                                {t(`events.modules.${key}`)}
+                            </label>
+                        </div>
+                  ))}
+              </div>
+          </div>
+
         </div>
         <div className="p-6 bg-gray-900/50 rounded-b-2xl">
           <button

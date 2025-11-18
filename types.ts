@@ -41,10 +41,20 @@ export interface Attendee {
   };
 }
 
+export interface EventModules {
+  scanner: boolean;
+  logs: boolean;
+  register: boolean;
+  companies: boolean;
+  spreadsheet: boolean;
+  reports: boolean;
+}
+
 export interface Event {
   id: string;
   name: string;
   createdAt: FirebaseTimestamp;
+  modules?: EventModules;
 }
 
 export interface SubCompany {

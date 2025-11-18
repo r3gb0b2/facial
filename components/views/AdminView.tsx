@@ -21,6 +21,7 @@ type AdminTab = 'checkin' | 'register' | 'suppliers' | 'sectors' | 'companies' |
 interface AdminViewProps {
     user: User;
     eventData: { attendees: Attendee[], suppliers: Supplier[], sectors: Sector[] };
+    currentEvent: Event;
     currentEventId: string;
     currentEventName: string;
     onBackToEvents: () => void;
@@ -52,11 +53,38 @@ const TABS: { id: AdminTab, labelKey: string, roles: UserRole[] }[] = [
 
 
 const AdminView: React.FC<AdminViewProps> = (props) => {
-    const { user, eventData, currentEventId, currentEventName, onBackToEvents, onLogout, onRegister, setError } = props;
+    const { user, eventData, currentEvent, currentEventId, currentEventName, onBackToEvents, onLogout, onRegister, setError } = props;
     const { t } = useTranslation();
 
-    const availableTabs = useMemo(() => TABS.filter(tab => tab.roles.includes(user.role)), [user.role]);
-    const [activeTab, setActiveTab] = useState<AdminTab>(availableTabs[0]?.id ?? 'checkin');
+    const availableTabs = useMemo(() => {
+        return TABS.filter(tab => {
+            // 1. Role Check
+            if (!tab.roles.includes(user.role)) return false;
+            
+            // 2. Module Configuration Check (If modules are configured for the event)
+            if (currentEvent && currentEvent.modules) {
+                // Check specific modules requested by the user
+                if (tab.id === 'scanner' && currentEvent.modules.scanner === false) return false;
+                if (tab.id === 'logs' && currentEvent.modules.logs === false) return false;
+                if (tab.id === 'register' && currentEvent.modules.register === false) return false;
+                if (tab.id === 'companies' && currentEvent.modules.companies === false) return false;
+                if (tab.id === 'spreadsheet' && currentEvent.modules.spreadsheet === false) return false;
+                if (tab.id === 'reports' && currentEvent.modules.reports === false) return false;
+                // 'checkin', 'suppliers', 'sectors', 'users' are essentially core/always on unless specified otherwise in future
+            }
+
+            return true;
+        });
+    }, [user.role, currentEvent]);
+
+    const [activeTab, setActiveTab] = useState<AdminTab>('checkin');
+
+    // Reset active tab if it becomes unavailable due to permission change
+    useEffect(() => {
+        if (!availableTabs.some(t => t.id === activeTab) && availableTabs.length > 0) {
+            setActiveTab(availableTabs[0].id);
+        }
+    }, [availableTabs, activeTab]);
     
     // Additional state for user management
     const [users, setUsers] = useState<User[]>([]);

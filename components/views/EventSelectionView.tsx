@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Event, User } from '../../types.ts';
+import { Event, User, EventModules } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import EventModal from '../EventModal.tsx';
 import { ArrowLeftOnRectangleIcon, CalendarIcon, PencilIcon, TrashIcon } from '../icons.tsx';
@@ -8,8 +8,8 @@ interface EventSelectionViewProps {
   user: User;
   events: Event[];
   onSelectEvent: (eventId: string) => void;
-  onCreateEvent: (name: string) => void;
-  onUpdateEvent: (id: string, name:string) => void;
+  onCreateEvent: (name: string, modules?: EventModules) => void;
+  onUpdateEvent: (id: string, name:string, modules?: EventModules) => void;
   onDeleteEvent: (id: string) => void;
   onLogout: () => void;
 }
@@ -29,11 +29,11 @@ const EventSelectionView: React.FC<EventSelectionViewProps> = ({ user, events, o
       setIsModalOpen(false);
   };
   
-  const handleSaveEvent = (name: string, eventId?: string) => {
+  const handleSaveEvent = (name: string, eventId?: string, modules?: EventModules) => {
       if (eventId) {
-          onUpdateEvent(eventId, name);
+          onUpdateEvent(eventId, name, modules);
       } else {
-          onCreateEvent(name);
+          onCreateEvent(name, modules);
       }
       handleCloseModal();
   };
