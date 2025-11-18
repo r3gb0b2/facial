@@ -56,6 +56,7 @@ export interface Event {
   createdAt: FirebaseTimestamp;
   modules?: EventModules;
   allowPhotoChange?: boolean; // If true, existing users from other events can update their photo
+  allowGuestUploads?: boolean; // If true, public users can upload files instead of just using webcam
 }
 
 export interface SubCompany {

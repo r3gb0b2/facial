@@ -14,7 +14,7 @@ export const getEvents = async (): Promise<Event[]> => {
     return getCollectionData<Event>(snapshot);
 };
 
-export const createEvent = (name: string, modules?: EventModules, allowPhotoChange?: boolean): Promise<firebase.firestore.DocumentReference> => {
+export const createEvent = (name: string, modules?: EventModules, allowPhotoChange?: boolean, allowGuestUploads?: boolean): Promise<firebase.firestore.DocumentReference> => {
     return db.collection('events').add({
         name,
         createdAt: FieldValue.serverTimestamp(),
@@ -26,17 +26,21 @@ export const createEvent = (name: string, modules?: EventModules, allowPhotoChan
             spreadsheet: true,
             reports: true
         },
-        allowPhotoChange: allowPhotoChange !== undefined ? allowPhotoChange : true // Default to allowing changes
+        allowPhotoChange: allowPhotoChange !== undefined ? allowPhotoChange : true, // Default to allowing changes
+        allowGuestUploads: allowGuestUploads !== undefined ? allowGuestUploads : false // Default to disable uploads (live camera only)
     });
 };
 
-export const updateEvent = (id: string, name: string, modules?: EventModules, allowPhotoChange?: boolean) => {
+export const updateEvent = (id: string, name: string, modules?: EventModules, allowPhotoChange?: boolean, allowGuestUploads?: boolean) => {
     const data: any = { name };
     if (modules) {
         data.modules = modules;
     }
     if (allowPhotoChange !== undefined) {
         data.allowPhotoChange = allowPhotoChange;
+    }
+    if (allowGuestUploads !== undefined) {
+        data.allowGuestUploads = allowGuestUploads;
     }
     return db.collection('events').doc(id).update(data);
 };
@@ -356,24 +360,25 @@ export const updateSupplierStatus = (eventId: string, supplierId: string, active
 export const subscribeToSupplierForRegistration = (
     eventId: string,
     supplierId: string,
-    callback: (data: { data: Supplier & { eventId: string }, name: string, sectors: Sector[], allowPhotoChange: boolean } | null) => void,
+    callback: (data: { data: Supplier & { eventId: string }, name: string, sectors: Sector[], allowPhotoChange: boolean, allowGuestUploads: boolean } | null) => void,
     onError: (error: Error) => void
 ) => {
     const data = {
         eventName: null as string | null,
         allowPhotoChange: true as boolean, // Default
+        allowGuestUploads: false as boolean, // Default
         supplier: null as (Supplier & { eventId: string }) | null,
         allSectors: null as Sector[] | null,
     };
 
     const updateCallback = () => {
         if (data.eventName !== null && data.supplier !== null && data.allSectors !== null) {
-            const { eventName, supplier, allSectors, allowPhotoChange } = data;
+            const { eventName, supplier, allSectors, allowPhotoChange, allowGuestUploads } = data;
             const validSectorIds = new Set(allSectors.map(s => s.id));
             const dataForUI = { ...supplier };
             dataForUI.sectors = (supplier.sectors || []).filter(sectorId => validSectorIds.has(sectorId));
             dataForUI.subCompanies = (supplier.subCompanies || []).filter(sc => validSectorIds.has(sc.sector));
-            callback({ data: dataForUI, name: eventName, sectors: allSectors, allowPhotoChange });
+            callback({ data: dataForUI, name: eventName, sectors: allSectors, allowPhotoChange, allowGuestUploads });
         }
     };
     
@@ -393,6 +398,7 @@ export const subscribeToSupplierForRegistration = (
         const eventData = eventSnap.data();
         data.eventName = eventData?.name || 'Evento';
         data.allowPhotoChange = eventData?.allowPhotoChange !== undefined ? eventData.allowPhotoChange : true;
+        data.allowGuestUploads = eventData?.allowGuestUploads !== undefined ? eventData.allowGuestUploads : false;
         updateCallback();
     }, handleError);
     unsubscribes.push(eventUnsub);

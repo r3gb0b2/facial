@@ -26,6 +26,7 @@
     "events.modal.createButton": "Criar Evento",
     "events.modal.modulesLabel": "Módulos Habilitados",
     "events.modal.allowPhotoChange": "Permitir alteração de foto para quem já possui cadastro anterior?",
+    "events.modal.allowGuestUploads": "Permitir upload de foto da galeria no registro público?",
     "events.modules.scanner": "Scanner QR",
     "events.modules.logs": "Histórico",
     "events.modules.register": "Cadastrar",

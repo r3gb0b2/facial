@@ -16,9 +16,10 @@ interface RegisterViewProps {
   supplierInfo?: { data: Supplier & { eventId: string } };
   currentEventId?: string;
   allowPhotoChange?: boolean;
+  allowGuestUploads?: boolean;
 }
 
-const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, sectors, suppliers = [], predefinedSector, eventName, supplierName, supplierInfo, currentEventId, allowPhotoChange = true }) => {
+const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, sectors, suppliers = [], predefinedSector, eventName, supplierName, supplierInfo, currentEventId, allowPhotoChange = true, allowGuestUploads = false }) => {
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [cpf, setCpf] = useState('');
@@ -414,7 +415,12 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
             </div>
           </div>
           <div className="flex flex-col items-center">
-              <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting || isCheckingCpf || isPhotoLocked} allowUpload={isAdminView} />
+              <WebcamCapture 
+                onCapture={setPhoto} 
+                capturedImage={photo} 
+                disabled={isSubmitting || isCheckingCpf || isPhotoLocked} 
+                allowUpload={isAdminView || allowGuestUploads} 
+              />
               {isPhotoLocked && (
                 <p className="text-sm mt-2 text-yellow-400 text-center px-4">
                   {existingAttendeeFound ? t('register.photoLocked') : t('register.photoLockedPolicy')}

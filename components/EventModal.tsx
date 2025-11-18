@@ -6,7 +6,7 @@ import { XMarkIcon } from './icons.tsx';
 interface EventModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (name: string, eventId?: string, modules?: EventModules, allowPhotoChange?: boolean) => void;
+  onSave: (name: string, eventId?: string, modules?: EventModules, allowPhotoChange?: boolean, allowGuestUploads?: boolean) => void;
   eventToEdit?: Event | null;
 }
 
@@ -24,6 +24,7 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, eventT
   const [eventName, setEventName] = useState('');
   const [modules, setModules] = useState<EventModules>(defaultModules);
   const [allowPhotoChange, setAllowPhotoChange] = useState(true);
+  const [allowGuestUploads, setAllowGuestUploads] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -31,10 +32,12 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, eventT
       setEventName(eventToEdit.name);
       setModules(eventToEdit.modules || defaultModules);
       setAllowPhotoChange(eventToEdit.allowPhotoChange !== undefined ? eventToEdit.allowPhotoChange : true);
+      setAllowGuestUploads(eventToEdit.allowGuestUploads !== undefined ? eventToEdit.allowGuestUploads : false);
     } else {
       setEventName('');
       setModules(defaultModules);
       setAllowPhotoChange(true);
+      setAllowGuestUploads(false);
     }
     setError('');
   }, [eventToEdit, isOpen]);
@@ -46,7 +49,7 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, eventT
       setError(t('events.modal.error'));
       return;
     }
-    onSave(eventName, eventToEdit?.id, modules, allowPhotoChange);
+    onSave(eventName, eventToEdit?.id, modules, allowPhotoChange, allowGuestUploads);
   };
   
   const toggleModule = (key: keyof EventModules) => {
@@ -93,6 +96,18 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, eventT
                 />
                 <label htmlFor="allowPhotoChange" className="ml-2 text-sm text-gray-300 cursor-pointer select-none">
                     {t('events.modal.allowPhotoChange')}
+                </label>
+            </div>
+             <div className="flex items-center mt-3">
+                <input
+                    type="checkbox"
+                    id="allowGuestUploads"
+                    checked={allowGuestUploads}
+                    onChange={(e) => setAllowGuestUploads(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                />
+                <label htmlFor="allowGuestUploads" className="ml-2 text-sm text-gray-300 cursor-pointer select-none">
+                    {t('events.modal.allowGuestUploads')}
                 </label>
             </div>
           </div>
