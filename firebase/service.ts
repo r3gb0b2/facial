@@ -91,7 +91,7 @@ export const getAttendees = async (eventId: string): Promise<Attendee[]> => {
 };
 
 export const findAttendeeByCpf = async (cpf: string, eventId?: string): Promise<(Attendee & { eventId?: string }) | null> => {
-    // 1. If eventId is provided, check specifically within that event first (for duplicate check)
+    // 1. If eventId is provided, check specifically within that event first (for strict duplicate check in current event)
     if (eventId) {
         const localSnapshot = await db.collection('events').doc(eventId).collection('attendees').where('cpf', '==', cpf).limit(1).get();
         if (!localSnapshot.empty) {
@@ -101,6 +101,7 @@ export const findAttendeeByCpf = async (cpf: string, eventId?: string): Promise<
     }
 
     // 2. If not found locally (or no eventId provided), search globally to find data to pre-fill
+    // This allows finding a user from a PAST event to copy their photo/name
     let query: firebase.firestore.Query = db.collectionGroup('attendees').where('cpf', '==', cpf).limit(1);
     
     const snapshot = await query.get();

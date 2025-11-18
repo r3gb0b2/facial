@@ -98,7 +98,8 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
     setPhoto(null);
     setCpfCheckMessage('');
     setExistingAttendeeFound(false);
-    setSelectedSupplierId('');
+    // Do not clear supplier selection in admin view to make bulk registration easier
+    // setSelectedSupplierId(''); 
     if (hasSubCompanies) {
       setSubCompany('');
       setSector('');
@@ -147,15 +148,17 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
             setPhoto(existingAttendee.photo);
             
             // Check if the user is already registered in the ACTIVE event.
-            // We only block if the found attendee's eventId matches the activeEventId.
             const isRegisteredInCurrentEvent = activeEventId && existingAttendee.eventId === activeEventId;
 
             if (isRegisteredInCurrentEvent) {
+              // Strictly block registration only if the user is already in THIS event
               setCpfCheckMessage(t('register.cpfAlreadyRegistered'));
               setExistingAttendeeFound(true);
             } else {
-              // User found in another event - allow registration, pre-fill data
+              // User found in another event - allow registration, but pre-fill data
+              // Do NOT set existingAttendeeFound to true (which blocks form), just show a message
               setCpfCheckMessage(t('register.cpfFound'));
+              setExistingAttendeeFound(false); 
             }
         } else {
             setCpfCheckMessage(t('register.cpfNotFound'));
@@ -186,6 +189,11 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
       setError(t('register.errors.invalidCpf'));
       return;
     }
+    if (isAdminView && !selectedSupplierId) {
+        setError("Selecione um fornecedor para continuar.");
+        return;
+    }
+
     if ((hasSubCompanies || (selectedSupplier?.subCompanies && selectedSupplier.subCompanies.length > 0)) && !subCompany) {
       setError(t('register.errors.subCompanyRequired'));
       return;
@@ -337,7 +345,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
                 disabled={isSubmitting || isCheckingCpf}
               />
               {cpfCheckMessage && (
-                  <p className="text-sm mt-1 text-gray-400 flex items-center gap-2">
+                  <p className={`text-sm mt-1 flex items-center gap-2 ${existingAttendeeFound ? 'text-yellow-400' : 'text-green-400'}`}>
                       {isCheckingCpf && <SpinnerIcon className="w-4 h-4" />}
                       {cpfCheckMessage}
                   </p>
@@ -355,13 +363,14 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
 
             {isAdminView && (
               <div>
-                <label htmlFor="supplier" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.supplierLabel')}</label>
+                <label htmlFor="supplier" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.supplierLabel')} <span className="text-red-500">*</span></label>
                 <select
                   id="supplier"
                   value={selectedSupplierId}
                   onChange={(e) => setSelectedSupplierId(e.target.value)}
                   className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
                   disabled={isSubmitting || isCheckingCpf || existingAttendeeFound}
+                  required
                 >
                   <option value="">{t('register.form.supplierPlaceholder')}</option>
                   {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -373,7 +382,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
             {renderSectorInput()}
 
             <div className="space-y-4">
-                <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={!name || !cpf || !photo || !sector || isSubmitting || isCheckingCpf || existingAttendeeFound}>
+                <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={!name || !cpf || !photo || (!sector && !subCompany && !isAdminView) || isSubmitting || isCheckingCpf || existingAttendeeFound}>
                   {isSubmitting ? (
                     <>
                       <SpinnerIcon className="w-5 h-5" />
@@ -392,11 +401,6 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
                         <p className="text-sm font-medium">{t('register.successMessage')}</p>
                     </div>
                 )}
-                 {existingAttendeeFound && (
-                    <p className="text-sm text-yellow-400 text-center">
-                        {t('register.cpfAlreadyRegistered')}
-                    </p>
-                 )}
             </div>
           </div>
           <div className="flex flex-col items-center">

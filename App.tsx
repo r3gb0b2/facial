@@ -203,7 +203,10 @@ const App: React.FC = () => {
             setError("Nenhum evento selecionado para o registro.");
             return;
         }
-        await api.addAttendee(eventId, newAttendee, supplierId);
+        // Use supplierId passed from argument (admin view) OR fallback to the link's supplier ID (public view)
+        const effectiveSupplierId = supplierId || supplierInfo?.data.id;
+        
+        await api.addAttendee(eventId, newAttendee, effectiveSupplierId);
     };
 
     const handleUpdateAttendeeDetails = async (attendeeId: string, data: Partial<Attendee>) => {

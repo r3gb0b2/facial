@@ -122,7 +122,48 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
     const handleUpdateSectorsForAttendees = (attendeeIds: string[], sectorIds: string[]) => api.updateSectorsForAttendees(currentEventId, attendeeIds, sectorIds);
 
     const handleImport = async (data: any[]) => {
-        // ... (spreadsheet import logic)
+         for (const row of data) {
+            const name = row.name;
+            const cpf = row.cpf ? String(row.cpf).replace(/\D/g, '') : '';
+            const sectorLabel = row.sector;
+            // Try to map supplier name to ID if provided
+            const supplierName = row.fornecedor; 
+            let supplierId = undefined;
+            if (supplierName) {
+                const foundSupplier = eventData.suppliers.find(s => s.name.toLowerCase() === supplierName.toLowerCase());
+                if (foundSupplier) supplierId = foundSupplier.id;
+            }
+
+            const subCompany = row.empresa || '';
+
+            if (!name || !cpf || !sectorLabel) continue; // Skip invalid rows
+
+            // Find sector ID by label
+            const sectorId = eventData.sectors.find(s => s.label.toLowerCase() === sectorLabel.toLowerCase())?.id;
+            if (!sectorId) continue; // Skip if sector doesn't exist
+
+            try {
+                // Simple duplicate check to avoid errors during bulk import
+                // Ideally this should use the findAttendeeByCpf service but for bulk we just try/catch or rely on user caution
+                // Check against loaded attendees for speed
+                const exists = eventData.attendees.some(a => a.cpf.replace(/\D/g,'') === cpf);
+                if (exists) continue;
+
+                // Dummy photo for imported users if not provided? Or assume they upload later?
+                // For now, using a placeholder or if the spreadsheet has a 'photo' column with URL
+                const photo = row.photo || 'https://via.placeholder.com/150?text=No+Photo';
+
+                await onRegister({
+                    name,
+                    cpf,
+                    photo,
+                    sectors: [sectorId],
+                    subCompany
+                }, supplierId);
+            } catch (e) {
+                console.error(`Failed to import ${name}`, e);
+            }
+        }
     };
 
     const handleUpdateStatusForScanner = (attendeeId: string, status: any) => api.updateAttendeeStatus(currentEventId, attendeeId, status, user.username);
