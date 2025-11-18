@@ -1,5 +1,3 @@
-
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { User, Attendee, Supplier, Sector, Event, UserRole } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
@@ -16,13 +14,6 @@ import UserManagementView from './UserManagementView.tsx';
 import * as api from '../../firebase/service.ts';
 import { 
     ArrowLeftOnRectangleIcon, 
-    UsersIcon, 
-    QrCodeIcon,
-    CalendarIcon,
-    FingerPrintIcon,
-    BuildingOfficeIcon,
-    TagIcon,
-    ArrowUpTrayIcon
 } from '../icons.tsx';
 
 type AdminTab = 'checkin' | 'register' | 'suppliers' | 'sectors' | 'companies' | 'spreadsheet' | 'reports' | 'logs' | 'scanner' | 'users';
@@ -158,7 +149,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
             <main className="flex-grow overflow-y-auto rounded-lg">
                 <div className="py-6">
                     {activeTab === 'checkin' && <CheckinView {...checkinViewProps} />}
-                    {activeTab === 'register' && <RegisterView onRegister={onRegister} setError={setError} sectors={eventData.sectors} suppliers={eventData.suppliers} />}
+                    {activeTab === 'register' && <RegisterView onRegister={onRegister} setError={setError} sectors={eventData.sectors} suppliers={eventData.suppliers} currentEventId={currentEventId} />}
                     {activeTab === 'suppliers' && <SupplierManagementView currentEventId={currentEventId} suppliers={eventData.suppliers} attendees={eventData.attendees} sectors={eventData.sectors} onAddSupplier={handleAddSupplier} onUpdateSupplier={handleUpdateSupplier} onDeleteSupplier={handleDeleteSupplier} onSupplierStatusUpdate={handleSupplierStatusUpdate} onRegenerateAdminToken={handleRegenerateAdminToken} onUpdateSectorsForSelectedAttendees={handleUpdateSectorsForAttendees} setError={setError} />}
                     {activeTab === 'sectors' && <SectorManagementView sectors={eventData.sectors} onAddSector={handleAddSector} onUpdateSector={handleUpdateSector} onDeleteSector={handleDeleteSector} setError={setError} />}
                     {activeTab === 'companies' && <CompanyManagementView attendees={eventData.attendees} sectors={eventData.sectors} onUpdateSectorsForSelectedAttendees={handleUpdateSectorsForAttendees} setError={setError} />}

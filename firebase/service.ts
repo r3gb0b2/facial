@@ -79,26 +79,32 @@ export const getAttendees = async (eventId: string): Promise<Attendee[]> => {
 };
 
 export const findAttendeeByCpf = async (cpf: string, eventId?: string): Promise<(Attendee & { eventId?: string }) | null> => {
+    // 1. If eventId is provided, check specifically within that event first (for duplicate check)
+    if (eventId) {
+        const localSnapshot = await db.collection('events').doc(eventId).collection('attendees').where('cpf', '==', cpf).limit(1).get();
+        if (!localSnapshot.empty) {
+             const attendee = getData<Attendee>(localSnapshot.docs[0]);
+             return { ...attendee, eventId: eventId }; // Explicitly from this event
+        }
+    }
+
+    // 2. If not found locally (or no eventId provided), search globally to find data to pre-fill
     let query: firebase.firestore.Query = db.collectionGroup('attendees').where('cpf', '==', cpf).limit(1);
     
     const snapshot = await query.get();
     if (snapshot.empty) {
         return null;
     }
+    
     const attendee = getData<Attendee>(snapshot.docs[0]);
     
-    // If eventId is provided, check if the attendee is registered in THAT event
-    if (eventId) {
-        const eventRef = snapshot.docs[0].ref.parent.parent;
-        if (eventRef?.id === eventId) {
-            return { ...attendee, eventId: eventRef.id };
-        } else {
-             // Found attendee but in a different event, return basic data but no eventId match
-            return attendee;
-        }
-    }
-    
-    return attendee;
+    // Retrieve the eventId from the document reference parent path
+    // Path is events/{eventId}/attendees/{docId}
+    // parent = attendees, parent.parent = events/{eventId}
+    const docEventId = snapshot.docs[0].ref.parent.parent?.id;
+
+    // Return the attendee with the eventId where it was found
+    return { ...attendee, eventId: docEventId };
 };
 
 const uploadPhoto = async (photoDataUrl: string, cpf: string): Promise<string> => {

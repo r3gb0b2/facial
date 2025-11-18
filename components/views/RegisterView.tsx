@@ -1,13 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-// FIX: Add .ts extension
 import { Attendee, Sector, Supplier, SubCompany } from '../../types.ts';
-// FIX: Add .tsx extension
 import WebcamCapture from '../WebcamCapture.tsx';
-// FIX: Added .tsx extension to module import.
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-// FIX: Add .tsx extension
 import { UsersIcon, CheckCircleIcon, SpinnerIcon } from '../icons.tsx';
-// FIX: Added .ts extension to module import.
 import * as api from '../../firebase/service.ts';
 
 interface RegisterViewProps {
@@ -18,11 +13,11 @@ interface RegisterViewProps {
   predefinedSector?: string | string[];
   eventName?: string;
   supplierName?: string;
-  // FIX: Corrected the type for the 'supplierInfo' prop to include 'eventId' on the 'data' object, resolving a TypeScript error where 'eventId' was being accessed on a 'Supplier' type that did not contain it.
   supplierInfo?: { data: Supplier & { eventId: string } };
+  currentEventId?: string;
 }
 
-const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, sectors, suppliers = [], predefinedSector, eventName, supplierName, supplierInfo }) => {
+const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, sectors, suppliers = [], predefinedSector, eventName, supplierName, supplierInfo, currentEventId }) => {
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [cpf, setCpf] = useState('');
@@ -140,15 +135,26 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
     setExistingAttendeeFound(false);
 
     try {
-        const eventId = isAdminView ? undefined : supplierInfo?.data.eventId;
-        const existingAttendee = await api.findAttendeeByCpf(rawCpf, eventId);
+        // Determine the event ID to check against.
+        // For admin view, we use the currentEventId passed via props.
+        // For supplier link, we use the eventId from the supplier info.
+        const activeEventId = isAdminView ? currentEventId : supplierInfo?.data.eventId;
+        
+        const existingAttendee = await api.findAttendeeByCpf(rawCpf, activeEventId);
+        
         if (existingAttendee) {
             setName(existingAttendee.name);
             setPhoto(existingAttendee.photo);
-            if (existingAttendee.eventId && (!isAdminView)) {
+            
+            // Check if the user is already registered in the ACTIVE event.
+            // We only block if the found attendee's eventId matches the activeEventId.
+            const isRegisteredInCurrentEvent = activeEventId && existingAttendee.eventId === activeEventId;
+
+            if (isRegisteredInCurrentEvent) {
               setCpfCheckMessage(t('register.cpfAlreadyRegistered'));
               setExistingAttendeeFound(true);
             } else {
+              // User found in another event - allow registration, pre-fill data
               setCpfCheckMessage(t('register.cpfFound'));
             }
         } else {
@@ -395,7 +401,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
           </div>
           <div className="flex flex-col items-center">
               <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting || isCheckingCpf || existingAttendeeFound} allowUpload={isAdminView} />
-              {existingAttendeeFound && !isAdminView && (
+              {existingAttendeeFound && (
                 <p className="text-sm mt-2 text-yellow-400 text-center px-4">
                   {t('register.photoLocked')}
                 </p>
