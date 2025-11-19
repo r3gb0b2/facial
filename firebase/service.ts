@@ -185,22 +185,7 @@ export const approveNewRegistration = (eventId: string, attendeeId: string) => {
 };
 
 export const rejectNewRegistration = (eventId: string, attendeeId: string) => {
-    // Update status to REJECTED instead of deleting, to keep a record of the rejection.
-    return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).update({
-        status: CheckinStatus.REJECTED
-    });
-};
-
-export const blockAttendee = (eventId: string, attendeeId: string) => {
-    return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).update({
-        status: CheckinStatus.BLOCKED
-    });
-};
-
-export const unblockAttendee = (eventId: string, attendeeId: string) => {
-    return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).update({
-        status: CheckinStatus.PENDING // Reset to Pending so they can try checking in again or be processed
-    });
+    return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).delete();
 };
 
 

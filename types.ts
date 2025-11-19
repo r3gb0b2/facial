@@ -11,8 +11,6 @@ export enum CheckinStatus {
   MISSED = 'MISSED',
   PENDING_APPROVAL = 'PENDING_APPROVAL',
   CHECKED_OUT = 'CHECKED_OUT',
-  REJECTED = 'REJECTED',
-  BLOCKED = 'BLOCKED',
 }
 
 export interface Attendee {
