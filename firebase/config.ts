@@ -71,7 +71,7 @@ if (firebaseConfig.apiKey === "AIzaSyDlaBCtgD74608i4JdOMQYJ0433V-c0bjI") {
 
 
 // Initialize Firebase, but only if it hasn't been initialized already.
-// This is a safeguard against issues caused by module re-evaluation.
+// This is the most robust way to prevent instance mismatch errors.
 if (!firebase.apps.length) {
     firebase.initializeApp(firebaseConfig);
     console.log("Firebase Initialized with projectId:", firebaseConfig.projectId);
@@ -91,7 +91,7 @@ const FieldValue = firebase.firestore.FieldValue;
 // The class can also be used as a type.
 const Timestamp = firebase.firestore.Timestamp;
 
-// FIX: Removed duplicate `export type { Timestamp }` which caused a "Duplicate identifier" error.
-// The `Timestamp` const is a class that can be used as both a value and a type, so it only needs to be exported once.
+// FIX: Removed invalid re-export of Timestamp type from module string.
+// Instead, we export the type directly from the firebase namespace.
 export { db, storage, FieldValue, Timestamp };
-export type { Timestamp as FirebaseTimestamp } from 'firebase/compat/firestore';
+export type FirebaseTimestamp = firebase.firestore.Timestamp;

@@ -1,11 +1,12 @@
+
 import React, { useState, useMemo } from 'react';
 // FIX: Add file extensions to local imports.
-import { Supplier, Sector, Attendee, SubCompany } from '../../types.ts';
+import { Supplier, Sector, Attendee, SubCompany, CheckinStatus } from '../../types.ts';
 // FIX: Added .tsx extension to module import.
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { LinkIcon, ClipboardDocumentIcon, NoSymbolIcon, CheckCircleIcon, PencilIcon, TrashIcon, XMarkIcon, EyeIcon, KeyIcon } from '../icons.tsx';
 import BulkUpdateSectorsModal from '../CompanySectorsModal.tsx';
-
+import * as api from '../../firebase/service.ts';
 
 interface SupplierManagementViewProps {
     currentEventId: string;
@@ -20,6 +21,24 @@ interface SupplierManagementViewProps {
     onUpdateSectorsForSelectedAttendees: (attendeeIds: string[], sectorIds: string[]) => Promise<void>;
     setError: (message: string) => void;
 }
+
+const formatCPF = (cpf: string) => {
+  if (!cpf) return '';
+  return cpf
+    .replace(/\D/g, '')
+    .slice(0, 11)
+    .replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+};
+
+const formatTimestamp = (timestamp: any) => {
+    if (!timestamp || !timestamp.seconds) return '';
+    return new Date(timestamp.seconds * 1000).toLocaleString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        day: '2-digit',
+        month: '2-digit'
+    });
+};
 
 
 const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ currentEventId, suppliers, attendees, sectors, onAddSupplier, onUpdateSupplier, onDeleteSupplier, onSupplierStatusUpdate, onRegenerateAdminToken, onUpdateSectorsForSelectedAttendees, setError }) => {
@@ -256,6 +275,25 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
         }
     };
     
+    const handleBlockAttendee = async (attendeeId: string) => {
+        if (window.confirm("Tem certeza que deseja bloquear este colaborador? Ele não poderá fazer check-in.")) {
+            try {
+                await api.blockAttendee(currentEventId, attendeeId);
+            } catch (e) {
+                setError("Falha ao bloquear.");
+            }
+        }
+    };
+
+    const handleUnblockAttendee = async (attendeeId: string) => {
+         try {
+            await api.unblockAttendee(currentEventId, attendeeId);
+        } catch (e) {
+            setError("Falha ao desbloquear.");
+        }
+    };
+
+    
     const renderSectorCheckboxes = (isEditing: boolean) => {
         const currentSectors = isEditing ? editingSupplier?.sectors || [] : selectedSectors;
         
@@ -387,7 +425,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                         </div>
                                     ) : (
                                         <>
-                                        <div onClick={() => handleToggleSupplier(supplier.id)} className="p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 cursor-pointer hover:bg-gray-800/50">
+                                        <div onClick={() => handleToggleSupplier(supplier.id)} className="p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 cursor-pointer hover:bg-gray-800/50 border-b border-gray-800">
                                             <div className="flex-grow">
                                                 <h4 className="font-bold text-lg text-white">{supplier.name}</h4>
                                                 <div className="flex items-center gap-2 text-sm text-gray-400 mt-1">
@@ -435,33 +473,118 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                          {isExpanded && (
                                             <div className="p-4 border-t border-gray-700 bg-black/20">
                                                 {supplierAttendees.length > 0 ? (
-                                                    <>
-                                                        <div className="flex items-center mb-2 p-2">
-                                                            <input
-                                                                type="checkbox"
-                                                                id={`select-all-${supplier.id}`}
-                                                                checked={allInSupplierSelected}
-                                                                onChange={() => handleSelectAllInSupplier(supplierAttendees)}
-                                                                className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
-                                                            />
-                                                            <label htmlFor={`select-all-${supplier.id}`} className="ml-3 text-sm font-medium text-gray-300 cursor-pointer">{t('companies.selectAll')}</label>
-                                                        </div>
-                                                        <ul className="space-y-1 max-h-60 overflow-y-auto">
-                                                            {supplierAttendees.map(attendee => (
-                                                                <li key={attendee.id} className="p-2 rounded-md hover:bg-gray-700/50">
-                                                                    <label className="flex items-center cursor-pointer">
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            checked={selectedAttendeeIds.has(attendee.id)}
-                                                                            onChange={() => handleToggleAttendee(attendee.id)}
-                                                                            className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
-                                                                        />
-                                                                        <span className="ml-3 text-white">{attendee.name}</span>
-                                                                    </label>
-                                                                </li>
-                                                            ))}
-                                                        </ul>
-                                                    </>
+                                                    <div className="overflow-x-auto">
+                                                        <table className="w-full text-sm text-left text-gray-300">
+                                                            <thead className="text-xs text-gray-400 uppercase bg-gray-800/50">
+                                                                <tr>
+                                                                    <th scope="col" className="p-4">
+                                                                        <div className="flex items-center">
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={allInSupplierSelected}
+                                                                                onChange={() => handleSelectAllInSupplier(supplierAttendees)}
+                                                                                className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
+                                                                            />
+                                                                        </div>
+                                                                    </th>
+                                                                    <th scope="col" className="px-6 py-3">{t('suppliers.table.colaborador')}</th>
+                                                                    <th scope="col" className="px-6 py-3">{t('suppliers.table.documento')}</th>
+                                                                    <th scope="col" className="px-6 py-3">{t('suppliers.table.origem')}</th>
+                                                                    <th scope="col" className="px-6 py-3">{t('suppliers.table.checkin')}</th>
+                                                                    <th scope="col" className="px-6 py-3 text-right">{t('suppliers.table.acoes')}</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                {supplierAttendees.map((attendee) => {
+                                                                    const attendeeSectors = (attendee.sectors || []).map(id => sectorMap.get(id)).filter(Boolean);
+                                                                    const statusLabel = t(`status.${attendee.status.toLowerCase()}`);
+                                                                    const isBlocked = attendee.status === CheckinStatus.BLOCKED || attendee.status === CheckinStatus.REJECTED;
+                                                                    
+                                                                    // Determine status style
+                                                                    const statusStyle = {
+                                                                        [CheckinStatus.PENDING]: 'bg-gray-600 text-gray-200',
+                                                                        [CheckinStatus.CHECKED_IN]: 'bg-green-600 text-white',
+                                                                        [CheckinStatus.CHECKED_OUT]: 'bg-slate-500 text-white',
+                                                                        [CheckinStatus.CANCELLED]: 'bg-red-600 text-white',
+                                                                        [CheckinStatus.SUBSTITUTION]: 'bg-yellow-500 text-black',
+                                                                        [CheckinStatus.SUBSTITUTION_REQUEST]: 'bg-blue-500 text-white',
+                                                                        [CheckinStatus.SECTOR_CHANGE_REQUEST]: 'bg-purple-500 text-white',
+                                                                        [CheckinStatus.PENDING_APPROVAL]: 'bg-yellow-500 text-black',
+                                                                        [CheckinStatus.MISSED]: 'bg-gray-800 text-gray-400',
+                                                                        [CheckinStatus.REJECTED]: 'bg-red-800 text-red-200 border border-red-500',
+                                                                        [CheckinStatus.BLOCKED]: 'bg-red-900 text-red-100 border border-red-500 font-bold',
+                                                                    }[attendee.status] || 'bg-gray-600 text-gray-200';
+
+                                                                    return (
+                                                                        <tr key={attendee.id} className={`border-b border-gray-700 hover:bg-gray-700/50 ${isBlocked ? 'bg-red-900/10' : 'bg-gray-800/50'}`}>
+                                                                            <td className="w-4 p-4">
+                                                                                <div className="flex items-center">
+                                                                                    <input
+                                                                                        type="checkbox"
+                                                                                        checked={selectedAttendeeIds.has(attendee.id)}
+                                                                                        onChange={() => handleToggleAttendee(attendee.id)}
+                                                                                        className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
+                                                                                    />
+                                                                                </div>
+                                                                            </td>
+                                                                            <td className="px-6 py-4 font-medium text-white">
+                                                                                <div className="flex items-center gap-3">
+                                                                                    <img src={attendee.photo} alt={attendee.name} className="w-10 h-10 rounded-full object-cover bg-black border border-gray-600" />
+                                                                                    <div>
+                                                                                        <p className="font-bold text-sm">{attendee.name}</p>
+                                                                                        <p className="text-xs text-gray-400">{attendee.subCompany || '-'}</p>
+                                                                                         <div className="flex flex-wrap gap-1 mt-1">
+                                                                                            {attendeeSectors.map((s: any) => (
+                                                                                                <span key={s.id} className="text-[10px] font-medium px-1.5 py-0.5 rounded-full" style={{ backgroundColor: `${s.color}33`, color: s.color }}>
+                                                                                                    {s.label}
+                                                                                                </span>
+                                                                                            ))}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            </td>
+                                                                            <td className="px-6 py-4 font-mono text-xs text-gray-300 whitespace-nowrap">
+                                                                                {formatCPF(attendee.cpf)}
+                                                                            </td>
+                                                                            <td className="px-6 py-4 text-xs text-gray-400">
+                                                                                 <p>{t('suppliers.trace.registeredBy', { supplier: supplier.name })}</p>
+                                                                            </td>
+                                                                            <td className="px-6 py-4 whitespace-nowrap">
+                                                                                <div className="flex flex-col gap-1">
+                                                                                    <span className={`text-xs font-medium px-2 py-0.5 rounded w-fit ${statusStyle}`}>
+                                                                                        {statusLabel}
+                                                                                    </span>
+                                                                                    {attendee.checkinTime && (
+                                                                                        <span className="text-[10px] text-gray-500">
+                                                                                            {t('suppliers.trace.checkedInBy', { user: attendee.checkedInBy || 'System', time: formatTimestamp(attendee.checkinTime) })}
+                                                                                        </span>
+                                                                                    )}
+                                                                                </div>
+                                                                            </td>
+                                                                             <td className="px-6 py-4 text-right">
+                                                                                {isBlocked ? (
+                                                                                    <button 
+                                                                                        onClick={() => handleUnblockAttendee(attendee.id)}
+                                                                                        className="text-xs bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded"
+                                                                                    >
+                                                                                        {t('suppliers.actions.unblock')}
+                                                                                    </button>
+                                                                                ) : (
+                                                                                    <button 
+                                                                                        onClick={() => handleBlockAttendee(attendee.id)}
+                                                                                        className="text-xs bg-red-600/80 hover:bg-red-700 text-white px-2 py-1 rounded border border-red-500"
+                                                                                        title="Adicionar registro negativo"
+                                                                                    >
+                                                                                        {t('suppliers.actions.block')}
+                                                                                    </button>
+                                                                                )}
+                                                                            </td>
+                                                                        </tr>
+                                                                    );
+                                                                })}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
                                                 ) : (
                                                     <p className="text-sm text-gray-500 text-center py-4">Nenhum colaborador cadastrado para este fornecedor.</p>
                                                 )}

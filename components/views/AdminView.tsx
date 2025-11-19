@@ -109,13 +109,17 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
         setError: setError
     }), [user, eventData, currentEventId, currentEventName, props.onUpdateAttendeeDetails, props.onDeleteAttendee, props.onApproveSubstitution, props.onRejectSubstitution, props.onApproveSectorChange, props.onRejectSectorChange, props.onApproveNewRegistration, props.onRejectNewRegistration, setError]);
 
-    const handleAddSupplier = (name: string, sectors: string[], registrationLimit: number, subCompanies: any[]) => api.addSupplier(currentEventId, name, sectors, registrationLimit, subCompanies);
+    const handleAddSupplier = async (name: string, sectors: string[], registrationLimit: number, subCompanies: any[]) => {
+        await api.addSupplier(currentEventId, name, sectors, registrationLimit, subCompanies);
+    };
     const handleUpdateSupplier = (supplierId: string, data: Partial<Supplier>) => api.updateSupplier(currentEventId, supplierId, data);
     const handleDeleteSupplier = (supplier: Supplier) => api.deleteSupplier(currentEventId, supplier.id);
     const handleSupplierStatusUpdate = (supplierId: string, active: boolean) => api.updateSupplierStatus(currentEventId, supplierId, active);
     const handleRegenerateAdminToken = (supplierId: string) => api.regenerateSupplierAdminToken(currentEventId, supplierId);
 
-    const handleAddSector = (label: string, color: string) => api.addSector(currentEventId, label, color);
+    const handleAddSector = async (label: string, color: string) => {
+        await api.addSector(currentEventId, label, color);
+    };
     const handleUpdateSector = (sectorId: string, data: { label: string, color: string }) => api.updateSector(currentEventId, sectorId, data);
     const handleDeleteSector = (sector: Sector) => api.deleteSector(currentEventId, sector.id);
 
