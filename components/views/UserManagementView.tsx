@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+
+import React, { useState, useMemo, useEffect } from 'react';
 import { User, Event } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { UsersIcon, PencilIcon, TrashIcon, CheckCircleIcon, NoSymbolIcon, LinkIcon, SpinnerIcon } from '../icons.tsx';
@@ -36,6 +37,19 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser, us
     const sortedUsers = useMemo(() => 
         [...managedUsers].sort((a, b) => a.username.localeCompare(b.username)), 
     [managedUsers]);
+
+    // Events available for the current user to create invites for
+    const availableEventsForInvite = useMemo(() => {
+        if (currentUser.role === 'superadmin') return events;
+        return events.filter(e => currentUser.linkedEventIds.includes(e.id));
+    }, [events, currentUser]);
+
+    // Auto-select event if there's only one option
+    useEffect(() => {
+        if (availableEventsForInvite.length === 1 && !selectedEventForInvite) {
+            setSelectedEventForInvite(availableEventsForInvite[0].id);
+        }
+    }, [availableEventsForInvite, selectedEventForInvite]);
 
     const handleOpenModal = (user: User | null) => {
         setUserToEdit(user);
@@ -79,44 +93,35 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser, us
     };
 
     const handleGenerateInviteLink = async () => {
-        let eventId = selectedEventForInvite;
-        
-        // If admin has only one event, auto-select it
-        if (!eventId && currentUser.role !== 'superadmin' && currentUser.linkedEventIds.length === 1) {
-            eventId = currentUser.linkedEventIds[0];
-        }
-        // If superadmin and only one event in system
-        if (!eventId && currentUser.role === 'superadmin' && events.length === 1) {
-            eventId = events[0].id;
-        }
-
-        if (!eventId) {
+        if (!selectedEventForInvite) {
              setError("Selecione um evento para vincular ao convite.");
              return;
         }
 
         setIsGeneratingLink(true);
         try {
-            const token = await api.generateUserInvite(eventId, currentUser.id);
-            const url = `${window.location.origin}?mode=signup&token=${token}`;
-            await navigator.clipboard.writeText(url);
-            setLinkCopied(true);
-            setTimeout(() => setLinkCopied(false), 3000);
-            setSelectedEventForInvite(''); // Reset selection
+            const token = await api.generateUserInvite(selectedEventForInvite, currentUser.id);
+            const baseUrl = window.location.href.split('?')[0];
+            const url = `${baseUrl}?mode=signup&token=${token}`;
+            
+            try {
+                await navigator.clipboard.writeText(url);
+                setLinkCopied(true);
+                setTimeout(() => setLinkCopied(false), 3000);
+            } catch (clipboardErr) {
+                console.warn("Clipboard API failed, using fallback", clipboardErr);
+                // Fallback for environments without clipboard access
+                window.prompt("Seu navegador bloqueou a cópia automática. Copie o link abaixo:", url);
+            }
+            
+            // We keep the event selected for convenience
         } catch (e: any) {
-            setError("Erro ao gerar link de convite.");
             console.error(e);
+            setError(`Erro ao gerar link: ${e.message}`);
         } finally {
             setIsGeneratingLink(false);
         }
     };
-    
-    // Events available for the current user to create invites for
-    const availableEventsForInvite = useMemo(() => {
-        if (currentUser.role === 'superadmin') return events;
-        return events.filter(e => currentUser.linkedEventIds.includes(e.id));
-    }, [events, currentUser]);
-
 
     const eventMap = useMemo(() => new Map(events.map(e => [e.id, e.name])), [events]);
 
