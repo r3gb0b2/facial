@@ -1,17 +1,16 @@
 import React from 'react';
-import { Attendee, CheckinStatus, Sector } from '../types.ts';
+import { Attendee, CheckinStatus } from '../types.ts';
 import { useTranslation } from '../hooks/useTranslation.tsx';
 import { TagIcon } from './icons.tsx';
 
 interface AttendeeCardProps {
   attendee: Attendee;
   onSelect: (attendee: Attendee) => void;
-  sectorLabel: string;
-  sectorColor?: string;
+  sectors: { label: string; color?: string }[];
   supplierName?: string;
 }
 
-const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect, sectorLabel, sectorColor, supplierName }) => {
+const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect, sectors, supplierName }) => {
   const { t } = useTranslation();
 
   const statusInfo = {
@@ -23,6 +22,8 @@ const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect, sectorL
     [CheckinStatus.SUBSTITUTION_REQUEST]: { bg: 'bg-blue-500', text: 'text-white', label: t('status.substitution_request') },
     [CheckinStatus.SECTOR_CHANGE_REQUEST]: { bg: 'bg-purple-500', text: 'text-white', label: t('status.sector_change_request') },
     [CheckinStatus.MISSED]: { bg: 'bg-gray-800', text: 'text-gray-400', label: t('status.missed') },
+    [CheckinStatus.BLOCKED]: { bg: 'bg-red-700', text: 'text-white', label: t('status.blocked') },
+    [CheckinStatus.REJECTED]: { bg: 'bg-red-500/20', text: 'text-red-300', label: t('status.rejected') },
   }[attendee.status] || { bg: 'bg-gray-600', text: 'text-gray-200', label: t('status.pending') };
 
   const formatCPF = (cpf: string) => {
@@ -47,29 +48,41 @@ const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect, sectorL
         </div>
       </div>
       <div className="p-4 flex-grow flex flex-col">
-        <h3 className="font-bold text-lg text-white">{attendee.name}</h3>
-        <p className="text-sm text-gray-400">{formatCPF(attendee.cpf)}</p>
-        <div className="mt-1 space-y-1 flex-grow">
-            <p
-              className="text-sm font-semibold capitalize"
-              style={sectorColor ? { color: sectorColor } : { color: '#818cf8' }} // Fallback to indigo-400
-            >
-              {sectorLabel}
-            </p>
+        <h3 className="font-bold text-lg text-white leading-tight mb-1">{attendee.name}</h3>
+        <p className="text-sm text-gray-400 mb-2">{formatCPF(attendee.cpf)}</p>
+        
+        <div className="flex-grow">
+            <div className="flex flex-wrap gap-2 mb-1">
+                {sectors.length > 0 ? (
+                    sectors.map((sector, index) => (
+                        <span 
+                            key={index}
+                            className="text-xs font-bold px-2 py-0.5 rounded-md bg-gray-700/50 border border-gray-600/50"
+                            style={{ color: sector.color || '#818cf8' }}
+                        >
+                            {sector.label}
+                        </span>
+                    ))
+                ) : (
+                    <span className="text-xs font-semibold text-gray-500">Sem setor</span>
+                )}
+            </div>
+
             {supplierName && (
-                <p className="text-xs text-gray-500 font-medium truncate">{t('attendeeCard.supplierLabel')}: {supplierName}</p>
+                <p className="text-xs text-gray-500 font-medium truncate mt-1">{t('attendeeCard.supplierLabel')}: {supplierName}</p>
             )}
             {attendee.subCompany && (
-                <div className="flex items-center gap-1.5 text-xs text-gray-400 font-medium truncate">
+                <div className="flex items-center gap-1.5 text-xs text-gray-400 font-medium truncate mt-0.5">
                     <span className="truncate">{attendee.subCompany}</span>
                 </div>
             )}
         </div>
+        
         {(attendee.status === CheckinStatus.CHECKED_IN || attendee.status === CheckinStatus.CHECKED_OUT) && wristbandNumbers && (
-            <div className="mt-2 flex items-center gap-1 text-xs text-gray-300 bg-gray-700/50 px-2 py-1 rounded-md">
+            <div className="mt-3 flex items-center gap-1 text-xs text-gray-300 bg-gray-700/50 px-2 py-1.5 rounded-md">
                 <TagIcon className="w-4 h-4 text-gray-400" />
                 <span className="font-semibold">{t('attendeeCard.wristbandNumber')}:</span>
-                <span>{wristbandNumbers}</span>
+                <span className="truncate">{wristbandNumbers}</span>
             </div>
         )}
       </div>

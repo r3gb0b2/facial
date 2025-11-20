@@ -289,17 +289,14 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
         {filteredAttendees.map((attendee) => {
             const attendeeSectors = Array.isArray(attendee.sectors) ? attendee.sectors : [];
 
-            const labelsAndColors = attendeeSectors.map(id => {
+            const sectorsList = attendeeSectors.map(id => {
                 const sector = sectorMap.get(id);
                 return {
-                    label: sector?.label || id, // Fallback to ID if sector not found
+                    label: sector?.label || id,
                     color: sector?.color
                 };
             });
 
-            const joinedLabels = labelsAndColors.map(item => item.label).filter(Boolean).join(', ');
-            const sectorLabel = joinedLabels || 'Sem setor';
-            const primarySectorColor = labelsAndColors.length > 0 ? labelsAndColors[0].color : undefined;
             const supplier = attendee.supplierId ? supplierMap.get(attendee.supplierId) : undefined;
             
             return (
@@ -307,8 +304,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
                 key={attendee.id} 
                 attendee={attendee} 
                 onSelect={handleSelectAttendee}
-                sectorLabel={sectorLabel}
-                sectorColor={primarySectorColor}
+                sectors={sectorsList}
                 supplierName={supplier?.name}
               />
             );

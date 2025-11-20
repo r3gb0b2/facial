@@ -1,5 +1,4 @@
 
-
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Attendee, CheckinStatus, Sector, Supplier } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
@@ -284,8 +283,10 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
                  <AttendeeCard 
                     attendee={foundAttendee}
                     onSelect={() => {}}
-                    sectorLabel={(foundAttendee.sectors.map(id => sectorMap.get(id)?.label).filter(Boolean).join(', '))}
-                    sectorColor={sectorMap.get(foundAttendee.sectors[0])?.color}
+                    sectors={foundAttendee.sectors.map(id => ({
+                        label: sectorMap.get(id)?.label || id,
+                        color: sectorMap.get(id)?.color
+                    }))}
                     supplierName={foundAttendee.supplierId ? supplierMap.get(foundAttendee.supplierId)?.name : ''}
                  />
                </div>
