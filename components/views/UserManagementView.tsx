@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import { User, Event } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { UsersIcon, PencilIcon, TrashIcon, CheckCircleIcon, NoSymbolIcon, LinkIcon } from '../icons.tsx';
+import { UsersIcon, PencilIcon, TrashIcon, CheckCircleIcon, NoSymbolIcon, LinkIcon, SpinnerIcon } from '../icons.tsx';
 import UserModal from '../UserModal.tsx';
+import * as api from '../../firebase/service.ts';
 
 interface UserManagementViewProps {
     currentUser: User;
@@ -18,7 +19,11 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser, us
     const { t } = useTranslation();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [userToEdit, setUserToEdit] = useState<User | null>(null);
+    
+    // Invite Generation State
+    const [isGeneratingLink, setIsGeneratingLink] = useState(false);
     const [linkCopied, setLinkCopied] = useState(false);
+    const [selectedEventForInvite, setSelectedEventForInvite] = useState('');
 
     const managedUsers = useMemo(() => {
         if (currentUser.role === 'superadmin') {
@@ -73,12 +78,45 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser, us
         }
     };
 
-    const handleCopyInviteLink = () => {
-        const url = `${window.location.origin}?mode=signup`;
-        navigator.clipboard.writeText(url);
-        setLinkCopied(true);
-        setTimeout(() => setLinkCopied(false), 2000);
+    const handleGenerateInviteLink = async () => {
+        let eventId = selectedEventForInvite;
+        
+        // If admin has only one event, auto-select it
+        if (!eventId && currentUser.role !== 'superadmin' && currentUser.linkedEventIds.length === 1) {
+            eventId = currentUser.linkedEventIds[0];
+        }
+        // If superadmin and only one event in system
+        if (!eventId && currentUser.role === 'superadmin' && events.length === 1) {
+            eventId = events[0].id;
+        }
+
+        if (!eventId) {
+             setError("Selecione um evento para vincular ao convite.");
+             return;
+        }
+
+        setIsGeneratingLink(true);
+        try {
+            const token = await api.generateUserInvite(eventId, currentUser.id);
+            const url = `${window.location.origin}?mode=signup&token=${token}`;
+            await navigator.clipboard.writeText(url);
+            setLinkCopied(true);
+            setTimeout(() => setLinkCopied(false), 3000);
+            setSelectedEventForInvite(''); // Reset selection
+        } catch (e: any) {
+            setError("Erro ao gerar link de convite.");
+            console.error(e);
+        } finally {
+            setIsGeneratingLink(false);
+        }
     };
+    
+    // Events available for the current user to create invites for
+    const availableEventsForInvite = useMemo(() => {
+        if (currentUser.role === 'superadmin') return events;
+        return events.filter(e => currentUser.linkedEventIds.includes(e.id));
+    }, [events, currentUser]);
+
 
     const eventMap = useMemo(() => new Map(events.map(e => [e.id, e.name])), [events]);
 
@@ -92,15 +130,34 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser, us
                 {currentUser.role === 'admin' && (
                     <p className="text-center text-gray-400 mb-6 text-sm" dangerouslySetInnerHTML={{ __html: t('users.admin.managementNotice') }} />
                 )}
-                <div className="mb-6 flex justify-end gap-3">
-                     <button 
-                        onClick={handleCopyInviteLink} 
-                        className="bg-indigo-600/80 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2"
-                    >
-                        {linkCopied ? <CheckCircleIcon className="w-5 h-5" /> : <LinkIcon className="w-5 h-5" />}
-                        {linkCopied ? "Copiado!" : t('users.copyInviteLink')}
-                    </button>
-                    <button onClick={() => handleOpenModal(null)} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">
+                
+                <div className="mb-6 flex flex-col md:flex-row justify-end gap-3 items-end">
+                     <div className="flex gap-2 items-center bg-gray-900/50 p-2 rounded-lg border border-gray-700">
+                        {availableEventsForInvite.length > 1 && (
+                             <select 
+                                value={selectedEventForInvite}
+                                onChange={(e) => setSelectedEventForInvite(e.target.value)}
+                                className="bg-gray-800 text-white text-sm rounded p-2 border border-gray-600 focus:outline-none focus:border-indigo-500"
+                            >
+                                <option value="">{t('users.invite.selectEvent')}</option>
+                                {availableEventsForInvite.map(e => (
+                                    <option key={e.id} value={e.id}>{e.name}</option>
+                                ))}
+                            </select>
+                        )}
+                        
+                        <button 
+                            onClick={handleGenerateInviteLink} 
+                            disabled={isGeneratingLink}
+                            className="bg-indigo-600/80 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 disabled:opacity-50 text-sm"
+                            title={t('users.invite.tooltip')}
+                        >
+                            {isGeneratingLink ? <SpinnerIcon className="w-4 h-4" /> : (linkCopied ? <CheckCircleIcon className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />)}
+                            {linkCopied ? t('users.invite.copied') : t('users.invite.generate')}
+                        </button>
+                     </div>
+
+                    <button onClick={() => handleOpenModal(null)} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg h-[42px]">
                         {t('users.createUserButton')}
                     </button>
                 </div>

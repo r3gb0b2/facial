@@ -582,21 +582,75 @@ export const createUser = async (userData: Omit<User, 'id'>) => {
     return db.collection('users').add(userWithStatus);
 };
 
+// ONE-TIME INVITE SYSTEM
+export const generateUserInvite = async (eventId: string, createdBy: string) => {
+    const token = uuidv4();
+    await db.collection('user_invites').add({
+        token,
+        eventId,
+        createdBy,
+        used: false,
+        createdAt: FieldValue.serverTimestamp()
+    });
+    return token;
+};
+
+export const validateUserInvite = async (token: string): Promise<{ eventId: string, inviteId: string }> => {
+    const snapshot = await db.collection('user_invites').where('token', '==', token).where('used', '==', false).limit(1).get();
+    if (snapshot.empty) {
+        throw new Error("Convite inválido ou já utilizado.");
+    }
+    const data = snapshot.docs[0].data();
+    return { eventId: data.eventId, inviteId: snapshot.docs[0].id };
+};
+
+export const registerUserWithInvite = async (token: string, userData: Pick<User, 'username' | 'password'>) => {
+     return db.runTransaction(async (transaction) => {
+        // 1. Validate Invite again inside transaction
+        const inviteQuery = await db.collection('user_invites').where('token', '==', token).where('used', '==', false).limit(1).get();
+        if (inviteQuery.empty) {
+             throw new Error("Convite inválido ou expirado.");
+        }
+        const inviteDoc = inviteQuery.docs[0];
+        const inviteData = inviteDoc.data();
+
+        // 2. Check for unique username
+        const userQuery = await db.collection('users').where('username', '==', userData.username).limit(1).get();
+        if (!userQuery.empty) {
+            throw new Error("Nome de usuário já existe.");
+        }
+
+        // 3. Create User
+        const newUserRef = db.collection('users').doc();
+        const newUser: Omit<User, 'id'> = {
+            username: userData.username,
+            password: userData.password,
+            role: 'checkin',
+            active: false, // Pending approval
+            linkedEventIds: [inviteData.eventId], // Linked to the event from invite
+            createdBy: 'invite_system'
+        };
+        
+        transaction.set(newUserRef, newUser);
+
+        // 4. Mark invite as used
+        transaction.update(inviteDoc.ref, { used: true, usedAt: FieldValue.serverTimestamp(), usedBy: newUserRef.id });
+    });
+};
+
+// Deprecated/Legacy simple registration (kept for compatibility if needed, but flow replaced by invites)
 export const registerPendingUser = async (userData: Pick<User, 'username' | 'password'>) => {
-    // Check for unique username server-side
     const snapshot = await db.collection('users').where('username', '==', userData.username).get();
     if (!snapshot.empty) {
         throw new Error("Username already exists.");
     }
-    
     const newUser: Omit<User, 'id'> = {
         username: userData.username,
         password: userData.password,
-        role: 'checkin', // Default role
-        active: false, // PENDING APPROVAL
+        role: 'checkin', 
+        active: false,
         linkedEventIds: []
     };
-
     return db.collection('users').add(newUser);
 };
 

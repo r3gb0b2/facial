@@ -9,7 +9,7 @@ import RegisterView from './components/views/RegisterView.tsx';
 import SupplierAdminView from './components/views/SupplierAdminView.tsx';
 import RegistrationClosedView from './components/views/RegistrationClosedView.tsx';
 import UserRegistrationView from './components/views/UserRegistrationView.tsx';
-import { XMarkIcon } from './components/icons.tsx';
+import { XMarkIcon, SpinnerIcon } from './components/icons.tsx';
 
 const App: React.FC = () => {
     const { t } = useTranslation();
@@ -25,6 +25,7 @@ const App: React.FC = () => {
     const [supplierAdminData, setSupplierAdminData] = useState<{ eventName: string, attendees: Attendee[], eventId: string, supplierId: string, supplier: Supplier, sectors: Sector[] } | null>(null);
     const [publicLinkError, setPublicLinkError] = useState<string | null>(null);
     const [isUserSignupMode, setIsUserSignupMode] = useState(false);
+    const [inviteToken, setInviteToken] = useState<string | null>(null);
 
     // Check for URL parameters or saved session on initial load
     useEffect(() => {
@@ -33,9 +34,11 @@ const App: React.FC = () => {
         const supplierId = params.get('supplierId');
         const adminToken = params.get('verify');
         const mode = params.get('mode');
+        const token = params.get('token');
 
         if (mode === 'signup') {
             setIsUserSignupMode(true);
+            setInviteToken(token);
             setIsLoading(false);
             return;
         }
@@ -88,6 +91,21 @@ const App: React.FC = () => {
         }
     }, [t]);
 
+    // Helper to refetch and filter events for the current user
+    const refreshAndFilterEvents = async (currentUser: User) => {
+        try {
+            const allEvents = await api.getEvents();
+            if (currentUser.role === 'superadmin') {
+                setEvents(allEvents);
+            } else {
+                const linkedEvents = allEvents.filter(e => currentUser.linkedEventIds.includes(e.id));
+                setEvents(linkedEvents);
+            }
+        } catch (err: any) {
+            setError(err.message);
+        }
+    };
+
     // Effect for handling main app data subscription
     useEffect(() => {
         if (user && currentEventId) {
@@ -97,15 +115,9 @@ const App: React.FC = () => {
                 (err) => setError(err.message)
             );
             return () => unsubscribe();
-        } else if (user && user.role === 'superadmin' && !currentEventId) {
-            // Fetch events for superadmin on event selection screen
-            api.getEvents().then(setEvents).catch(err => setError(err.message));
-        } else if (user && (user.role === 'admin' || user.role === 'checkin') && !currentEventId) {
-            // Fetch only linked events for other roles
-            api.getEvents().then(allEvents => {
-                const linkedEvents = allEvents.filter(e => user.linkedEventIds.includes(e.id));
-                setEvents(linkedEvents);
-            }).catch(err => setError(err.message));
+        } else if (user) {
+            // Load events list when user is logged in but no event selected
+             refreshAndFilterEvents(user);
         }
     }, [user, currentEventId]);
 
@@ -141,6 +153,9 @@ const App: React.FC = () => {
         setCurrentEventId(null);
         setEventData({ attendees: [], suppliers: [], sectors: [] });
         sessionStorage.removeItem('currentUser');
+        setIsUserSignupMode(false);
+        setInviteToken(null);
+        window.location.href = window.location.origin; // Clear URL params
     };
 
     const handleSelectEvent = (eventId: string) => {
@@ -152,70 +167,43 @@ const App: React.FC = () => {
         setEventData({ attendees: [], suppliers: [], sectors: [] });
     };
 
-    // Helper to refetch and filter events for the current user
-    const refreshAndFilterEvents = async (currentUser: User) => {
-        const allEvents = await api.getEvents();
-        if (currentUser.role === 'superadmin') {
-            setEvents(allEvents);
-        } else {
-            const linkedEvents = allEvents.filter(e => currentUser.linkedEventIds.includes(e.id));
-            setEvents(linkedEvents);
-        }
-    };
-
-    // CRUD operations passed down to AdminView
+    // --- Event CRUD Wrappers ---
     const handleCreateEvent = async (name: string, modules?: EventModules, allowPhotoChange?: boolean, allowGuestUploads?: boolean) => {
-        if (!user) return;
-        const newEventRef = await api.createEvent(name, modules, allowPhotoChange, allowGuestUploads);
-        const newEventId = newEventRef.id;
-
-        if (user.role === 'admin') {
-            const updatedLinkedEventIds = [...user.linkedEventIds, newEventId];
-            await api.updateUser(user.id, { linkedEventIds: updatedLinkedEventIds });
-            // Update the user state; the useEffect will handle refreshing the event list
-            const updatedUser = { ...user, linkedEventIds: updatedLinkedEventIds };
-            setUser(updatedUser);
-            sessionStorage.setItem('currentUser', JSON.stringify(updatedUser));
-        } else {
-            // For superadmin, just refresh all events
-            await refreshAndFilterEvents(user);
+        try {
+            await api.createEvent(name, modules, allowPhotoChange, allowGuestUploads);
+            if (user) refreshAndFilterEvents(user);
+        } catch (err: any) {
+            setError(err.message);
         }
     };
 
     const handleUpdateEvent = async (id: string, name: string, modules?: EventModules, allowPhotoChange?: boolean, allowGuestUploads?: boolean) => {
-        if (!user) return;
-        await api.updateEvent(id, name, modules, allowPhotoChange, allowGuestUploads);
-        await refreshAndFilterEvents(user);
+        try {
+            await api.updateEvent(id, name, modules, allowPhotoChange, allowGuestUploads);
+            if (user) refreshAndFilterEvents(user);
+        } catch (err: any) {
+            setError(err.message);
+        }
     };
 
     const handleDeleteEvent = async (id: string) => {
-        if (!user) return;
-        
-        await api.deleteEvent(id);
-
-        if (user.role === 'admin') {
-            const updatedLinkedEventIds = user.linkedEventIds.filter(eventId => eventId !== id);
-            await api.updateUser(user.id, { linkedEventIds: updatedLinkedEventIds }); 
-            // Update the user state; the useEffect will handle refreshing the event list
-            const updatedUser = { ...user, linkedEventIds: updatedLinkedEventIds };
-            setUser(updatedUser);
-            sessionStorage.setItem('currentUser', JSON.stringify(updatedUser));
-        } else {
-            await refreshAndFilterEvents(user);
+        try {
+            await api.deleteEvent(id);
+            if (user) refreshAndFilterEvents(user);
+        } catch (err: any) {
+             setError(err.message);
         }
     };
 
-
+    // --- Attendee CRUD Wrappers ---
     const handleRegister = async (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>, supplierId?: string) => {
-        const eventId = currentEventId || supplierInfo?.data.eventId;
-        if (!eventId) {
-            setError("Nenhum evento selecionado para o registro.");
-            return;
-        }
-        // Use supplierId passed from argument (admin view) OR fallback to the link's supplier ID (public view)
-        const effectiveSupplierId = supplierId || supplierInfo?.data.id;
-        
-        await api.addAttendee(eventId, newAttendee, effectiveSupplierId);
+        if (!currentEventId) return;
+        await api.addAttendee(currentEventId, newAttendee, supplierId);
+    };
+
+    const handlePublicRegister = async (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>, supplierId?: string) => {
+        if (!supplierInfo) return;
+        await api.addAttendee(supplierInfo.data.eventId, newAttendee, supplierInfo.data.id);
     };
 
     const handleUpdateAttendeeDetails = async (attendeeId: string, data: Partial<Attendee>) => {
@@ -228,63 +216,119 @@ const App: React.FC = () => {
         await api.deleteAttendee(currentEventId, attendeeId);
     };
 
-    // Approval flows
-    const handleApproveSubstitution = (attendeeId: string) => api.approveSubstitution(currentEventId!, attendeeId);
-    const handleRejectSubstitution = (attendeeId: string) => api.rejectSubstitution(currentEventId!, attendeeId);
-    const handleApproveSectorChange = (attendeeId: string) => api.approveSectorChange(currentEventId!, attendeeId);
-    const handleRejectSectorChange = (attendeeId: string) => api.rejectSectorChange(currentEventId!, attendeeId);
-    const handleApproveNewRegistration = (attendeeId: string) => api.approveNewRegistration(currentEventId!, attendeeId);
-    const handleRejectNewRegistration = (attendeeId: string) => api.rejectNewRegistration(currentEventId!, attendeeId);
-    
-    const clearError = () => setError(null);
-    
-    const renderContent = () => {
-        if (isLoading) {
-            return <div className="text-white text-center">Carregando...</div>;
-        }
-        
-        if (isUserSignupMode) {
-            return <UserRegistrationView onBack={() => {
-                setIsUserSignupMode(false);
-                // Remove query param without reloading
-                window.history.replaceState({}, document.title, window.location.pathname);
-            }} />;
-        }
+    const handleApproveSubstitution = async (attendeeId: string) => {
+        if (!currentEventId) return;
+        await api.approveSubstitution(currentEventId, attendeeId);
+    };
 
-        // Public Routes
-        if (supplierAdminData) {
-            return <SupplierAdminView {...supplierAdminData} />;
-        }
-        if (supplierInfo) {
-             const { data: supplierData, name: eventName, sectors, allowPhotoChange, allowGuestUploads } = supplierInfo;
-             // Here we can't easily check the limit without a subscription.
-             // The check is performed inside the registration modal instead.
-            return (
-                <div className="p-4 md:p-8">
-                    <RegisterView
-                      onRegister={handleRegister}
-                      setError={setError}
-                      sectors={sectors}
-                      predefinedSector={supplierData.sectors}
-                      eventName={eventName}
-                      supplierName={supplierData.name}
-                      supplierInfo={supplierInfo}
-                      allowPhotoChange={allowPhotoChange}
-                      allowGuestUploads={allowGuestUploads}
-                    />
+    const handleRejectSubstitution = async (attendeeId: string) => {
+        if (!currentEventId) return;
+        await api.rejectSubstitution(currentEventId, attendeeId);
+    };
+
+    const handleApproveSectorChange = async (attendeeId: string) => {
+        if (!currentEventId) return;
+        await api.approveSectorChange(currentEventId, attendeeId);
+    };
+
+    const handleRejectSectorChange = async (attendeeId: string) => {
+        if (!currentEventId) return;
+        await api.rejectSectorChange(currentEventId, attendeeId);
+    };
+    
+    const handleApproveNewRegistration = async (attendeeId: string) => {
+        if (!currentEventId) return;
+        await api.approveNewRegistration(currentEventId, attendeeId);
+    };
+
+    const handleRejectNewRegistration = async (attendeeId: string) => {
+        if (!currentEventId) return;
+        await api.rejectNewRegistration(currentEventId, attendeeId);
+    };
+
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+                <div className="text-center">
+                    <SpinnerIcon className="w-12 h-12 text-indigo-500 animate-spin mx-auto mb-4"/>
+                    <p className="text-gray-400">Carregando sistema...</p>
                 </div>
-            );
-        }
-         if (publicLinkError) {
-            return <RegistrationClosedView message={publicLinkError} />;
-        }
+            </div>
+        );
+    }
 
-        // Authenticated Routes
-        if (!user) {
-            return <LoginView onLogin={handleLogin} error={error} />;
-        }
-        if (!currentEventId) {
-            return (
+    // 1. User Self-Registration Route
+    if (isUserSignupMode) {
+        return (
+            <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+                <UserRegistrationView 
+                    onBack={() => {
+                        setIsUserSignupMode(false);
+                        window.location.href = window.location.origin;
+                    }} 
+                    token={inviteToken} 
+                />
+            </div>
+        );
+    }
+
+    // 2. Public Link Error
+    if (publicLinkError) {
+        return (
+            <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+                <RegistrationClosedView message={publicLinkError} />
+            </div>
+        );
+    }
+
+    // 3. Public Supplier Registration View
+    if (supplierInfo) {
+         return (
+            <div className="min-h-screen bg-gray-900 py-10 px-4">
+                <RegisterView
+                    onRegister={handlePublicRegister}
+                    setError={(msg) => alert(msg)} // Simple alert for public view or create a local toast state
+                    sectors={supplierInfo.sectors}
+                    predefinedSector={supplierInfo.data.sectors} // Can be string[] 
+                    eventName={supplierInfo.name}
+                    supplierName={supplierInfo.data.name}
+                    supplierInfo={supplierInfo}
+                    allowPhotoChange={supplierInfo.allowPhotoChange}
+                    allowGuestUploads={supplierInfo.allowGuestUploads}
+                />
+            </div>
+        );
+    }
+
+    // 4. Supplier Admin Dashboard (Read-Only/Request Mode)
+    if (supplierAdminData) {
+        return (
+            <div className="min-h-screen bg-gray-900">
+                <SupplierAdminView 
+                    eventName={supplierAdminData.eventName}
+                    attendees={supplierAdminData.attendees}
+                    eventId={supplierAdminData.eventId}
+                    supplier={supplierAdminData.supplier}
+                    sectors={supplierAdminData.sectors}
+                />
+            </div>
+        );
+    }
+
+    // 5. Login View
+    if (!user) {
+        return (
+            <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+                <LoginView onLogin={handleLogin} error={error} />
+            </div>
+        );
+    }
+
+    // 6. Event Selection View (Logged in, no event selected)
+    if (!currentEventId) {
+        return (
+             <div className="min-h-screen bg-gray-900 p-4 flex items-center justify-center">
                 <EventSelectionView
                     user={user}
                     events={events}
@@ -294,15 +338,33 @@ const App: React.FC = () => {
                     onDeleteEvent={handleDeleteEvent}
                     onLogout={handleLogout}
                 />
-            );
-        }
-        return (
+            </div>
+        );
+    }
+
+    // 7. Main Admin Dashboard (Logged in, event selected)
+    const currentEvent = events.find(e => e.id === currentEventId);
+    
+    // Safety check in case event was deleted while user was active
+    if (!currentEvent) {
+        handleBackToEvents();
+        return null;
+    }
+
+    return (
+        <div className="min-h-screen bg-gray-900 text-gray-100 font-sans">
+             {error && (
+                <div className="fixed top-4 right-4 z-50 bg-red-500 text-white px-6 py-4 rounded-lg shadow-xl flex items-center gap-3 animate-fade-in-down">
+                    <XMarkIcon className="w-6 h-6 cursor-pointer" onClick={() => setError(null)} />
+                    <p>{error}</p>
+                </div>
+            )}
             <AdminView
                 user={user}
                 eventData={eventData}
-                currentEvent={events.find(e => e.id === currentEventId)!}
+                currentEvent={currentEvent}
                 currentEventId={currentEventId}
-                currentEventName={events.find(e => e.id === currentEventId)?.name || ''}
+                currentEventName={currentEvent.name}
                 onBackToEvents={handleBackToEvents}
                 onLogout={handleLogout}
                 onRegister={handleRegister}
@@ -316,22 +378,6 @@ const App: React.FC = () => {
                 onRejectNewRegistration={handleRejectNewRegistration}
                 setError={setError}
             />
-        );
-    };
-
-    return (
-        <div className="bg-gray-900 text-white min-h-screen font-sans">
-            {error && (
-                <div className="fixed top-5 right-5 bg-red-600 text-white py-3 px-5 rounded-lg shadow-lg z-50 flex items-center gap-4 animate-fade-in-down">
-                    <p>{error}</p>
-                    <button onClick={clearError} className="p-1 rounded-full hover:bg-red-700">
-                        <XMarkIcon className="w-5 h-5"/>
-                    </button>
-                </div>
-            )}
-            <main className="min-h-screen flex items-center justify-center">
-               {renderContent()}
-            </main>
         </div>
     );
 };

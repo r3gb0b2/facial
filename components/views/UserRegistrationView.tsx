@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { UsersIcon, CheckCircleIcon, ArrowLeftOnRectangleIcon } from '../icons.tsx';
+import { UsersIcon, CheckCircleIcon, SpinnerIcon } from '../icons.tsx';
 import * as api from '../../firebase/service.ts';
 
 interface UserRegistrationViewProps {
     onBack: () => void;
+    token?: string | null;
 }
 
-const UserRegistrationView: React.FC<UserRegistrationViewProps> = ({ onBack }) => {
+const UserRegistrationView: React.FC<UserRegistrationViewProps> = ({ onBack, token }) => {
     const { t } = useTranslation();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
@@ -15,10 +16,36 @@ const UserRegistrationView: React.FC<UserRegistrationViewProps> = ({ onBack }) =
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isValidatingToken, setIsValidatingToken] = useState(true);
+    const [inviteData, setInviteData] = useState<{ eventId: string } | null>(null);
+
+    useEffect(() => {
+        const validateToken = async () => {
+            if (!token) {
+                setError("Link de convite inválido (token ausente).");
+                setIsValidatingToken(false);
+                return;
+            }
+            try {
+                const data = await api.validateUserInvite(token);
+                setInviteData(data);
+            } catch (err: any) {
+                setError(err.message || "Este link de convite é inválido ou já foi utilizado.");
+            } finally {
+                setIsValidatingToken(false);
+            }
+        };
+        validateToken();
+    }, [token]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError('');
+
+        if (!token) {
+            setError("Token ausente.");
+            return;
+        }
 
         if (!username || !password || !confirmPassword) {
             setError("Todos os campos são obrigatórios.");
@@ -32,7 +59,7 @@ const UserRegistrationView: React.FC<UserRegistrationViewProps> = ({ onBack }) =
 
         setIsSubmitting(true);
         try {
-            await api.registerPendingUser({ username, password });
+            await api.registerUserWithInvite(token, { username, password });
             setSuccess(true);
         } catch (err: any) {
             setError(err.message || "Erro ao solicitar cadastro.");
@@ -40,6 +67,17 @@ const UserRegistrationView: React.FC<UserRegistrationViewProps> = ({ onBack }) =
             setIsSubmitting(false);
         }
     };
+    
+    if (isValidatingToken) {
+         return (
+            <div className="min-h-screen flex items-center justify-center">
+                 <div className="text-center text-white">
+                    <SpinnerIcon className="w-12 h-12 mx-auto mb-4 text-indigo-500" />
+                    <p>Validando convite...</p>
+                 </div>
+            </div>
+        )
+    }
 
     if (success) {
         return (
@@ -63,63 +101,80 @@ const UserRegistrationView: React.FC<UserRegistrationViewProps> = ({ onBack }) =
                 <UsersIcon className="w-8 h-8" />
                 {t('userRegistration.title')}
             </h2>
-            <form onSubmit={handleSubmit} className="space-y-6">
-                <div>
-                    <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-1">
-                        {t('login.usernameLabel')}
-                    </label>
-                    <input
-                        type="text"
-                        id="username"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        placeholder={t('login.usernamePlaceholder')}
-                        autoFocus
-                    />
+            
+            {inviteData ? (
+                 <form onSubmit={handleSubmit} className="space-y-6">
+                    <div>
+                        <label htmlFor="username" className="block text-sm font-medium text-gray-300 mb-1">
+                            {t('login.usernameLabel')}
+                        </label>
+                        <input
+                            type="text"
+                            id="username"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            placeholder={t('login.usernamePlaceholder')}
+                            autoFocus
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">
+                            {t('login.passwordLabel')}
+                        </label>
+                        <input
+                            type="password"
+                            id="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            placeholder={t('login.passwordPlaceholder')}
+                        />
+                    </div>
+                     <div>
+                        <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-1">
+                            {t('userRegistration.confirmPasswordLabel')}
+                        </label>
+                        <input
+                            type="password"
+                            id="confirmPassword"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            placeholder={t('login.passwordPlaceholder')}
+                        />
+                    </div>
+                    {error && <p className="text-red-400 text-sm">{error}</p>}
+                    <button
+                        type="submit"
+                        className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-gray-500"
+                        disabled={isSubmitting}
+                    >
+                        {isSubmitting ? "Enviando..." : t('userRegistration.button')}
+                    </button>
+                </form>
+            ) : (
+                <div className="text-center space-y-4">
+                    <p className="text-red-400">{error}</p>
+                    <button
+                        type="button"
+                        onClick={onBack}
+                        className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg"
+                    >
+                        {t('userRegistration.backToLogin')}
+                    </button>
                 </div>
-                <div>
-                    <label htmlFor="password" className="block text-sm font-medium text-gray-300 mb-1">
-                        {t('login.passwordLabel')}
-                    </label>
-                    <input
-                        type="password"
-                        id="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        placeholder={t('login.passwordPlaceholder')}
-                    />
-                </div>
-                 <div>
-                    <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-300 mb-1">
-                        {t('userRegistration.confirmPasswordLabel')}
-                    </label>
-                    <input
-                        type="password"
-                        id="confirmPassword"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        placeholder={t('login.passwordPlaceholder')}
-                    />
-                </div>
-                {error && <p className="text-red-400 text-sm">{error}</p>}
-                <button
-                    type="submit"
-                    className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 disabled:bg-gray-500"
-                    disabled={isSubmitting}
-                >
-                    {isSubmitting ? "Enviando..." : t('userRegistration.button')}
-                </button>
+            )}
+           
+             {!inviteData && !error && (
                  <button
                     type="button"
                     onClick={onBack}
-                    className="w-full text-gray-400 hover:text-white text-sm font-medium transition-colors mt-2"
+                    className="w-full text-gray-400 hover:text-white text-sm font-medium transition-colors mt-4"
                 >
                     {t('userRegistration.backToLogin')}
                 </button>
-            </form>
+             )}
         </div>
     );
 };
