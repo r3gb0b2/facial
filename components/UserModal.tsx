@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, UserRole, Event } from '../types.ts';
 import { useTranslation } from '../hooks/useTranslation.tsx';
-import { XMarkIcon } from './icons.tsx';
+import { XMarkIcon, RefreshIcon, EyeIcon } from './icons.tsx';
 
 interface UserModalProps {
   isOpen: boolean;
@@ -16,8 +16,10 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, userToEd
   const { t } = useTranslation();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState<UserRole>('checkin');
   const [linkedEventIds, setLinkedEventIds] = useState<string[]>([]);
+  const [active, setActive] = useState(true);
   const [error, setError] = useState('');
   
   const isEditing = !!userToEdit;
@@ -33,12 +35,16 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, userToEd
       setPassword(''); // Password field is for changing, not displaying
       setRole(userToEdit.role);
       setLinkedEventIds(userToEdit.linkedEventIds || []);
+      setActive(userToEdit.active !== false); // Default true if undefined
+      setShowPassword(false);
     } else {
       setUsername('');
       setPassword('');
       // Admin can only create check-in users
       setRole(isAdminCreator ? 'checkin' : 'admin');
       setLinkedEventIds([]);
+      setActive(true);
+      setShowPassword(true); // Default to show password for new users
     }
     setError('');
   }, [userToEdit, isOpen, isAdminCreator]);
@@ -51,6 +57,17 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, userToEd
         ? prev.filter(id => id !== eventId)
         : [...prev, eventId]
     );
+  };
+
+  const generatePassword = () => {
+      const length = 12;
+      const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%&";
+      let retVal = "";
+      for (let i = 0, n = charset.length; i < length; ++i) {
+          retVal += charset.charAt(Math.floor(Math.random() * n));
+      }
+      setPassword(retVal);
+      setShowPassword(true);
   };
 
   const handleSave = () => {
@@ -67,6 +84,7 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, userToEd
         username,
         role,
         linkedEventIds: showEventLinker ? linkedEventIds : [],
+        active
     };
 
     if (password.trim()) {
@@ -100,7 +118,33 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, userToEd
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">{t('users.modal.passwordLabel')}</label>
-            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white" placeholder={isEditing ? t('users.modal.passwordPlaceholderEdit') : ''} />
+            <div className="flex gap-2">
+                 <div className="relative flex-grow">
+                    <input 
+                        type={showPassword ? "text" : "password"} 
+                        value={password} 
+                        onChange={(e) => setPassword(e.target.value)} 
+                        className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 pl-3 pr-10 text-white" 
+                        placeholder={isEditing ? t('users.modal.passwordPlaceholderEdit') : ''} 
+                    />
+                    <button 
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                    >
+                        <EyeIcon className="w-5 h-5" />
+                    </button>
+                 </div>
+                 <button 
+                    type="button" 
+                    onClick={generatePassword}
+                    className="bg-gray-700 hover:bg-gray-600 text-white px-3 rounded-md flex items-center gap-1 text-sm whitespace-nowrap transition-colors"
+                    title={t('users.modal.generatePassword')}
+                >
+                    <RefreshIcon className="w-4 h-4" />
+                    {t('users.modal.generatePassword')}
+                 </button>
+            </div>
           </div>
            <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">{t('users.modal.roleLabel')}</label>
@@ -112,6 +156,23 @@ const UserModal: React.FC<UserModalProps> = ({ isOpen, onClose, onSave, userToEd
                 <p className="text-xs text-gray-400 mt-1" dangerouslySetInnerHTML={{ __html: t('users.admin.creationNotice') }} />
             }
           </div>
+          
+          <div>
+             <label className="block text-sm font-medium text-gray-300 mb-1">{t('users.modal.statusLabel')}</label>
+             <div className="flex items-center p-2 bg-gray-900 rounded-md border border-gray-600">
+                <input
+                    type="checkbox"
+                    id="user-active"
+                    checked={active}
+                    onChange={(e) => setActive(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                />
+                <label htmlFor="user-active" className="ml-2 text-white cursor-pointer select-none">
+                    {t('users.modal.active')}
+                </label>
+             </div>
+          </div>
+
           {showEventLinker && (
              <div>
                 <label className="block text-sm font-medium text-gray-300 mb-1">{t('users.modal.eventsLabel')}</label>

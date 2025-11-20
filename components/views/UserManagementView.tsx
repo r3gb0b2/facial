@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { User, Event } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { UsersIcon, PencilIcon, TrashIcon } from '../icons.tsx';
+import { UsersIcon, PencilIcon, TrashIcon, CheckCircleIcon, NoSymbolIcon } from '../icons.tsx';
 import UserModal from '../UserModal.tsx';
 
 interface UserManagementViewProps {
@@ -64,6 +64,14 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser, us
         }
     };
 
+    const handleToggleStatus = async (user: User) => {
+        try {
+            await onUpdateUser(user.id, { active: !user.active });
+        } catch (e: any) {
+            setError(e.message || 'Failed to update user status.');
+        }
+    };
+
     const eventMap = useMemo(() => new Map(events.map(e => [e.id, e.name])), [events]);
 
     return (
@@ -88,6 +96,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser, us
                                 <tr>
                                     <th scope="col" className="px-6 py-3">{t('users.table.username')}</th>
                                     <th scope="col" className="px-6 py-3">{t('users.table.role')}</th>
+                                    <th scope="col" className="px-6 py-3">{t('users.table.status')}</th>
                                     <th scope="col" className="px-6 py-3">{t('users.table.events')}</th>
                                     <th scope="col" className="px-6 py-3 text-right">{t('users.table.actions')}</th>
                                 </tr>
@@ -97,13 +106,25 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser, us
                                     <tr key={user.id} className="bg-gray-800/60 border-b border-gray-700 hover:bg-gray-700/60">
                                         <td className="px-6 py-4 font-medium text-white">{user.username}</td>
                                         <td className="px-6 py-4 capitalize">{user.role}</td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${user.active !== false ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>
+                                                {user.active !== false ? t('users.status.active') : t('users.status.inactive')}
+                                            </span>
+                                        </td>
                                         <td className="px-6 py-4 text-xs">
                                             {(user.linkedEventIds || []).length > 0 
                                                 ? user.linkedEventIds.map(id => eventMap.get(id) || 'Evento Removido').join(', ') 
                                                 : (user.role === 'admin' || user.role === 'checkin' ? 'Nenhum' : 'Todos os eventos')
                                             }
                                         </td>
-                                        <td className="px-6 py-4 text-right">
+                                        <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
+                                            <button 
+                                                onClick={() => handleToggleStatus(user)} 
+                                                className={`p-2 rounded transition-colors ${user.active !== false ? 'text-red-400 hover:bg-red-900/20' : 'text-green-400 hover:bg-green-900/20'}`}
+                                                title={user.active !== false ? t('users.actions.deactivate') : t('users.actions.activate')}
+                                            >
+                                                {user.active !== false ? <NoSymbolIcon className="w-5 h-5"/> : <CheckCircleIcon className="w-5 h-5"/>}
+                                            </button>
                                              <button onClick={() => handleOpenModal(user)} className="p-2 text-gray-400 hover:text-yellow-400">
                                                 <PencilIcon className="w-5 h-5" />
                                             </button>

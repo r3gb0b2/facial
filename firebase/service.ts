@@ -548,6 +548,10 @@ export const authenticateUser = async (username: string, password: string): Prom
     const user = getData<User>(snapshot.docs[0]);
     // Note: In a real-world application, passwords should be hashed and compared securely.
     if (user.password === password) {
+        // CHECK ACTIVE STATUS
+        if (user.active === false) {
+            throw new Error("Este usuário está pendente de aprovação ou foi bloqueado.");
+        }
         const { password: _, ...userWithoutPassword } = user;
         return userWithoutPassword as User;
     }
@@ -570,7 +574,12 @@ export const createUser = async (userData: Omit<User, 'id'>) => {
     if (!snapshot.empty) {
         throw new Error("Username already exists.");
     }
-    return db.collection('users').add(userData);
+    // Ensure active flag is set (default to true for admin created users, unless specified otherwise)
+    const userWithStatus = {
+        ...userData,
+        active: userData.active !== undefined ? userData.active : true
+    };
+    return db.collection('users').add(userWithStatus);
 };
 
 export const updateUser = (id: string, data: Partial<User>) => {

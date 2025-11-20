@@ -91,4 +91,5 @@ export interface User {
   role: UserRole;
   linkedEventIds: string[];
   createdBy?: string; // ID of the admin user who created this user
+  active?: boolean; // If false, user cannot login
 }
