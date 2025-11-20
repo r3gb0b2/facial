@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { User, Event } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { UsersIcon, PencilIcon, TrashIcon, CheckCircleIcon, NoSymbolIcon, LinkIcon, SpinnerIcon } from '../icons.tsx';
+import { UsersIcon, PencilIcon, TrashIcon, CheckCircleIcon, NoSymbolIcon, LinkIcon, SpinnerIcon, ClipboardDocumentIcon } from '../icons.tsx';
 import UserModal from '../UserModal.tsx';
 import * as api from '../../firebase/service.ts';
 
@@ -25,6 +25,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser, us
     const [isGeneratingLink, setIsGeneratingLink] = useState(false);
     const [linkCopied, setLinkCopied] = useState(false);
     const [selectedEventForInvite, setSelectedEventForInvite] = useState('');
+    const [generatedLink, setGeneratedLink] = useState<string | null>(null);
 
     const managedUsers = useMemo(() => {
         if (currentUser.role === 'superadmin') {
@@ -99,22 +100,15 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser, us
         }
 
         setIsGeneratingLink(true);
+        setGeneratedLink(null); // Reset previous link
         try {
             const token = await api.generateUserInvite(selectedEventForInvite, currentUser.id);
             const baseUrl = window.location.href.split('?')[0];
             const url = `${baseUrl}?mode=signup&token=${token}`;
             
-            try {
-                await navigator.clipboard.writeText(url);
-                setLinkCopied(true);
-                setTimeout(() => setLinkCopied(false), 3000);
-            } catch (clipboardErr) {
-                console.warn("Clipboard API failed, using fallback", clipboardErr);
-                // Fallback for environments without clipboard access
-                window.prompt("Seu navegador bloqueou a cópia automática. Copie o link abaixo:", url);
-            }
+            setGeneratedLink(url);
+            // Removed auto-copy to prevent permissions issues, users can copy manually from the display
             
-            // We keep the event selected for convenience
         } catch (e: any) {
             console.error(e);
             setError(`Erro ao gerar link: ${e.message}`);
@@ -123,26 +117,48 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser, us
         }
     };
 
+    const handleCopyLink = () => {
+        if (generatedLink) {
+            navigator.clipboard.writeText(generatedLink).then(() => {
+                setLinkCopied(true);
+                setTimeout(() => setLinkCopied(false), 3000);
+            }).catch(() => {
+                 window.prompt("Copie o link abaixo:", generatedLink);
+            });
+        }
+    };
+
     const eventMap = useMemo(() => new Map(events.map(e => [e.id, e.name])), [events]);
 
     return (
         <div className="w-full max-w-5xl mx-auto">
             <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
-                <h2 className="text-3xl font-bold text-white mb-2 flex items-center justify-center gap-3">
-                    <UsersIcon className="w-8 h-8"/>
-                    {t('users.title')}
-                </h2>
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+                    <h2 className="text-3xl font-bold text-white flex items-center gap-3">
+                        <UsersIcon className="w-8 h-8"/>
+                        {t('users.title')}
+                    </h2>
+                     <button onClick={() => handleOpenModal(null)} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg whitespace-nowrap">
+                        {t('users.createUserButton')}
+                    </button>
+                </div>
+
                 {currentUser.role === 'admin' && (
-                    <p className="text-center text-gray-400 mb-6 text-sm" dangerouslySetInnerHTML={{ __html: t('users.admin.managementNotice') }} />
+                    <p className="text-gray-400 mb-6 text-sm" dangerouslySetInnerHTML={{ __html: t('users.admin.managementNotice') }} />
                 )}
                 
-                <div className="mb-6 flex flex-col md:flex-row justify-end gap-3 items-end">
-                     <div className="flex gap-2 items-center bg-gray-900/50 p-2 rounded-lg border border-gray-700">
-                        {availableEventsForInvite.length > 1 && (
+                {/* Invite Generator Section */}
+                <div className="mb-8 p-4 bg-gray-900/60 rounded-xl border border-gray-700">
+                     <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                        <LinkIcon className="w-5 h-5 text-indigo-400" />
+                        {t('users.invite.generate')}
+                     </h3>
+                     <div className="flex flex-col md:flex-row gap-3 items-start md:items-center">
+                        {availableEventsForInvite.length > 0 && (
                              <select 
                                 value={selectedEventForInvite}
                                 onChange={(e) => setSelectedEventForInvite(e.target.value)}
-                                className="bg-gray-800 text-white text-sm rounded p-2 border border-gray-600 focus:outline-none focus:border-indigo-500"
+                                className="bg-gray-800 text-white text-sm rounded-lg p-2.5 border border-gray-600 focus:outline-none focus:border-indigo-500 w-full md:w-auto min-w-[200px]"
                             >
                                 <option value="">{t('users.invite.selectEvent')}</option>
                                 {availableEventsForInvite.map(e => (
@@ -154,22 +170,39 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser, us
                         <button 
                             onClick={handleGenerateInviteLink} 
                             disabled={isGeneratingLink}
-                            className="bg-indigo-600/80 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2 disabled:opacity-50 text-sm"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50 text-sm w-full md:w-auto"
                             title={t('users.invite.tooltip')}
                         >
-                            {isGeneratingLink ? <SpinnerIcon className="w-4 h-4" /> : (linkCopied ? <CheckCircleIcon className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />)}
-                            {linkCopied ? t('users.invite.copied') : t('users.invite.generate')}
+                            {isGeneratingLink ? <SpinnerIcon className="w-4 h-4" /> : <LinkIcon className="w-4 h-4" />}
+                            {t('users.invite.generate')}
                         </button>
                      </div>
 
-                    <button onClick={() => handleOpenModal(null)} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg h-[42px]">
-                        {t('users.createUserButton')}
-                    </button>
+                     {generatedLink && (
+                        <div className="mt-4 p-3 bg-gray-800 rounded-lg border border-green-500/30 flex flex-col sm:flex-row items-center gap-3 animate-fade-in-down">
+                            <span className="text-sm text-gray-400 whitespace-nowrap">{t('users.invite.linkLabel')}</span>
+                            <input 
+                                type="text" 
+                                readOnly 
+                                value={generatedLink} 
+                                className="flex-grow bg-gray-900 border border-gray-700 rounded px-3 py-1.5 text-green-400 text-sm font-mono focus:outline-none"
+                            />
+                            <button 
+                                onClick={handleCopyLink}
+                                className="text-white hover:text-indigo-300 bg-gray-700 hover:bg-gray-600 p-2 rounded-md transition-colors flex items-center gap-2"
+                                title="Copiar"
+                            >
+                                {linkCopied ? <CheckCircleIcon className="w-5 h-5 text-green-400" /> : <ClipboardDocumentIcon className="w-5 h-5" />}
+                                <span className="text-sm font-medium hidden sm:inline">{linkCopied ? t('users.invite.copied') : t('users.invite.copyButton')}</span>
+                            </button>
+                        </div>
+                     )}
                 </div>
+
                 {sortedUsers.length > 0 ? (
-                     <div className="overflow-x-auto">
+                     <div className="overflow-x-auto rounded-lg border border-gray-700">
                         <table className="w-full text-sm text-left text-gray-300">
-                            <thead className="text-xs text-gray-400 uppercase bg-gray-900/50">
+                            <thead className="text-xs text-gray-400 uppercase bg-gray-900">
                                 <tr>
                                     <th scope="col" className="px-6 py-3">{t('users.table.username')}</th>
                                     <th scope="col" className="px-6 py-3">{t('users.table.role')}</th>
@@ -215,7 +248,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser, us
                         </table>
                      </div>
                 ) : (
-                    <p className="text-center text-gray-500">{t('users.noUsers')}</p>
+                    <p className="text-center text-gray-500 py-8">{t('users.noUsers')}</p>
                 )}
             </div>
             {isModalOpen && (
