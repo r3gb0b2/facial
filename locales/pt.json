@@ -245,6 +245,7 @@
     "checkinLog.noResults": "Nenhum registro encontrado com os filtros atuais.",
     "users.title": "Gerenciar Usuários",
     "users.createUserButton": "Criar Novo Usuário",
+    "users.copyInviteLink": "Copiar Link de Cadastro",
     "users.noUsers": "Nenhum usuário cadastrado.",
     "users.deleteConfirm": "Tem certeza que deseja deletar o usuário \"{username}\"?",
     "users.table.username": "Usuário",
@@ -271,6 +272,12 @@
     "users.actions.deactivate": "Bloquear",
     "users.admin.creationNotice": "O usuário será criado com a função <b>Check-in</b>.",
     "users.admin.managementNotice": "Você só pode gerenciar os usuários de check-in que você criou.",
+    "userRegistration.title": "Solicitar Acesso",
+    "userRegistration.confirmPasswordLabel": "Confirmar Senha",
+    "userRegistration.success": "Solicitação enviada com sucesso! Aguarde a aprovação do administrador.",
+    "userRegistration.passMismatch": "As senhas não conferem.",
+    "userRegistration.button": "Solicitar Cadastro",
+    "userRegistration.backToLogin": "Voltar para Login",
     "errors.registrationLimitReached": "O limite de cadastros para este fornecedor foi atingido.",
     "errors.generic": "Ocorreu um erro inesperado."
   }

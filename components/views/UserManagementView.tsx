@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { User, Event } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { UsersIcon, PencilIcon, TrashIcon, CheckCircleIcon, NoSymbolIcon } from '../icons.tsx';
+import { UsersIcon, PencilIcon, TrashIcon, CheckCircleIcon, NoSymbolIcon, LinkIcon } from '../icons.tsx';
 import UserModal from '../UserModal.tsx';
 
 interface UserManagementViewProps {
@@ -18,6 +18,7 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser, us
     const { t } = useTranslation();
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [userToEdit, setUserToEdit] = useState<User | null>(null);
+    const [linkCopied, setLinkCopied] = useState(false);
 
     const managedUsers = useMemo(() => {
         if (currentUser.role === 'superadmin') {
@@ -72,6 +73,13 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser, us
         }
     };
 
+    const handleCopyInviteLink = () => {
+        const url = `${window.location.origin}?mode=signup`;
+        navigator.clipboard.writeText(url);
+        setLinkCopied(true);
+        setTimeout(() => setLinkCopied(false), 2000);
+    };
+
     const eventMap = useMemo(() => new Map(events.map(e => [e.id, e.name])), [events]);
 
     return (
@@ -84,8 +92,15 @@ const UserManagementView: React.FC<UserManagementViewProps> = ({ currentUser, us
                 {currentUser.role === 'admin' && (
                     <p className="text-center text-gray-400 mb-6 text-sm" dangerouslySetInnerHTML={{ __html: t('users.admin.managementNotice') }} />
                 )}
-                <div className="mb-6 text-right">
-                    <button onClick={() => handleOpenModal(null)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">
+                <div className="mb-6 flex justify-end gap-3">
+                     <button 
+                        onClick={handleCopyInviteLink} 
+                        className="bg-indigo-600/80 hover:bg-indigo-600 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2"
+                    >
+                        {linkCopied ? <CheckCircleIcon className="w-5 h-5" /> : <LinkIcon className="w-5 h-5" />}
+                        {linkCopied ? "Copiado!" : t('users.copyInviteLink')}
+                    </button>
+                    <button onClick={() => handleOpenModal(null)} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">
                         {t('users.createUserButton')}
                     </button>
                 </div>

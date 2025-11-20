@@ -8,6 +8,7 @@ import AdminView from './components/views/AdminView.tsx';
 import RegisterView from './components/views/RegisterView.tsx';
 import SupplierAdminView from './components/views/SupplierAdminView.tsx';
 import RegistrationClosedView from './components/views/RegistrationClosedView.tsx';
+import UserRegistrationView from './components/views/UserRegistrationView.tsx';
 import { XMarkIcon } from './components/icons.tsx';
 
 const App: React.FC = () => {
@@ -23,6 +24,7 @@ const App: React.FC = () => {
     const [supplierInfo, setSupplierInfo] = useState<{ data: Supplier & { eventId: string }, name: string, sectors: Sector[], allowPhotoChange: boolean, allowGuestUploads: boolean } | null>(null);
     const [supplierAdminData, setSupplierAdminData] = useState<{ eventName: string, attendees: Attendee[], eventId: string, supplierId: string, supplier: Supplier, sectors: Sector[] } | null>(null);
     const [publicLinkError, setPublicLinkError] = useState<string | null>(null);
+    const [isUserSignupMode, setIsUserSignupMode] = useState(false);
 
     // Check for URL parameters or saved session on initial load
     useEffect(() => {
@@ -30,6 +32,13 @@ const App: React.FC = () => {
         const eventId = params.get('eventId');
         const supplierId = params.get('supplierId');
         const adminToken = params.get('verify');
+        const mode = params.get('mode');
+
+        if (mode === 'signup') {
+            setIsUserSignupMode(true);
+            setIsLoading(false);
+            return;
+        }
 
         if (adminToken) {
              const unsubscribe = api.subscribeToSupplierAdminData(
@@ -232,6 +241,14 @@ const App: React.FC = () => {
     const renderContent = () => {
         if (isLoading) {
             return <div className="text-white text-center">Carregando...</div>;
+        }
+        
+        if (isUserSignupMode) {
+            return <UserRegistrationView onBack={() => {
+                setIsUserSignupMode(false);
+                // Remove query param without reloading
+                window.history.replaceState({}, document.title, window.location.pathname);
+            }} />;
         }
 
         // Public Routes

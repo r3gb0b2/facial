@@ -582,6 +582,24 @@ export const createUser = async (userData: Omit<User, 'id'>) => {
     return db.collection('users').add(userWithStatus);
 };
 
+export const registerPendingUser = async (userData: Pick<User, 'username' | 'password'>) => {
+    // Check for unique username server-side
+    const snapshot = await db.collection('users').where('username', '==', userData.username).get();
+    if (!snapshot.empty) {
+        throw new Error("Username already exists.");
+    }
+    
+    const newUser: Omit<User, 'id'> = {
+        username: userData.username,
+        password: userData.password,
+        role: 'checkin', // Default role
+        active: false, // PENDING APPROVAL
+        linkedEventIds: []
+    };
+
+    return db.collection('users').add(newUser);
+};
+
 export const updateUser = (id: string, data: Partial<User>) => {
     // If password is an empty string or undefined, don't update it.
     if (!data.password) {
