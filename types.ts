@@ -11,6 +11,8 @@ export enum CheckinStatus {
   MISSED = 'MISSED',
   PENDING_APPROVAL = 'PENDING_APPROVAL',
   CHECKED_OUT = 'CHECKED_OUT',
+  BLOCKED = 'BLOCKED', // Registro Negativo
+  REJECTED = 'REJECTED', // Recusado pelo Admin
 }
 
 export interface Attendee {

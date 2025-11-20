@@ -185,9 +185,20 @@ export const approveNewRegistration = (eventId: string, attendeeId: string) => {
 };
 
 export const rejectNewRegistration = (eventId: string, attendeeId: string) => {
-    return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).delete();
+    // Instead of deleting, we change status to REJECTED to keep a record
+    return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).update({
+        status: CheckinStatus.REJECTED
+    });
 };
 
+export const blockAttendee = (eventId: string, attendeeId: string) => {
+    return updateAttendeeStatus(eventId, attendeeId, CheckinStatus.BLOCKED, 'admin');
+}
+
+export const unblockAttendee = (eventId: string, attendeeId: string) => {
+    // Reset to pending when unblocking
+    return updateAttendeeStatus(eventId, attendeeId, CheckinStatus.PENDING, 'admin');
+}
 
 export const updateAttendeeStatus = (eventId: string, attendeeId: string, status: CheckinStatus, username: string, wristbands?: { [sectorId: string]: string }) => {
     const dataToUpdate: any = { status };
@@ -214,6 +225,7 @@ export const updateAttendeeStatus = (eventId: string, attendeeId: string, status
             dataToUpdate.checkedInBy = FieldValue.delete();
             dataToUpdate.checkedOutBy = FieldValue.delete();
             break;
+        // Blocked/Rejected don't need timestamp logic specifically, just status update
     }
 
     return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).update(dataToUpdate);

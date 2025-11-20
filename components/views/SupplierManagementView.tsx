@@ -1,10 +1,11 @@
 import React, { useState, useMemo } from 'react';
 // FIX: Add file extensions to local imports.
-import { Supplier, Sector, Attendee, SubCompany } from '../../types.ts';
+import { Supplier, Sector, Attendee, SubCompany, CheckinStatus } from '../../types.ts';
 // FIX: Added .tsx extension to module import.
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { LinkIcon, ClipboardDocumentIcon, NoSymbolIcon, CheckCircleIcon, PencilIcon, TrashIcon, XMarkIcon, EyeIcon, KeyIcon } from '../icons.tsx';
 import BulkUpdateSectorsModal from '../CompanySectorsModal.tsx';
+import * as api from '../../firebase/service.ts';
 
 
 interface SupplierManagementViewProps {
@@ -62,6 +63,21 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
     const sortedSuppliers = useMemo(() => 
         [...suppliers].sort((a, b) => a.name.localeCompare(b.name)), 
     [suppliers]);
+
+    const formatCPF = (cpf: string) => {
+        if (!cpf) return '';
+        return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    };
+
+    const formatTimestamp = (timestamp: any) => {
+        if (!timestamp || !timestamp.seconds) return '-';
+        return new Date(timestamp.seconds * 1000).toLocaleString('pt-BR', {
+            day: '2-digit',
+            month: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    };
 
     const handleSectorChange = (sectorId: string, isEditing: boolean) => {
         if (isEditing) {
@@ -215,7 +231,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
         }
     };
 
-     const handleToggleSupplier = (supplierId: string) => {
+    const handleToggleSupplier = (supplierId: string) => {
         setExpandedSupplierId(prev => (prev === supplierId ? null : supplierId));
     };
 
@@ -255,6 +271,16 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
             setError("Falha ao atualizar setores.");
         }
     };
+
+    const handleBlockUser = async (attendeeId: string) => {
+        if(window.confirm('Deseja realmente bloquear este colaborador? (Registro Negativo)')){
+            await api.blockAttendee(currentEventId, attendeeId);
+        }
+    }
+
+    const handleUnblockUser = async (attendeeId: string) => {
+        await api.unblockAttendee(currentEventId, attendeeId);
+    }
     
     const renderSectorCheckboxes = (isEditing: boolean) => {
         const currentSectors = isEditing ? editingSupplier?.sectors || [] : selectedSectors;
@@ -320,6 +346,24 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
         );
     };
 
+    const getStatusBadge = (status: CheckinStatus) => {
+        switch (status) {
+            case CheckinStatus.PENDING:
+            case CheckinStatus.PENDING_APPROVAL:
+                return <span className="bg-yellow-500/20 text-yellow-300 px-2 py-0.5 rounded-full text-xs font-bold border border-yellow-500/50">{t('status.pending')}</span>;
+            case CheckinStatus.CHECKED_IN:
+                return <span className="bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full text-xs font-bold border border-green-500/50">{t('status.checked_in')}</span>;
+            case CheckinStatus.CHECKED_OUT:
+                return <span className="bg-slate-500/20 text-slate-300 px-2 py-0.5 rounded-full text-xs font-bold border border-slate-500/50">{t('status.checked_out')}</span>;
+            case CheckinStatus.BLOCKED:
+                return <span className="bg-red-600 text-white px-2 py-0.5 rounded-full text-xs font-bold border border-red-700">{t('status.blocked')}</span>;
+            case CheckinStatus.REJECTED:
+                return <span className="bg-red-500/20 text-red-300 px-2 py-0.5 rounded-full text-xs font-bold border border-red-500/50">{t('status.rejected')}</span>;
+            default:
+                return <span className="bg-gray-600 text-gray-300 px-2 py-0.5 rounded-full text-xs font-bold">{status}</span>;
+        }
+    };
+
     return (
         <div className="w-full max-w-7xl mx-auto space-y-6">
             <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
@@ -369,7 +413,12 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                             const currentCount = registrationCounts.get(supplier.id) || 0;
                             const supplierAttendees = attendees
                                 .filter(a => a.supplierId === supplier.id)
-                                .sort((a, b) => a.name.localeCompare(b.name));
+                                .sort((a, b) => {
+                                    // Sort blocked/rejected to the top for visibility
+                                    if (a.status === CheckinStatus.BLOCKED && b.status !== CheckinStatus.BLOCKED) return -1;
+                                    if (b.status === CheckinStatus.BLOCKED && a.status !== CheckinStatus.BLOCKED) return 1;
+                                    return b.createdAt.seconds - a.createdAt.seconds; // Newest first
+                                });
                             const allInSupplierSelected = supplierAttendees.length > 0 && supplierAttendees.every(a => selectedAttendeeIds.has(a.id));
 
                             return (
@@ -433,34 +482,108 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                             </div>
                                         </div>
                                          {isExpanded && (
-                                            <div className="p-4 border-t border-gray-700 bg-black/20">
+                                            <div className="p-4 border-t border-gray-700 bg-black/20 overflow-x-auto">
                                                 {supplierAttendees.length > 0 ? (
                                                     <>
-                                                        <div className="flex items-center mb-2 p-2">
-                                                            <input
-                                                                type="checkbox"
-                                                                id={`select-all-${supplier.id}`}
-                                                                checked={allInSupplierSelected}
-                                                                onChange={() => handleSelectAllInSupplier(supplierAttendees)}
-                                                                className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
-                                                            />
-                                                            <label htmlFor={`select-all-${supplier.id}`} className="ml-3 text-sm font-medium text-gray-300 cursor-pointer">{t('companies.selectAll')}</label>
-                                                        </div>
-                                                        <ul className="space-y-1 max-h-60 overflow-y-auto">
-                                                            {supplierAttendees.map(attendee => (
-                                                                <li key={attendee.id} className="p-2 rounded-md hover:bg-gray-700/50">
-                                                                    <label className="flex items-center cursor-pointer">
-                                                                        <input
-                                                                            type="checkbox"
-                                                                            checked={selectedAttendeeIds.has(attendee.id)}
-                                                                            onChange={() => handleToggleAttendee(attendee.id)}
-                                                                            className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
-                                                                        />
-                                                                        <span className="ml-3 text-white">{attendee.name}</span>
-                                                                    </label>
-                                                                </li>
-                                                            ))}
-                                                        </ul>
+                                                    <div className="flex items-center mb-4 p-2 bg-gray-800/40 rounded-md w-fit">
+                                                        <input
+                                                            type="checkbox"
+                                                            id={`select-all-${supplier.id}`}
+                                                            checked={allInSupplierSelected}
+                                                            onChange={() => handleSelectAllInSupplier(supplierAttendees)}
+                                                            className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
+                                                        />
+                                                        <label htmlFor={`select-all-${supplier.id}`} className="ml-3 text-sm font-medium text-gray-300 cursor-pointer">{t('companies.selectAll')}</label>
+                                                    </div>
+                                                    
+                                                    <table className="w-full text-sm text-left text-gray-300">
+                                                        <thead className="text-xs text-gray-400 uppercase bg-gray-800/60">
+                                                            <tr>
+                                                                <th className="px-4 py-3 w-8"></th>
+                                                                <th className="px-4 py-3">{t('suppliers.table.colaborador')}</th>
+                                                                <th className="px-4 py-3">{t('suppliers.table.status')}</th>
+                                                                <th className="px-4 py-3">{t('suppliers.table.origin')}</th>
+                                                                <th className="px-4 py-3">{t('suppliers.table.access')}</th>
+                                                                <th className="px-4 py-3 text-center">{t('suppliers.table.actions')}</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {supplierAttendees.map(attendee => {
+                                                                const isBlocked = attendee.status === CheckinStatus.BLOCKED || attendee.status === CheckinStatus.REJECTED;
+                                                                const rowClass = isBlocked ? 'bg-red-900/20 border-red-900/30' : 'bg-gray-800/40 border-gray-700';
+                                                                
+                                                                return (
+                                                                    <tr key={attendee.id} className={`border-b ${rowClass} hover:bg-gray-700/50`}>
+                                                                        <td className="px-4 py-3">
+                                                                             <input
+                                                                                type="checkbox"
+                                                                                checked={selectedAttendeeIds.has(attendee.id)}
+                                                                                onChange={() => handleToggleAttendee(attendee.id)}
+                                                                                className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
+                                                                            />
+                                                                        </td>
+                                                                        <td className="px-4 py-3">
+                                                                            <div className="flex items-center gap-3">
+                                                                                <img src={attendee.photo} alt={attendee.name} className="w-10 h-10 rounded-full object-cover bg-black border border-gray-600" />
+                                                                                <div>
+                                                                                    <p className="font-medium text-white">{attendee.name}</p>
+                                                                                    <p className="text-xs text-gray-400">{formatCPF(attendee.cpf)}</p>
+                                                                                    {attendee.subCompany && <p className="text-xs text-indigo-300">{attendee.subCompany}</p>}
+                                                                                </div>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="px-4 py-3">
+                                                                            {getStatusBadge(attendee.status)}
+                                                                            {attendee.sectors && attendee.sectors.length > 0 && (
+                                                                                 <div className="flex flex-wrap gap-1 mt-1">
+                                                                                    {attendee.sectors.map(sid => {
+                                                                                        const s = sectorMap.get(sid);
+                                                                                        return s ? <span key={sid} className="text-[10px] px-1.5 rounded-sm" style={{ backgroundColor: s.color, color: '#fff' }}>{s.label}</span> : null
+                                                                                    })}
+                                                                                </div>
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="px-4 py-3">
+                                                                            <div className="text-xs">
+                                                                                <p className="font-medium text-gray-300">{supplier.name}</p>
+                                                                                <p className="text-gray-500">{formatTimestamp(attendee.createdAt)}</p>
+                                                                            </div>
+                                                                        </td>
+                                                                        <td className="px-4 py-3">
+                                                                             {attendee.checkinTime ? (
+                                                                                <div className="text-xs">
+                                                                                    <p className="text-green-400">{formatTimestamp(attendee.checkinTime)}</p>
+                                                                                    <p className="text-gray-500">por {attendee.checkedInBy}</p>
+                                                                                </div>
+                                                                            ) : (
+                                                                                <span className="text-xs text-gray-600">-</span>
+                                                                            )}
+                                                                        </td>
+                                                                        <td className="px-4 py-3 text-center">
+                                                                            {attendee.status === CheckinStatus.BLOCKED ? (
+                                                                                <button 
+                                                                                    onClick={() => handleUnblockUser(attendee.id)}
+                                                                                    className="text-xs bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded"
+                                                                                    title={t('suppliers.actions.unblock')}
+                                                                                >
+                                                                                    Desbloquear
+                                                                                </button>
+                                                                            ) : (
+                                                                                 <button 
+                                                                                    onClick={() => handleBlockUser(attendee.id)}
+                                                                                    className="text-xs bg-red-600/80 hover:bg-red-700 text-white px-2 py-1 rounded flex items-center gap-1 mx-auto"
+                                                                                    title={t('suppliers.actions.block')}
+                                                                                >
+                                                                                    <NoSymbolIcon className="w-3 h-3" />
+                                                                                    Bloquear
+                                                                                </button>
+                                                                            )}
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                    </table>
                                                     </>
                                                 ) : (
                                                     <p className="text-sm text-gray-500 text-center py-4">Nenhum colaborador cadastrado para este fornecedor.</p>
