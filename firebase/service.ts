@@ -231,8 +231,21 @@ export const updateAttendeeStatus = (eventId: string, attendeeId: string, status
     return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).update(dataToUpdate);
 };
 
-export const updateAttendeeDetails = (eventId: string, attendeeId: string, data: Partial<Attendee>) => {
-    return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).update(data);
+export const updateAttendeeDetails = async (eventId: string, attendeeId: string, data: Partial<Attendee>) => {
+    const dataToUpdate = { ...data };
+    
+    // Handle photo upload if it's a new base64 string
+    if (dataToUpdate.photo && dataToUpdate.photo.startsWith('data:image')) {
+        // Use CPF as identifier if available, otherwise fallback to attendeeId. 
+        // Note: The caller should ideally pass the CPF if it's being updated, 
+        // but if not, we might need to fetch the doc or just use ID. 
+        // We assume 'data' contains the relevant info or we rely on uuid in uploadPhoto if CPF is missing.
+        // However, uploadPhoto uses CPF for naming. Let's pass attendeeId as fallback.
+        const identifier = dataToUpdate.cpf || attendeeId;
+        dataToUpdate.photo = await uploadPhoto(dataToUpdate.photo, identifier);
+    }
+
+    return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).update(dataToUpdate);
 };
 
 export const deleteAttendee = (eventId: string, attendeeId: string) => {

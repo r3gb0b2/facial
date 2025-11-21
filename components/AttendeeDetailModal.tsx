@@ -4,6 +4,7 @@ import { useTranslation } from '../hooks/useTranslation.tsx';
 import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon, SpinnerIcon } from './icons.tsx';
 import QRCodeDisplay from './QRCodeDisplay.tsx';
 import UserAvatar from './UserAvatar.tsx';
+import WebcamCapture from './WebcamCapture.tsx';
 
 interface AttendeeDetailModalProps {
   user: User;
@@ -14,7 +15,7 @@ interface AttendeeDetailModalProps {
   currentEventId: string;
   onClose: () => void;
   onUpdateStatus: (status: CheckinStatus, wristbands?: { [sectorId: string]: string }) => void;
-  onUpdateDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'subCompany' | 'wristbands' | 'supplierId'>>) => Promise<void>;
+  onUpdateDetails: (attendeeId: string, data: Partial<Pick<Attendee, 'name' | 'cpf' | 'sectors' | 'subCompany' | 'wristbands' | 'supplierId' | 'photo'>>) => Promise<void>;
   onDelete: (attendeeId: string) => Promise<void>;
   onApproveSubstitution: (attendeeId: string) => Promise<void>;
   onRejectSubstitution: (attendeeId: string) => Promise<void>;
@@ -58,6 +59,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     sectors: attendee.sectors,
     subCompany: attendee.subCompany || '',
     supplierId: attendee.supplierId || '',
+    photo: attendee.photo,
   });
   
   const attendeeSectors = useMemo(() => {
@@ -75,6 +77,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
       sectors: validAttendeeSectors,
       subCompany: attendee.subCompany || '',
       supplierId: attendee.supplierId || '',
+      photo: attendee.photo,
     });
     setWristbands(attendee.wristbands || {});
     setIsEditing(false);
@@ -112,18 +115,27 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
 
   const handleSave = async () => {
     const rawCpf = editData.cpf.replace(/\D/g, '');
-    if (!editData.name.trim() || !rawCpf.trim() || editData.sectors.length === 0) {
+    if (!editData.name.trim() || !rawCpf.trim() || editData.sectors.length === 0 || !editData.photo) {
       setError(t('attendeeDetail.formError'));
       return;
     }
-    await onUpdateDetails(attendee.id, { 
-        name: editData.name,
-        cpf: rawCpf,
-        sectors: editData.sectors,
-        subCompany: editData.subCompany,
-        supplierId: editData.supplierId || undefined
-    });
-    setIsEditing(false);
+    setIsSubmitting(true);
+    try {
+      await onUpdateDetails(attendee.id, { 
+          name: editData.name,
+          cpf: rawCpf,
+          sectors: editData.sectors,
+          subCompany: editData.subCompany,
+          supplierId: editData.supplierId || undefined,
+          photo: editData.photo
+      });
+      setIsEditing(false);
+    } catch (error: any) {
+      console.error("Update failed:", error);
+      setError("Falha ao atualizar os dados.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
   
   const handleEditSectorChange = (sectorId: string) => {
@@ -295,13 +307,21 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     if (isEditing) {
       return (
         <div className="space-y-4">
+           <div className="flex flex-col items-center mb-4">
+                <WebcamCapture 
+                    onCapture={(img) => setEditData(prev => ({ ...prev, photo: img }))} 
+                    capturedImage={editData.photo} 
+                    allowUpload={true}
+                    disabled={isSubmitting}
+                />
+            </div>
           <div>
             <label className="text-sm font-medium text-gray-400">Nome</label>
-            <input type="text" value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white" />
+            <input type="text" value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white" disabled={isSubmitting} />
           </div>
           <div>
             <label className="text-sm font-medium text-gray-400">CPF</label>
-            <input type="text" value={editData.cpf} onChange={e => setEditData({ ...editData, cpf: formatCPF(e.target.value) })} className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white" />
+            <input type="text" value={editData.cpf} onChange={e => setEditData({ ...editData, cpf: formatCPF(e.target.value) })} className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white" disabled={isSubmitting} />
           </div>
            <div>
             <label className="text-sm font-medium text-gray-400">Fornecedor</label>
@@ -321,6 +341,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                     });
                 }}
                 className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"
+                disabled={isSubmitting}
             >
                 <option value="">Nenhum / Manual</option>
                 {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -333,6 +354,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                   value={editData.subCompany}
                   onChange={e => setEditData({...editData, subCompany: e.target.value})}
                   className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"
+                  disabled={isSubmitting}
               >
                   <option value="">Selecione...</option>
                   {subCompanyOptions.map(sc => <option key={sc} value={sc}>{sc}</option>)}
@@ -341,7 +363,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
           ) : (
              <div>
               <label className="text-sm font-medium text-gray-400">Empresa/Unidade (Opcional)</label>
-              <input type="text" value={editData.subCompany} onChange={e => setEditData({ ...editData, subCompany: e.target.value })} className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white" />
+              <input type="text" value={editData.subCompany} onChange={e => setEditData({ ...editData, subCompany: e.target.value })} className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white" disabled={isSubmitting} />
             </div>
           )}
           <div>
@@ -355,7 +377,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                             checked={editData.sectors.includes(sector.id)}
                             onChange={() => handleEditSectorChange(sector.id)}
                             className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
-                            disabled={!!(selectedSupplierData?.subCompanies && selectedSupplierData.subCompanies.length > 0)}
+                            disabled={isSubmitting || !!(selectedSupplierData?.subCompanies && selectedSupplierData.subCompanies.length > 0)}
                         />
                         <label htmlFor={`edit-sector-${sector.id}`} className="ml-2 text-white cursor-pointer">{sector.label}</label>
                     </div>
@@ -614,8 +636,11 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     if (isEditing) {
       return (
         <div className="flex gap-4">
-          <button onClick={() => setIsEditing(false)} className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg">{t('attendeeDetail.cancelButton')}</button>
-          <button onClick={handleSave} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">{t('attendeeDetail.saveButton')}</button>
+          <button onClick={() => setIsEditing(false)} disabled={isSubmitting} className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg disabled:opacity-50">{t('attendeeDetail.cancelButton')}</button>
+          <button onClick={handleSave} disabled={isSubmitting} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50">
+            {isSubmitting && <SpinnerIcon className="w-5 h-5"/>}
+            {t('attendeeDetail.saveButton')}
+          </button>
         </div>
       );
     }
