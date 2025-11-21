@@ -3,9 +3,10 @@ import React, { useState, useMemo } from 'react';
 import { Supplier, Sector, Attendee, SubCompany, CheckinStatus } from '../../types.ts';
 // FIX: Added .tsx extension to module import.
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { LinkIcon, ClipboardDocumentIcon, NoSymbolIcon, CheckCircleIcon, PencilIcon, TrashIcon, XMarkIcon, EyeIcon, KeyIcon } from '../icons.tsx';
+import { LinkIcon, NoSymbolIcon, CheckCircleIcon, PencilIcon, TrashIcon, XMarkIcon, EyeIcon, KeyIcon } from '../icons.tsx';
 import BulkUpdateSectorsModal from '../CompanySectorsModal.tsx';
 import * as api from '../../firebase/service.ts';
+import UserAvatar from '../UserAvatar.tsx';
 
 
 interface SupplierManagementViewProps {
@@ -524,7 +525,13 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                                                         </td>
                                                                         <td className="px-4 py-3">
                                                                             <div className="flex items-center gap-3">
-                                                                                <img src={attendee.photo} alt={attendee.name} className="w-10 h-10 rounded-full object-cover bg-black border border-gray-600" />
+                                                                                <div className="w-10 h-10 flex-shrink-0">
+                                                                                    <UserAvatar 
+                                                                                        src={attendee.photo} 
+                                                                                        alt={attendee.name} 
+                                                                                        className="w-full h-full rounded-full object-cover bg-black border border-gray-600"
+                                                                                    />
+                                                                                </div>
                                                                                 <div>
                                                                                     <p className="font-medium text-white">{attendee.name}</p>
                                                                                     <p className="text-xs text-gray-400">{formatCPF(attendee.cpf)}</p>

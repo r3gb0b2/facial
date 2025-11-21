@@ -149,9 +149,8 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                 const exists = eventData.attendees.some(a => a.cpf.replace(/\D/g,'') === cpf);
                 if (exists) continue;
 
-                // Dummy photo for imported users if not provided? Or assume they upload later?
-                // For now, using a placeholder or if the spreadsheet has a 'photo' column with URL
-                const photo = row.photo || 'https://via.placeholder.com/150?text=No+Photo';
+                // If photo is not provided, use empty string to trigger UserAvatar fallback
+                const photo = row.photo || '';
 
                 await onRegister({
                     name,

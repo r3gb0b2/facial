@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Attendee } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { SearchIcon, CalendarIcon } from '../icons.tsx';
+import UserAvatar from '../UserAvatar.tsx';
 
 interface CheckinLogViewProps {
   attendees: Attendee[];
@@ -118,7 +119,13 @@ const CheckinLogView: React.FC<CheckinLogViewProps> = ({ attendees }) => {
                                     <tr key={`${log.attendeeId}-${log.type}-${index}`} className="bg-gray-800/60 border-b border-gray-700 hover:bg-gray-700/60">
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-3">
-                                                <img src={log.photo} alt={log.name} className="w-10 h-10 rounded-full object-contain bg-black border-2 border-gray-600" />
+                                                <div className="w-10 h-10 flex-shrink-0">
+                                                    <UserAvatar 
+                                                        src={log.photo} 
+                                                        alt={log.name} 
+                                                        className="w-full h-full rounded-full object-contain bg-black border-2 border-gray-600" 
+                                                    />
+                                                </div>
                                                 <div>
                                                     <p className="font-medium text-white">{log.name}</p>
                                                     <p className="text-xs text-gray-400">{formatCPF(log.cpf)}</p>

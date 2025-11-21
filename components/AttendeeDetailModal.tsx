@@ -3,6 +3,7 @@ import { Attendee, CheckinStatus, Sector, Supplier, User } from '../types.ts';
 import { useTranslation } from '../hooks/useTranslation.tsx';
 import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon, SpinnerIcon } from './icons.tsx';
 import QRCodeDisplay from './QRCodeDisplay.tsx';
+import UserAvatar from './UserAvatar.tsx';
 
 interface AttendeeDetailModalProps {
   user: User;
@@ -423,13 +424,17 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                 <div className="grid grid-cols-2 gap-4">
                     <div className="text-center p-4 bg-gray-900/50 rounded-lg">
                         <h4 className="font-semibold text-gray-400 mb-2">{t('attendeeDetail.originalData')}</h4>
-                        <img src={attendee.photo} alt={attendee.name} className="w-32 h-32 object-contain rounded-full mx-auto mb-2 border-2 border-gray-600"/>
+                        <div className="w-32 h-32 mx-auto mb-2">
+                            <UserAvatar src={attendee.photo} alt={attendee.name} className="w-full h-full object-contain rounded-full border-2 border-gray-600"/>
+                        </div>
                         <p className="font-bold text-white">{attendee.name}</p>
                         <p className="text-sm text-gray-300">{formatCPF(attendee.cpf)}</p>
                     </div>
                      <div className="text-center p-4 bg-gray-900/50 rounded-lg">
                         <h4 className="font-semibold text-gray-400 mb-2">{t('attendeeDetail.newData')}</h4>
-                        <img src={substitutionData.photo} alt={substitutionData.name} className="w-32 h-32 object-contain rounded-full mx-auto mb-2 border-2 border-blue-500"/>
+                         <div className="w-32 h-32 mx-auto mb-2">
+                            <UserAvatar src={substitutionData.photo} alt={substitutionData.name} className="w-full h-full object-contain rounded-full border-2 border-blue-500"/>
+                        </div>
                         <p className="font-bold text-white">{substitutionData.name}</p>
                         <p className="text-sm text-gray-300">{formatCPF(substitutionData.cpf)}</p>
                     </div>
@@ -664,7 +669,13 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
           <div className="p-6 border-b border-gray-700 flex-shrink-0">
             <div className="flex justify-between items-start">
               <div className="flex items-start gap-4">
-                <img src={attendee.photo} alt={attendee.name} className="w-24 h-24 object-contain rounded-lg bg-black border-2 border-gray-600" />
+                 <div className="w-24 h-24 flex-shrink-0">
+                    <UserAvatar 
+                        src={attendee.photo} 
+                        alt={attendee.name} 
+                        className="w-full h-full object-contain rounded-lg bg-black border-2 border-gray-600"
+                    />
+                 </div>
                 <div>
                   <h2 className="text-2xl font-bold text-white">{isEditing ? editData.name : attendee.name}</h2>
                   <div className={`mt-1 inline-flex px-2 py-1 text-xs font-bold rounded ${statusInfo.bg} ${statusInfo.text}`}>

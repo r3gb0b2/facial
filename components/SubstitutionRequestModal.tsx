@@ -4,6 +4,7 @@ import { useTranslation } from '../hooks/useTranslation.tsx';
 import * as api from '../firebase/service.ts';
 import { XMarkIcon, SpinnerIcon, CheckCircleIcon } from './icons.tsx';
 import WebcamCapture from './WebcamCapture.tsx';
+import UserAvatar from './UserAvatar.tsx';
 
 interface SubstitutionRequestModalProps {
   attendee: Attendee;
@@ -147,6 +148,17 @@ const SubstitutionRequestModal: React.FC<SubstitutionRequestModalProps> = ({ att
           </form>
           <div className="flex flex-col items-center">
             <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting} allowUpload={true} />
+            <div className="w-full mt-8 border-t border-gray-700 pt-4">
+                 <h4 className="text-sm font-medium text-gray-400 mb-2 text-center">Atual</h4>
+                 <div className="w-24 h-24 mx-auto">
+                    <UserAvatar 
+                        src={attendee.photo} 
+                        alt={attendee.name} 
+                        className="w-full h-full object-contain rounded-lg bg-black border-2 border-gray-600"
+                    />
+                 </div>
+                 <p className="text-center text-gray-300 text-sm mt-2">{attendee.name}</p>
+            </div>
           </div>
         </div>
       </div>

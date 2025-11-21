@@ -4,6 +4,7 @@ import { Html5Qrcode } from 'html5-qrcode';
 import { Attendee, CheckinStatus, Event } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import { QrCodeIcon, SpinnerIcon, CheckCircleIcon, XMarkIcon } from '../icons.tsx';
+import UserAvatar from '../UserAvatar.tsx';
 
 interface QRCodeScannerViewProps {
     currentEvent: Event;
@@ -206,7 +207,13 @@ const QRCodeScannerView: React.FC<QRCodeScannerViewProps> = ({ currentEvent, att
                 {scannedAttendee && (
                     <div className="mt-6 p-4 bg-gray-900/50 rounded-lg border border-gray-700 animate-fade-in-up">
                         <div className="flex items-center gap-4">
-                            <img src={scannedAttendee.photo} alt={scannedAttendee.name} className="w-24 h-24 rounded-lg object-contain bg-black border-2 border-gray-600" />
+                            <div className="w-24 h-24 flex-shrink-0">
+                                <UserAvatar 
+                                    src={scannedAttendee.photo} 
+                                    alt={scannedAttendee.name} 
+                                    className="w-full h-full rounded-lg object-contain bg-black border-2 border-gray-600"
+                                />
+                            </div>
                             <div>
                                 <h3 className="text-xl font-bold text-white">{scannedAttendee.name}</h3>
                                 {statusInfo && (

@@ -2,6 +2,7 @@ import React from 'react';
 import { Attendee, CheckinStatus } from '../types.ts';
 import { useTranslation } from '../hooks/useTranslation.tsx';
 import { TagIcon } from './icons.tsx';
+import UserAvatar from './UserAvatar.tsx';
 
 interface AttendeeCardProps {
   attendee: Attendee;
@@ -41,8 +42,12 @@ const AttendeeCard: React.FC<AttendeeCardProps> = ({ attendee, onSelect, sectors
       onClick={() => onSelect(attendee)}
       className="bg-gray-800 rounded-lg shadow-lg overflow-hidden cursor-pointer transition-transform transform hover:scale-105 border border-gray-700 hover:border-indigo-500 flex flex-col"
     >
-      <div className="relative">
-        <img src={attendee.photo} alt={attendee.name} className="w-full h-48 object-contain bg-black" />
+      <div className="relative h-48 bg-black">
+        <UserAvatar 
+            src={attendee.photo} 
+            alt={attendee.name} 
+            className="w-full h-full object-contain" 
+        />
         <div className={`absolute top-2 right-2 px-2 py-1 text-xs font-bold rounded ${statusInfo.bg} ${statusInfo.text}`}>
           {statusInfo.label}
         </div>
