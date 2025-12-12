@@ -411,6 +411,17 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     if (attendee.status === CheckinStatus.PENDING_APPROVAL) {
         return (
             <div className="space-y-4 text-center">
+                {/* Alert for Blocked History */}
+                {attendee.blockReason && (
+                    <div className="p-3 bg-red-900/50 border border-red-500 rounded-lg flex items-start gap-2 text-left mb-2">
+                        <NoSymbolIcon className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-500" />
+                        <div>
+                            <p className="text-red-200 font-bold text-sm">Solicitação com Histórico de Bloqueio</p>
+                            <p className="text-white text-xs">{attendee.blockReason}</p>
+                        </div>
+                    </div>
+                )}
+
                 <div className="space-y-3 p-4 bg-gray-900/50 rounded-lg text-left">
                   <div>
                     <span className="text-sm font-medium text-gray-400">CPF</span>

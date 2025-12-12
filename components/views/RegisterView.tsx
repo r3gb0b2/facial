@@ -34,6 +34,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
   const [isPhotoLocked, setIsPhotoLocked] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [blockedWarning, setBlockedWarning] = useState<string | null>(null);
+  const [blockedInfo, setBlockedInfo] = useState<{ reason: string, eventName: string } | null>(null);
   
   const isSupplierWithMultipleSectors = Array.isArray(predefinedSector);
   const isSupplierWithSingleSector = typeof predefinedSector === 'string';
@@ -104,6 +105,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
     setExistingAttendeeFound(false);
     setIsPhotoLocked(false);
     setBlockedWarning(null);
+    setBlockedInfo(null);
     // Do not clear supplier selection in admin view to make bulk registration easier
     // setSelectedSupplierId(''); 
     if (hasSubCompanies) {
@@ -142,12 +144,18 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
     setExistingAttendeeFound(false);
     setIsPhotoLocked(false);
     setBlockedWarning(null);
+    setBlockedInfo(null);
 
     try {
         // Check global block status first
         const blockInfo = await api.checkBlockedStatus(rawCpf);
         if (blockInfo) {
-           setBlockedWarning(`⚠️ ATENÇÃO: Este CPF consta como BLOQUEADO no evento "${blockInfo.eventName}". Motivo: ${blockInfo.reason || 'Não informado'}.`);
+           setBlockedInfo(blockInfo);
+           // Only show warning if it's the admin view. 
+           // Public view should silently allow registration but flag it for approval.
+           if (isAdminView) {
+               setBlockedWarning(`⚠️ ATENÇÃO: Este CPF consta como BLOQUEADO no evento "${blockInfo.eventName}". Motivo: ${blockInfo.reason || 'Não informado'}.`);
+           }
         }
 
         // Determine the event ID to check against.
@@ -229,6 +237,14 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
           sectors: [sector],
           ...(subCompany && { subCompany })
       };
+
+      // If blocked in another event and this is a public registration, attach the block reason.
+      // This will trigger the backend to set status to PENDING_APPROVAL instead of PENDING.
+      // If it is admin view, we assume the admin saw the warning and is overriding it, so we don't send the block reason (allowing PENDING status).
+      if (!isAdminView && blockedInfo) {
+          attendeeData.blockReason = `⚠️ Bloqueio Prévio [${blockedInfo.eventName}]: ${blockedInfo.reason}`;
+      }
+
       await onRegister(attendeeData, isAdminView ? selectedSupplierId : undefined);
       clearForm();
       setShowSuccess(true);

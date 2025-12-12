@@ -179,11 +179,15 @@ export const addAttendee = async (eventId: string, attendeeData: Omit<Attendee, 
         photoUrl = await uploadPhoto(attendeeData.photo, attendeeData.cpf);
     }
 
+    // Determine initial status: If it has a blockReason (from previous blocking logic), 
+    // it should go to PENDING_APPROVAL instead of PENDING.
+    const initialStatus = attendeeData.blockReason ? CheckinStatus.PENDING_APPROVAL : CheckinStatus.PENDING;
+
     const data: Omit<Attendee, 'id'> = {
         ...attendeeData,
         photo: photoUrl,
         eventId,
-        status: CheckinStatus.PENDING,
+        status: initialStatus,
         createdAt: Timestamp.now(),
         ...(supplierId && { supplierId })
     };
@@ -210,6 +214,11 @@ export const requestNewRegistration = async (eventId: string, attendeeData: Omit
 };
 
 export const approveNewRegistration = (eventId: string, attendeeId: string) => {
+    // When approving a new registration (or one flagged due to blocks), 
+    // we set it to PENDING and clear the blockReason if it was just a warning flag.
+    // However, keeping blockReason might be useful for history. 
+    // If we want to clear the 'flag', we might need to delete blockReason or keep it.
+    // For now, let's keep it as historical data but change status to PENDING.
     return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).update({
         status: CheckinStatus.PENDING,
     });
