@@ -128,6 +128,37 @@ export const findAttendeeByCpf = async (cpf: string, eventId?: string): Promise<
     return { ...attendee, eventId: docEventId };
 };
 
+// Checks if the CPF is blocked in ANY event
+export const checkBlockedStatus = async (cpf: string): Promise<{ isBlocked: true, reason: string, eventName: string } | null> => {
+    const snapshot = await db.collectionGroup('attendees')
+        .where('cpf', '==', cpf)
+        .where('status', '==', CheckinStatus.BLOCKED)
+        .limit(1)
+        .get();
+
+    if (snapshot.empty) return null;
+
+    const doc = snapshot.docs[0];
+    const data = doc.data() as Attendee;
+    
+    // Attempt to fetch event name
+    let eventName = 'Evento desconhecido';
+    const eventId = doc.ref.parent.parent?.id;
+    
+    if (eventId) {
+        const eventSnap = await db.collection('events').doc(eventId).get();
+        if (eventSnap.exists) {
+            eventName = eventSnap.data()?.name || eventName;
+        }
+    }
+
+    return { 
+        isBlocked: true, 
+        reason: data.blockReason || 'Motivo não informado', 
+        eventName 
+    };
+}
+
 const uploadPhoto = async (photoDataUrl: string, cpf: string): Promise<string> => {
     // If the provided string is already a downloadable URL (from spreadsheet), just return it.
     if (photoDataUrl.startsWith('http://') || photoDataUrl.startsWith('https://')) {
@@ -191,13 +222,19 @@ export const rejectNewRegistration = (eventId: string, attendeeId: string) => {
     });
 };
 
-export const blockAttendee = (eventId: string, attendeeId: string) => {
-    return updateAttendeeStatus(eventId, attendeeId, CheckinStatus.BLOCKED, 'admin');
+export const blockAttendee = (eventId: string, attendeeId: string, reason?: string) => {
+    return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).update({
+        status: CheckinStatus.BLOCKED,
+        blockReason: reason || ''
+    });
 }
 
 export const unblockAttendee = (eventId: string, attendeeId: string) => {
     // Reset to pending when unblocking
-    return updateAttendeeStatus(eventId, attendeeId, CheckinStatus.PENDING, 'admin');
+    return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).update({
+        status: CheckinStatus.PENDING,
+        blockReason: FieldValue.delete()
+    });
 }
 
 export const updateAttendeeStatus = (eventId: string, attendeeId: string, status: CheckinStatus, username: string, wristbands?: { [sectorId: string]: string }) => {

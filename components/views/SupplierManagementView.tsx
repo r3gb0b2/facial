@@ -274,13 +274,16 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
     };
 
     const handleBlockUser = async (attendeeId: string) => {
-        if(window.confirm('Deseja realmente bloquear este colaborador? (Registro Negativo)')){
-            await api.blockAttendee(currentEventId, attendeeId);
+        const reason = window.prompt("Por favor, informe o motivo do bloqueio (opcional):");
+        if(reason !== null){ // If null, user cancelled prompt
+            await api.blockAttendee(currentEventId, attendeeId, reason);
         }
     }
 
     const handleUnblockUser = async (attendeeId: string) => {
-        await api.unblockAttendee(currentEventId, attendeeId);
+        if(window.confirm('Deseja realmente desbloquear este colaborador?')) {
+            await api.unblockAttendee(currentEventId, attendeeId);
+        }
     }
     
     const renderSectorCheckboxes = (isEditing: boolean) => {

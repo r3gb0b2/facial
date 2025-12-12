@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Attendee, Sector, Supplier, SubCompany } from '../../types.ts';
 import WebcamCapture from '../WebcamCapture.tsx';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { UsersIcon, CheckCircleIcon, SpinnerIcon } from '../icons.tsx';
+import { UsersIcon, CheckCircleIcon, SpinnerIcon, NoSymbolIcon } from '../icons.tsx';
 import * as api from '../../firebase/service.ts';
 
 interface RegisterViewProps {
@@ -33,6 +33,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
   const [existingAttendeeFound, setExistingAttendeeFound] = useState(false);
   const [isPhotoLocked, setIsPhotoLocked] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [blockedWarning, setBlockedWarning] = useState<string | null>(null);
   
   const isSupplierWithMultipleSectors = Array.isArray(predefinedSector);
   const isSupplierWithSingleSector = typeof predefinedSector === 'string';
@@ -102,6 +103,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
     setCpfCheckMessage('');
     setExistingAttendeeFound(false);
     setIsPhotoLocked(false);
+    setBlockedWarning(null);
     // Do not clear supplier selection in admin view to make bulk registration easier
     // setSelectedSupplierId(''); 
     if (hasSubCompanies) {
@@ -139,8 +141,15 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
     setName('');
     setExistingAttendeeFound(false);
     setIsPhotoLocked(false);
+    setBlockedWarning(null);
 
     try {
+        // Check global block status first
+        const blockInfo = await api.checkBlockedStatus(rawCpf);
+        if (blockInfo) {
+           setBlockedWarning(`⚠️ ATENÇÃO: Este CPF consta como BLOQUEADO no evento "${blockInfo.eventName}". Motivo: ${blockInfo.reason || 'Não informado'}.`);
+        }
+
         // Determine the event ID to check against.
         // For admin view, we use the currentEventId passed via props.
         // For supplier link, we use the eventId from the supplier info.
@@ -360,6 +369,12 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
                       {isCheckingCpf && <SpinnerIcon className="w-4 h-4" />}
                       {cpfCheckMessage}
                   </p>
+              )}
+               {blockedWarning && (
+                  <div className="mt-2 p-3 bg-red-900/50 border border-red-500 rounded-md flex items-start gap-2 text-red-200 text-sm">
+                      <NoSymbolIcon className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-500" />
+                      <span>{blockedWarning}</span>
+                  </div>
               )}
             </div>
             <div>

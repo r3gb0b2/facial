@@ -31,6 +31,7 @@ export interface Attendee {
   supplierId?: string; // To track which supplier registered the attendee
   subCompany?: string; // The attendee's specific company under a supplier
   wristbands?: { [sectorId: string]: string }; // Maps sectorId to wristband number
+  blockReason?: string; // Reason why the user was blocked
   substitutionData?: {
     name: string;
     cpf: string;

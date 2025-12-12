@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Attendee, CheckinStatus, Sector, Supplier, User } from '../types.ts';
 import { useTranslation } from '../hooks/useTranslation.tsx';
-import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon, SpinnerIcon } from './icons.tsx';
+import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon, SpinnerIcon, NoSymbolIcon } from './icons.tsx';
 import QRCodeDisplay from './QRCodeDisplay.tsx';
 import UserAvatar from './UserAvatar.tsx';
 import WebcamCapture from './WebcamCapture.tsx';
+import * as api from '../firebase/service.ts';
 
 interface AttendeeDetailModalProps {
   user: User;
@@ -95,6 +96,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     [CheckinStatus.SECTOR_CHANGE_REQUEST]: { bg: 'bg-purple-500', text: 'text-white', label: t('status.sector_change_request') },
     [CheckinStatus.PENDING_APPROVAL]: { bg: 'bg-yellow-500', text: 'text-black', label: t('status.pending_approval') },
     [CheckinStatus.MISSED]: { bg: 'bg-gray-800', text: 'text-gray-400', label: t('status.missed') },
+    [CheckinStatus.BLOCKED]: { bg: 'bg-red-700', text: 'text-white', label: t('status.blocked') },
   }[attendee.status] || { bg: 'bg-gray-600', text: 'text-gray-200', label: attendee.status };
   
   const formatCPF = (cpf: string) => {
@@ -270,6 +272,21 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
           setIsSubmitting(false);
       }
   };
+
+  const handleBlock = async () => {
+    const reason = window.prompt("Por favor, informe o motivo do bloqueio (opcional):");
+    if(reason !== null){ 
+        await api.blockAttendee(currentEventId, attendee.id, reason);
+        onClose();
+    }
+  }
+
+  const handleUnblock = async () => {
+      if(window.confirm('Deseja realmente desbloquear este colaborador?')) {
+          await api.unblockAttendee(currentEventId, attendee.id);
+          onClose();
+      }
+  }
 
   const selectedSupplierData = useMemo(() => {
     return suppliers.find(s => s.id === editData.supplierId);
@@ -570,6 +587,13 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                 </p>
             </div>
         )}
+        
+        {attendee.status === CheckinStatus.BLOCKED && (
+            <div className="mt-4 p-3 bg-red-900/50 border border-red-500 rounded-lg">
+                <p className="text-red-200 font-bold mb-1">Registro Negativo (Bloqueado)</p>
+                <p className="text-white text-sm">Motivo: <span className="italic">{attendee.blockReason || 'Não informado'}</span></p>
+            </div>
+        )}
       </div>
     );
   };
@@ -669,15 +693,35 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
               statusActions.push(renderStatusButton(CheckinStatus.PENDING, t('statusUpdateModal.reactivateRegistration')));
             }
             break;
+        case CheckinStatus.BLOCKED:
+            if (user.role !== 'checkin') {
+                 statusActions.push(
+                    <button
+                        onClick={handleUnblock}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
+                    >
+                        Desbloquear Colaborador
+                    </button>
+                 );
+            }
+            break;
     }
 
     return (
       <div className="space-y-2">
         {statusActions.map((button, index) => <div key={index}>{button}</div>)}
+        {user.role !== 'checkin' && attendee.status !== CheckinStatus.BLOCKED && (
+           <button
+             onClick={handleBlock}
+             className="w-full text-red-400 hover:bg-red-500/10 font-semibold py-2 rounded-lg transition-colors mt-2 border border-transparent hover:border-red-500/30"
+           >
+             Bloquear Colaborador
+           </button>
+        )}
         {user.role !== 'checkin' && (
           <button
             onClick={handleDelete}
-            className="w-full text-red-400 hover:bg-red-500/10 font-semibold py-2 rounded-lg transition-colors mt-2"
+            className="w-full text-gray-500 hover:text-red-400 hover:bg-red-500/10 font-semibold py-2 rounded-lg transition-colors mt-1"
           >
             {t('attendeeDetail.deleteButton')}
           </button>
