@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Attendee, Sector, Supplier, SubCompany, EventType } from '../../types.ts';
 import WebcamCapture from '../WebcamCapture.tsx';
@@ -53,7 +52,6 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
   const hasSubCompanies = Array.isArray(supplierInfo?.data.subCompanies) && supplierInfo!.data.subCompanies!.length > 0;
 
   // FIX: Define isSupplierWithSingleSector to resolve "Cannot find name" error.
-  // It checks if the predefined sector is a single string or an array with only one element.
   const isSupplierWithSingleSector = useMemo(() => {
     if (isAdminView) return false;
     if (typeof predefinedSector === 'string') return !!predefinedSector;
@@ -141,8 +139,9 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
     e.preventDefault();
     const rawCpf = cpf.replace(/\D/g, '');
 
+    // Validation
     if (!name || !rawCpf || !photo || (isVip && !email)) {
-      setError('Por favor, preencha todos os campos obrigatórios e capture sua foto.');
+      setError('Por favor, preencha todos os campos obrigatórios (incluindo E-mail e Foto).');
       return;
     }
 
@@ -151,7 +150,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
       const attendeeData: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'> = { 
           name, 
           cpf: rawCpf, 
-          email: isVip ? email : undefined,
+          email: email || '', // FIX: Avoid undefined values for Firestore
           photo, 
           sectors: [sector],
           ...(subCompany && { subCompany })
@@ -170,7 +169,6 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
     } catch (error: any) {
       setError(error.message || "Falha ao registrar.");
     } finally {
-      setError(null);
       setIsSubmitting(false);
     }
   };
@@ -180,112 +178,128 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
   };
 
   // =========================================================================
-  // VIEW: VIP LIST (SOPHISTICATED)
+  // VIEW: VIP LIST (SOPHISTICATED DARK GOLD)
   // =========================================================================
   if (isVip) {
     return (
-      <div className="w-full min-h-screen flex items-center justify-center py-12 px-4 bg-[#0a0a0a]">
-        <div className="w-full max-w-5xl relative">
-          {/* Decorative Elements */}
-          <div className="absolute -top-24 -left-24 w-64 h-64 bg-rose-900/20 rounded-full blur-[100px]"></div>
-          <div className="absolute -bottom-24 -right-24 w-64 h-64 bg-amber-900/20 rounded-full blur-[100px]"></div>
+      <div className="w-full min-h-screen flex items-center justify-center py-12 px-4 bg-[#050505]">
+        <div className="w-full max-w-6xl relative">
+          {/* Decorative Gradients */}
+          <div className="absolute -top-32 -left-32 w-80 h-80 bg-rose-900/10 rounded-full blur-[120px]"></div>
+          <div className="absolute -bottom-32 -right-32 w-80 h-80 bg-amber-900/10 rounded-full blur-[120px]"></div>
           
-          <div className="relative bg-neutral-900/60 backdrop-blur-2xl border border-white/5 rounded-[3rem] overflow-hidden shadow-[0_50px_100px_rgba(0,0,0,0.7)]">
-            <div className="grid grid-cols-1 lg:grid-cols-12">
+          <div className="relative bg-neutral-900/40 backdrop-blur-3xl border border-white/5 rounded-[4rem] overflow-hidden shadow-[0_80px_150px_rgba(0,0,0,0.8)]">
+            <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[600px]">
               
-              {/* Left Column: Form */}
-              <div className="lg:col-span-7 p-8 md:p-14">
-                <header className="mb-12">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-[1px] bg-rose-500"></div>
-                    <span className="text-[10px] font-black uppercase tracking-[0.5em] text-rose-500">Exclusividade VIP</span>
+              {/* Left Side: Sophisticated Form */}
+              <div className="lg:col-span-7 p-10 md:p-16 flex flex-col justify-center">
+                <header className="mb-14">
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-12 h-[1px] bg-gradient-to-r from-rose-500 to-transparent"></div>
+                    <span className="text-[10px] font-black uppercase tracking-[0.6em] text-rose-500">Privé & Unique</span>
                   </div>
-                  <h1 className="text-4xl md:text-5xl font-black text-white tracking-tighter mb-4 leading-none uppercase">
-                    Solicitar <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-400 to-amber-200">Presença</span>
+                  <h1 className="text-5xl md:text-6xl font-black text-white tracking-tighter mb-6 leading-[0.9] uppercase">
+                    Solicitar <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-400 via-amber-200 to-rose-400">Acesso VIP</span>
                   </h1>
-                  <p className="text-neutral-500 text-sm font-medium tracking-wide">
-                    {eventName} • {supplierName ? `Host: ${supplierName}` : 'Guest List'}
+                  <p className="text-neutral-500 text-sm font-medium tracking-widest uppercase">
+                    {eventName} • {supplierName ? `Hosted by ${supplierName}` : 'Guest Registration'}
                   </p>
                 </header>
 
-                <form onSubmit={handleRegisterSubmit} className="space-y-8">
-                  <div className="space-y-6">
+                <form onSubmit={handleRegisterSubmit} className="space-y-10">
+                  <div className="space-y-8">
+                    {/* Input Group: Name */}
                     <div className="relative group">
                       <input
                         type="text" value={name} onChange={(e) => setName(e.target.value)}
-                        className="w-full bg-transparent border-b border-neutral-800 py-4 text-white focus:outline-none focus:border-rose-500 transition-all placeholder:text-neutral-700 text-lg font-bold"
+                        className="w-full bg-transparent border-b border-neutral-800 py-5 text-white focus:outline-none focus:border-rose-500 transition-all placeholder:text-neutral-800 text-xl font-bold"
                         placeholder="NOME COMPLETO"
+                        required
                         disabled={isSubmitting || existingAttendeeFound}
                       />
-                      <label className="absolute -top-4 left-0 text-[9px] font-black uppercase tracking-widest text-neutral-600 group-focus-within:text-rose-500 transition-colors">Nome do Convidado</label>
+                      <label className="absolute -top-4 left-0 text-[10px] font-black uppercase tracking-[0.3em] text-neutral-600 group-focus-within:text-rose-500 transition-colors">Nome do Convidado</label>
                     </div>
 
+                    {/* Input Group: Email */}
                     <div className="relative group">
                       <input
                         type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                        className="w-full bg-transparent border-b border-neutral-800 py-4 text-white focus:outline-none focus:border-rose-500 transition-all placeholder:text-neutral-700 text-lg font-bold"
+                        className="w-full bg-transparent border-b border-neutral-800 py-5 text-white focus:outline-none focus:border-rose-500 transition-all placeholder:text-neutral-800 text-xl font-bold"
                         placeholder="E-MAIL DE CONTATO"
+                        required
                         disabled={isSubmitting || existingAttendeeFound}
                       />
-                      <label className="absolute -top-4 left-0 text-[9px] font-black uppercase tracking-widest text-neutral-600 group-focus-within:text-rose-500 transition-colors">E-mail</label>
+                      <label className="absolute -top-4 left-0 text-[10px] font-black uppercase tracking-[0.3em] text-neutral-600 group-focus-within:text-rose-500 transition-colors">Email Exclusive</label>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {/* Input Group: CPF & Supplier */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                       <div className="relative group">
                         <input
                           type="text" value={cpf} onChange={(e) => setCpf(formatCPF(e.target.value))}
                           onBlur={handleCpfBlur}
-                          className="w-full bg-transparent border-b border-neutral-800 py-4 text-white focus:outline-none focus:border-rose-500 transition-all placeholder:text-neutral-700 text-lg font-bold"
+                          className="w-full bg-transparent border-b border-neutral-800 py-5 text-white focus:outline-none focus:border-rose-500 transition-all placeholder:text-neutral-800 text-xl font-bold"
                           placeholder="000.000.000-00"
+                          required
                           disabled={isSubmitting}
                         />
-                        <label className="absolute -top-4 left-0 text-[9px] font-black uppercase tracking-widest text-neutral-600 group-focus-within:text-rose-500 transition-colors">Documento (CPF)</label>
+                        <label className="absolute -top-4 left-0 text-[10px] font-black uppercase tracking-[0.3em] text-neutral-600 group-focus-within:text-rose-500 transition-colors">Identidade (CPF)</label>
                       </div>
 
                       {isAdminView && (
                         <div className="relative group">
                            <select
                             value={selectedSupplierId} onChange={(e) => setSelectedSupplierId(e.target.value)}
-                            className="w-full bg-transparent border-b border-neutral-800 py-4 text-white focus:outline-none focus:border-rose-500 transition-all font-bold appearance-none cursor-pointer"
+                            className="w-full bg-transparent border-b border-neutral-800 py-5 text-white focus:outline-none focus:border-rose-500 transition-all font-bold appearance-none cursor-pointer text-sm tracking-widest"
+                            required
                             disabled={isSubmitting || existingAttendeeFound}
                           >
-                            <option value="" className="bg-neutral-900">SELECIONE A HOST</option>
+                            <option value="" className="bg-neutral-900">DIVULGADORA / PROMOTER</option>
                             {suppliers.map(s => <option key={s.id} value={s.id} className="bg-neutral-900">{s.name.toUpperCase()}</option>)}
                           </select>
-                          <label className="absolute -top-4 left-0 text-[9px] font-black uppercase tracking-widest text-neutral-600 group-focus-within:text-rose-500 transition-colors">Divulgadora</label>
+                          <label className="absolute -top-4 left-0 text-[10px] font-black uppercase tracking-[0.3em] text-neutral-600 group-focus-within:text-rose-500 transition-colors">Responsável</label>
                         </div>
                       )}
                     </div>
                   </div>
 
                   {cpfCheckMessage && (
-                    <div className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2">
-                      <div className={`w-1 h-1 rounded-full ${existingAttendeeFound ? 'bg-amber-500' : 'bg-rose-500'}`}></div>
-                      <span className={`text-[10px] font-black uppercase tracking-widest ${existingAttendeeFound ? 'text-amber-500' : 'text-neutral-500'}`}>{cpfCheckMessage}</span>
+                    <div className="flex items-center gap-3 animate-in fade-in slide-in-from-left-4 duration-500">
+                      <div className={`w-1.5 h-1.5 rounded-full ${existingAttendeeFound ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]' : 'bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.5)]'}`}></div>
+                      <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${existingAttendeeFound ? 'text-amber-500' : 'text-neutral-500'}`}>{cpfCheckMessage}</span>
                     </div>
                   )}
 
-                  <div className="pt-8">
+                  <div className="pt-10">
                     <button
                       type="submit"
                       disabled={isSubmitting || existingAttendeeFound || !photo}
-                      className="group relative w-full h-16 bg-white text-black font-black uppercase tracking-[0.3em] text-xs rounded-2xl overflow-hidden transition-all hover:scale-[1.02] active:scale-95 disabled:bg-neutral-800 disabled:text-neutral-600 shadow-2xl"
+                      className="group relative w-full h-20 bg-white text-black font-black uppercase tracking-[0.4em] text-[11px] rounded-3xl overflow-hidden transition-all hover:scale-[1.01] active:scale-95 disabled:bg-neutral-800 disabled:text-neutral-600 shadow-2xl"
                     >
-                      <div className="absolute inset-0 bg-gradient-to-r from-rose-500 to-amber-400 translate-y-full group-hover:translate-y-0 transition-transform duration-500"></div>
-                      <span className="relative z-10 group-hover:text-white transition-colors duration-300">
-                        {isSubmitting ? 'PROCESSANDO...' : 'SOLICITAR ACESSO'}
+                      <div className="absolute inset-0 bg-gradient-to-r from-rose-500 via-amber-400 to-rose-500 translate-y-full group-hover:translate-y-0 transition-transform duration-700"></div>
+                      <span className="relative z-10 group-hover:text-white transition-colors duration-500 flex items-center justify-center gap-3">
+                        {isSubmitting ? (
+                            <>
+                                <SpinnerIcon className="w-5 h-5 animate-spin" />
+                                ANALISANDO SOLICITAÇÃO...
+                            </>
+                        ) : 'GARANTIR MINHA VAGA VIP'}
                       </span>
                     </button>
                   </div>
                 </form>
               </div>
 
-              {/* Right Column: Webcam Capture */}
-              <div className="lg:col-span-5 bg-black/40 border-l border-white/5 flex flex-col items-center justify-center p-8 md:p-14">
-                <div className="relative group w-full max-w-sm">
-                  <div className="absolute -inset-1 rounded-full bg-gradient-to-tr from-rose-500 to-amber-400 opacity-20 blur-xl group-hover:opacity-40 transition-opacity duration-700"></div>
+              {/* Right Side: Halo Webcam Capture */}
+              <div className="lg:col-span-5 bg-black/60 border-l border-white/5 flex flex-col items-center justify-center p-12 md:p-16 relative">
+                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(244,63,94,0.05)_0%,transparent_70%)]"></div>
+                 
+                 <div className="relative group w-full max-w-sm">
+                  {/* Glowing Ring */}
+                  <div className="absolute -inset-1.5 rounded-full bg-gradient-to-tr from-rose-500 via-amber-500 to-rose-500 opacity-20 blur-2xl group-hover:opacity-50 transition-opacity duration-1000 animate-pulse"></div>
+                  
                   <div className="relative">
-                    <div className="w-full aspect-square rounded-full overflow-hidden border-4 border-neutral-800 p-2 shadow-inner bg-neutral-900/50">
+                    <div className="w-full aspect-square rounded-full overflow-hidden border-[6px] border-neutral-900 p-2 shadow-[0_0_40px_rgba(0,0,0,0.5)] bg-neutral-950/80 backdrop-blur-xl">
                        <WebcamCapture 
                         onCapture={setPhoto} 
                         capturedImage={photo} 
@@ -294,9 +308,16 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
                       />
                     </div>
                   </div>
+
+                  {!photo && (
+                    <div className="absolute bottom-12 left-1/2 -translate-x-1/2 text-center pointer-events-none">
+                        <span className="text-[9px] font-black uppercase tracking-[0.4em] text-rose-500/60 whitespace-nowrap">Selfie de Identificação</span>
+                    </div>
+                  )}
+
                   {isPhotoLocked && (
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] mt-8 text-neutral-500 text-center leading-relaxed max-w-[200px] mx-auto">
-                      Identidade já validada no sistema.
+                    <p className="text-[9px] font-black uppercase tracking-[0.3em] mt-12 text-neutral-500 text-center leading-relaxed max-w-[240px] mx-auto opacity-60">
+                      BIO-IDENTIDADE JÁ VALIDADA. <br/>ALTERAÇÃO INDISPONÍVEL.
                     </p>
                   )}
                 </div>
@@ -306,18 +327,20 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
           </div>
         </div>
 
-        {/* Success Modal */}
+        {/* Exclusive Success Modal */}
         {showSuccess && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/95 backdrop-blur-md animate-in fade-in duration-500">
-             <div className="max-w-md w-full bg-neutral-900 border border-white/10 rounded-[3rem] p-12 text-center shadow-[0_50px_150px_rgba(0,0,0,1)]">
-                <div className="w-20 h-20 bg-rose-600 rounded-full mx-auto mb-10 flex items-center justify-center animate-bounce shadow-lg shadow-rose-500/20">
-                    <CheckCircleIcon className="w-10 h-10 text-white" />
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/98 backdrop-blur-2xl animate-in fade-in zoom-in-95 duration-700">
+             <div className="max-w-md w-full bg-neutral-900 border border-white/10 rounded-[4rem] p-16 text-center shadow-[0_80px_200px_rgba(0,0,0,1)] relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-rose-500 via-amber-400 to-rose-500"></div>
+                <div className="w-24 h-24 bg-gradient-to-br from-rose-600 to-amber-600 rounded-full mx-auto mb-12 flex items-center justify-center shadow-[0_0_50px_rgba(244,63,94,0.3)] animate-bounce">
+                    <CheckCircleIcon className="w-12 h-12 text-white" />
                 </div>
-                <h3 className="text-3xl font-black text-white mb-4 uppercase tracking-tighter">Confirmado</h3>
-                <p className="text-neutral-500 text-sm leading-relaxed mb-10 font-medium tracking-wide">
-                  Sua reserva na lista VIP foi processada. <br/>Apresente seu documento original na entrada.
+                <h3 className="text-4xl font-black text-white mb-6 uppercase tracking-tighter">Confirmation</h3>
+                <p className="text-neutral-400 text-base leading-relaxed mb-12 font-medium tracking-wide">
+                  Sua vaga na lista VIP foi reservada. <br/>
+                  <span className="text-rose-400/80 text-sm mt-4 block">Prepare seu documento original com foto para a recepção do evento.</span>
                 </p>
-                <button onClick={() => setShowSuccess(false)} className="w-full py-5 bg-white text-black font-black uppercase tracking-widest text-[10px] rounded-2xl hover:bg-neutral-200 transition-all active:scale-95 shadow-xl">Entendido</button>
+                <button onClick={() => setShowSuccess(false)} className="w-full py-6 bg-white text-black font-black uppercase tracking-[0.3em] text-[10px] rounded-[2rem] hover:bg-neutral-200 transition-all active:scale-95 shadow-2xl">Confirmar Leitura</button>
              </div>
           </div>
         )}

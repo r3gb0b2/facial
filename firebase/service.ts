@@ -187,8 +187,12 @@ export const addAttendee = async (eventId: string, attendeeData: Omit<Attendee, 
     // it should go to PENDING_APPROVAL instead of PENDING.
     const initialStatus = attendeeData.blockReason ? CheckinStatus.PENDING_APPROVAL : CheckinStatus.PENDING;
 
+    // FIX: Ensure no 'undefined' fields are sent to Firestore (e.g., email)
+    const cleanData = { ...attendeeData };
+    if (cleanData.email === undefined) cleanData.email = '';
+
     const data: Omit<Attendee, 'id'> = {
-        ...attendeeData,
+        ...cleanData,
         photo: photoUrl,
         eventId,
         status: initialStatus,
@@ -205,8 +209,12 @@ export const requestNewRegistration = async (eventId: string, attendeeData: Omit
         photoUrl = await uploadPhoto(attendeeData.photo, attendeeData.cpf);
     }
 
+    // FIX: Ensure no 'undefined' fields are sent to Firestore (e.g., email)
+    const cleanData = { ...attendeeData };
+    if (cleanData.email === undefined) cleanData.email = '';
+
     const data: Omit<Attendee, 'id'> = {
-        ...attendeeData,
+        ...cleanData,
         photo: photoUrl,
         eventId,
         status: CheckinStatus.PENDING_APPROVAL,
