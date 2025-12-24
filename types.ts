@@ -1,3 +1,4 @@
+
 // FIX: Replaced Timestamp value with FirebaseTimestamp type to resolve conflict between value and type.
 import type { FirebaseTimestamp } from './firebase/config.ts';
 
@@ -11,8 +12,8 @@ export enum CheckinStatus {
   MISSED = 'MISSED',
   PENDING_APPROVAL = 'PENDING_APPROVAL',
   CHECKED_OUT = 'CHECKED_OUT',
-  BLOCKED = 'BLOCKED', // Registro Negativo
-  REJECTED = 'REJECTED', // Recusado pelo Admin
+  BLOCKED = 'BLOCKED', 
+  REJECTED = 'REJECTED', 
 }
 
 export type EventType = 'CREDENTIALING' | 'VIP_LIST';
@@ -21,24 +22,27 @@ export interface Attendee {
   id: string;
   name: string;
   cpf: string;
-  email?: string; // Field for Guests
-  photo: string; // This is a URL to the image in Firebase Storage
+  email?: string;
+  age?: number; // Nova propriedade
+  photo: string;
   sectors: string[];
   status: CheckinStatus;
   eventId: string;
   createdAt: FirebaseTimestamp;
   checkinTime?: FirebaseTimestamp;
-  checkedInBy?: string; // User's username who performed the check-in
+  checkedInBy?: string;
   checkoutTime?: FirebaseTimestamp;
-  checkedOutBy?: string; // User's username who performed the check-out
-  supplierId?: string; // To track which supplier registered the attendee
-  subCompany?: string; // The attendee's specific company under a supplier
-  wristbands?: { [sectorId: string]: string }; // Maps sectorId to wristband number
-  blockReason?: string; // Reason why the user was blocked
+  checkedOutBy?: string;
+  supplierId?: string;
+  subCompany?: string;
+  wristbands?: { [sectorId: string]: string };
+  blockReason?: string;
   substitutionData?: {
     name: string;
     cpf: string;
-    photo?: string; // Base64 data URL
+    age?: number;
+    email?: string;
+    photo?: string;
     newSectorIds?: string[];
   };
   sectorChangeData?: {
@@ -62,30 +66,30 @@ export interface Event {
   type: EventType;
   createdAt: FirebaseTimestamp;
   modules?: EventModules;
-  allowPhotoChange?: boolean; // If true, existing users from other events can update their photo
-  allowGuestUploads?: boolean; // If true, public users can upload files instead of just using webcam
+  allowPhotoChange?: boolean;
+  allowGuestUploads?: boolean;
 }
 
 export interface SubCompany {
   name: string;
-  sector: string; // The ID of the sector this sub-company belongs to
+  sector: string;
 }
 
 export interface Supplier {
   id: string;
   name: string;
-  email?: string; // Added email for promoters/divulgadoras
+  email?: string;
   sectors: string[];
   active: boolean;
   registrationLimit: number;
-  subCompanies?: SubCompany[]; // Optional list of sub-companies for this supplier
-  adminToken?: string; // Unique token for the read-only admin link
+  subCompanies?: SubCompany[];
+  adminToken?: string;
 }
 
 export interface Sector {
-  id: string; // e.g., 'staff'
-  label: string; // e.g., 'Staff'
-  color?: string; // e.g., '#ff0000'
+  id: string;
+  label: string;
+  color?: string;
 }
 
 export type UserRole = 'superadmin' | 'admin' | 'checkin';
@@ -93,9 +97,9 @@ export type UserRole = 'superadmin' | 'admin' | 'checkin';
 export interface User {
   id: string;
   username: string;
-  password?: string; // Should not be sent to client, but needed for creation/update
+  password?: string;
   role: UserRole;
   linkedEventIds: string[];
-  createdBy?: string; // ID of the admin user who created this user
-  active?: boolean; // If false, user cannot login
+  createdBy?: string;
+  active?: boolean;
 }
