@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { Attendee } from '../types.ts';
 import WebcamCapture from './WebcamCapture.tsx';
@@ -97,8 +95,9 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
         
         const prompt = "Analyze the two images provided. Are they of the same person? Respond ONLY with the word 'MATCH' if they are the same person, or 'NO_MATCH' if they are different people. Do not add any other explanation, punctuation, or formatting.";
 
+        // FIX: Updated model name to 'gemini-3-flash-preview' for multimodal reasoning.
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-3-flash-preview',
             contents: { parts: [{ text: prompt }, registeredPhotoPart, capturedPhotoPart] },
         });
         

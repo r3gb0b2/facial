@@ -1,15 +1,15 @@
 import React, { useState } from 'react';
-import { Event, User, EventModules } from '../../types.ts';
+import { Event, User, EventModules, EventType } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
 import EventModal from '../EventModal.tsx';
-import { ArrowLeftOnRectangleIcon, CalendarIcon, PencilIcon, TrashIcon } from '../icons.tsx';
+import { ArrowLeftOnRectangleIcon, CalendarIcon, PencilIcon, TrashIcon, FaceSmileIcon, UsersIcon } from '../icons.tsx';
 
 interface EventSelectionViewProps {
   user: User;
   events: Event[];
   onSelectEvent: (eventId: string) => void;
-  onCreateEvent: (name: string, modules?: EventModules, allowPhotoChange?: boolean, allowGuestUploads?: boolean) => void;
-  onUpdateEvent: (id: string, name:string, modules?: EventModules, allowPhotoChange?: boolean, allowGuestUploads?: boolean) => void;
+  onCreateEvent: (name: string, type: EventType, modules?: EventModules, allowPhotoChange?: boolean, allowGuestUploads?: boolean) => void;
+  onUpdateEvent: (id: string, name:string, type?: EventType, modules?: EventModules, allowPhotoChange?: boolean, allowGuestUploads?: boolean) => void;
   onDeleteEvent: (id: string) => void;
   onLogout: () => void;
 }
@@ -29,11 +29,11 @@ const EventSelectionView: React.FC<EventSelectionViewProps> = ({ user, events, o
       setIsModalOpen(false);
   };
   
-  const handleSaveEvent = (name: string, eventId?: string, modules?: EventModules, allowPhotoChange?: boolean, allowGuestUploads?: boolean) => {
+  const handleSaveEvent = (name: string, type: EventType, eventId?: string, modules?: EventModules, allowPhotoChange?: boolean, allowGuestUploads?: boolean) => {
       if (eventId) {
-          onUpdateEvent(eventId, name, modules, allowPhotoChange, allowGuestUploads);
+          onUpdateEvent(eventId, name, type, modules, allowPhotoChange, allowGuestUploads);
       } else {
-          onCreateEvent(name, modules, allowPhotoChange, allowGuestUploads);
+          onCreateEvent(name, type, modules, allowPhotoChange, allowGuestUploads);
       }
       handleCloseModal();
   };
@@ -66,9 +66,19 @@ const EventSelectionView: React.FC<EventSelectionViewProps> = ({ user, events, o
           <div
             key={event.id}
             onClick={() => onSelectEvent(event.id)}
-            className="group bg-gray-900/70 p-4 rounded-lg flex items-center justify-between transition-all hover:bg-indigo-600/30 hover:border-indigo-500 border border-transparent cursor-pointer"
+            className={`group bg-gray-900/70 p-4 rounded-lg flex items-center justify-between transition-all border border-transparent cursor-pointer hover:border-indigo-500 hover:bg-indigo-600/10`}
           >
-            <span className="font-semibold text-white text-lg">{event.name}</span>
+            <div className="flex items-center gap-4">
+                <div className={`p-2 rounded-lg ${event.type === 'VIP_LIST' ? 'bg-pink-600/20 text-pink-400' : 'bg-indigo-600/20 text-indigo-400'}`}>
+                    {event.type === 'VIP_LIST' ? <FaceSmileIcon className="w-5 h-5" /> : <UsersIcon className="w-5 h-5" />}
+                </div>
+                <div>
+                    <span className="font-semibold text-white text-lg block">{event.name}</span>
+                    <span className="text-[10px] uppercase font-bold tracking-widest text-gray-500">
+                        {event.type === 'VIP_LIST' ? 'Lista VIP' : 'Credenciamento'}
+                    </span>
+                </div>
+            </div>
             {(user.role === 'superadmin' || user.role === 'admin') && (
               <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                  <button onClick={(e) => { e.stopPropagation(); handleOpenModal(event); }} className="p-2 text-gray-400 hover:text-yellow-400 transition-colors rounded-full hover:bg-gray-700">

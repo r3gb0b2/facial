@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Attendee, Sector, Supplier, SubCompany } from '../../types.ts';
+import { Attendee, Sector, Supplier, SubCompany, EventType } from '../../types.ts';
 import WebcamCapture from '../WebcamCapture.tsx';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { UsersIcon, CheckCircleIcon, SpinnerIcon, NoSymbolIcon } from '../icons.tsx';
+import { UsersIcon, CheckCircleIcon, SpinnerIcon, NoSymbolIcon, FaceSmileIcon } from '../icons.tsx';
 import * as api from '../../firebase/service.ts';
 
 interface RegisterViewProps {
@@ -17,9 +17,10 @@ interface RegisterViewProps {
   currentEventId?: string;
   allowPhotoChange?: boolean;
   allowGuestUploads?: boolean;
+  eventType?: EventType;
 }
 
-const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, sectors, suppliers = [], predefinedSector, eventName, supplierName, supplierInfo, currentEventId, allowPhotoChange = true, allowGuestUploads = false }) => {
+const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, sectors, suppliers = [], predefinedSector, eventName, supplierName, supplierInfo, currentEventId, allowPhotoChange = true, allowGuestUploads = false, eventType = 'CREDENTIALING' }) => {
   const { t } = useTranslation();
   const [name, setName] = useState('');
   const [cpf, setCpf] = useState('');
@@ -36,6 +37,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
   const [blockedWarning, setBlockedWarning] = useState<string | null>(null);
   const [blockedInfo, setBlockedInfo] = useState<{ reason: string, eventName: string } | null>(null);
   
+  const isVip = eventType === 'VIP_LIST';
   const isSupplierWithMultipleSectors = Array.isArray(predefinedSector);
   const isSupplierWithSingleSector = typeof predefinedSector === 'string';
   const isAdminView = !predefinedSector; // True if it's the main admin view, not a supplier link
@@ -49,12 +51,9 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
 
   useEffect(() => {
     if (hasSubCompanies) {
-      // If there are sub-companies, sector is determined by them.
-      // Set to empty initially, will be set when a sub-company is chosen.
       setSector('');
-      setSubCompany(''); // Reset to default/placeholder
+      setSubCompany(''); 
     } else {
-      // Standard behavior without sub-companies
       let initialSector = '';
       if (isSupplierWithSingleSector) {
         initialSector = predefinedSector as string;
@@ -66,15 +65,12 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
     }
   }, [predefinedSector, isSupplierWithSingleSector, isSupplierWithMultipleSectors, sectors, hasSubCompanies]);
 
-  // Effect to auto-select sector when a sub-company is chosen
   useEffect(() => {
     if (subCompany) {
       let selectedSubCompanyConfig: SubCompany | undefined;
-      // Supplier link view logic
       if (hasSubCompanies) {
           selectedSubCompanyConfig = supplierInfo?.data.subCompanies?.find(sc => sc.name === subCompany);
       } 
-      // Admin view logic
       else if (isAdminView) {
           const supplierHasSubCompanies = selectedSupplier?.subCompanies && selectedSupplier.subCompanies.length > 0;
           if (supplierHasSubCompanies) {
@@ -88,7 +84,6 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
     }
   }, [subCompany, hasSubCompanies, supplierInfo, isAdminView, selectedSupplier]);
   
-  // Effect to reset sub-company and sector when the supplier is changed in the admin view
   useEffect(() => {
     if (isAdminView) {
       setSubCompany('');
@@ -106,8 +101,6 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
     setIsPhotoLocked(false);
     setBlockedWarning(null);
     setBlockedInfo(null);
-    // Do not clear supplier selection in admin view to make bulk registration easier
-    // setSelectedSupplierId(''); 
     if (hasSubCompanies) {
       setSubCompany('');
       setSector('');
@@ -123,8 +116,8 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
 
   const formatCPF = (value: string) => {
     return value
-      .replace(/\D/g, '') // Remove all non-digit characters
-      .slice(0, 11) // Limit to 11 digits
+      .replace(/\D/g, '') 
+      .slice(0, 11) 
       .replace(/(\d{3})(\d)/, '$1.$2')
       .replace(/(\d{3})(\d)/, '$1.$2')
       .replace(/(\d{3})(\d{1,2})$/, '$1-$2');
@@ -147,20 +140,14 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
     setBlockedInfo(null);
 
     try {
-        // Check global block status first
         const blockInfo = await api.checkBlockedStatus(rawCpf);
         if (blockInfo) {
            setBlockedInfo(blockInfo);
-           // Only show warning if it's the admin view. 
-           // Public view should silently allow registration but flag it for approval.
            if (isAdminView) {
                setBlockedWarning(`⚠️ ATENÇÃO: Este CPF consta como BLOQUEADO no evento "${blockInfo.eventName}". Motivo: ${blockInfo.reason || 'Não informado'}.`);
            }
         }
 
-        // Determine the event ID to check against.
-        // For admin view, we use the currentEventId passed via props.
-        // For supplier link, we use the eventId from the supplier info.
         const activeEventId = isAdminView ? currentEventId : supplierInfo?.data.eventId;
         
         const existingAttendee = await api.findAttendeeByCpf(rawCpf, activeEventId);
@@ -169,21 +156,16 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
             setName(existingAttendee.name);
             setPhoto(existingAttendee.photo);
             
-            // Check if the user is already registered in the ACTIVE event.
             const isRegisteredInCurrentEvent = activeEventId && existingAttendee.eventId === activeEventId;
 
             if (isRegisteredInCurrentEvent) {
-              // Strictly block registration only if the user is already in THIS event
               setCpfCheckMessage(t('register.cpfAlreadyRegistered'));
               setExistingAttendeeFound(true);
-              setIsPhotoLocked(true); // Always lock if already registered
+              setIsPhotoLocked(true); 
             } else {
-              // User found in another event - allow registration, but pre-fill data
-              // Do NOT set existingAttendeeFound to true (which blocks form), just show a message
               setCpfCheckMessage(t('register.cpfFound'));
               setExistingAttendeeFound(false); 
               
-              // If changing photo is NOT allowed, lock the photo component
               if (!allowPhotoChange) {
                  setIsPhotoLocked(true);
               }
@@ -194,10 +176,6 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
     } catch (error: any) {
         console.error("Error checking CPF:", error);
         let errorMessage = t('register.errors.cpfCheckError');
-        if (error.code === 'failed-precondition') {
-            errorMessage = t('register.errors.cpfCheckIndexError');
-            console.error("Firestore index missing for CPF lookup. Please create a composite index on the 'attendees' collection group for the 'cpf' field.");
-        }
         setError(errorMessage);
         setCpfCheckMessage('');
     } finally {
@@ -218,7 +196,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
       return;
     }
     if (isAdminView && !selectedSupplierId) {
-        setError("Selecione um fornecedor para continuar.");
+        setError(isVip ? "Selecione um promoter/organizador." : "Selecione um fornecedor para continuar.");
         return;
     }
 
@@ -238,9 +216,6 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
           ...(subCompany && { subCompany })
       };
 
-      // If blocked in another event and this is a public registration, attach the block reason.
-      // This will trigger the backend to set status to PENDING_APPROVAL instead of PENDING.
-      // If it is admin view, we assume the admin saw the warning and is overriding it, so we don't send the block reason (allowing PENDING status).
       if (!isAdminView && blockedInfo) {
           attendeeData.blockReason = `⚠️ Bloqueio Prévio [${blockedInfo.eventName}]: ${blockedInfo.reason}`;
       }
@@ -260,11 +235,10 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
   const renderSectorInput = () => {
     const adminHasSubCompanies = isAdminView && selectedSupplier?.subCompanies && selectedSupplier.subCompanies.length > 0;
     
-    // If supplier has sub-companies (either from supplier link or admin selection), sector is derived, so hide this input.
     if (hasSubCompanies || adminHasSubCompanies) return null;
     
     if (isSupplierWithSingleSector) {
-      return null; // Sector is predefined and hidden
+      return null; 
     }
 
     let sectorOptions = sectors;
@@ -274,7 +248,9 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
 
     return (
         <div>
-          <label htmlFor="sector" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.sectorLabel')}</label>
+          <label htmlFor="sector" className="block text-sm font-medium text-gray-300 mb-1">
+            {isVip ? "Tipo de Convidado" : t('register.form.sectorLabel')}
+          </label>
           <select
             id="sector" value={sector} onChange={(e) => setSector(e.target.value)}
             className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
@@ -288,11 +264,12 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
   };
   
   const renderSubCompanyInput = () => {
-    // For supplier-specific registration pages
     if (hasSubCompanies) {
       return (
           <div>
-            <label htmlFor="subCompany" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.subCompanyLabel')}</label>
+            <label htmlFor="subCompany" className="block text-sm font-medium text-gray-300 mb-1">
+                {isVip ? "Organização / Grupo" : t('register.form.subCompanyLabel')}
+            </label>
             <select
               id="subCompany" value={subCompany} onChange={(e) => setSubCompany(e.target.value)}
               className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
@@ -310,15 +287,15 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
       );
     }
 
-    // For the main admin registration tab
     if (isAdminView) {
       const adminHasSubCompanies = selectedSupplier?.subCompanies && selectedSupplier.subCompanies.length > 0;
 
       if (adminHasSubCompanies) {
-        // Admin selected a supplier WITH sub-companies -> show dropdown
         return (
           <div>
-            <label htmlFor="subCompany-admin" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.subCompanyLabel')}</label>
+            <label htmlFor="subCompany-admin" className="block text-sm font-medium text-gray-300 mb-1">
+                {isVip ? "Organização / Grupo" : t('register.form.subCompanyLabel')}
+            </label>
             <select
               id="subCompany-admin" value={subCompany} onChange={(e) => setSubCompany(e.target.value)}
               className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
@@ -335,17 +312,18 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
           </div>
         );
       } else {
-        // Admin selected a supplier WITHOUT sub-companies (or no supplier) -> show text input
         return (
           <div>
-            <label htmlFor="subCompany-admin-input" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.subCompanyLabelOptional')}</label>
+            <label htmlFor="subCompany-admin-input" className="block text-sm font-medium text-gray-300 mb-1">
+                {isVip ? "Empresa / Grupo (Opcional)" : t('register.form.subCompanyLabelOptional')}
+            </label>
             <input
               type="text"
               id="subCompany-admin-input"
               value={subCompany}
               onChange={(e) => setSubCompany(e.target.value)}
               className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
-              placeholder={t('register.form.subCompanyInputPlaceholder')}
+              placeholder={isVip ? "Digite o nome do grupo" : t('register.form.subCompanyInputPlaceholder')}
               disabled={isSubmitting || isCheckingCpf || existingAttendeeFound}
             />
           </div>
@@ -359,14 +337,16 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-10">
-      <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
+      <div className={`bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border ${isVip ? 'border-pink-500/30' : 'border-gray-700'}`}>
         <div className="text-center mb-6">
-            <h2 className="text-3xl font-bold text-white flex items-center justify-center gap-3">
-              <UsersIcon className="w-8 h-8"/>
-              {t('register.title')}
+            <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${isVip ? 'bg-pink-600/20 text-pink-500' : 'bg-indigo-600/20 text-indigo-500'}`}>
+                {isVip ? <FaceSmileIcon className="w-8 h-8" /> : <UsersIcon className="w-8 h-8" />}
+            </div>
+            <h2 className="text-3xl font-bold text-white">
+              {isVip ? "Cadastro na Lista VIP" : t('register.title')}
             </h2>
-            {eventName && <p className="text-lg font-medium text-gray-400 mt-1">{eventName}</p>}
-            {supplierName && <p className="text-md font-medium text-gray-400">{t('supplierAdmin.supplier')} {supplierName}</p>}
+            {eventName && <p className={`text-lg font-medium mt-1 ${isVip ? 'text-pink-400' : 'text-indigo-400'}`}>{eventName}</p>}
+            {supplierName && <p className="text-md font-medium text-gray-400">Convite de: {supplierName}</p>}
         </div>
 
         <form onSubmit={handleRegisterSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
@@ -405,7 +385,9 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
 
             {isAdminView && (
               <div>
-                <label htmlFor="supplier" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.supplierLabel')} <span className="text-red-500">*</span></label>
+                <label htmlFor="supplier" className="block text-sm font-medium text-gray-300 mb-1">
+                    {isVip ? "Promoter / Responsável" : t('register.form.supplierLabel')} <span className="text-red-500">*</span>
+                </label>
                 <select
                   id="supplier"
                   value={selectedSupplierId}
@@ -414,7 +396,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
                   disabled={isSubmitting || isCheckingCpf || existingAttendeeFound}
                   required
                 >
-                  <option value="">{t('register.form.supplierPlaceholder')}</option>
+                  <option value="">{isVip ? "Selecione o promoter" : t('register.form.supplierPlaceholder')}</option>
                   {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
@@ -424,23 +406,27 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
             {renderSectorInput()}
 
             <div className="space-y-4">
-                <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed" disabled={!name || !cpf || !photo || (!sector && !subCompany && !isAdminView) || isSubmitting || isCheckingCpf || existingAttendeeFound}>
+                <button 
+                  type="submit" 
+                  className={`w-full text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed ${isVip ? 'bg-pink-600 hover:bg-pink-700' : 'bg-indigo-600 hover:bg-indigo-700'}`} 
+                  disabled={!name || !cpf || !photo || (!sector && !subCompany && !isAdminView) || isSubmitting || isCheckingCpf || existingAttendeeFound}
+                >
                   {isSubmitting ? (
                     <>
                       <SpinnerIcon className="w-5 h-5" />
-                      Registrando...
+                      Processando...
                     </>
                   ) : (
                     <>
                       <CheckCircleIcon className="w-5 h-5"/>
-                      {t('register.form.button')}
+                      {isVip ? "Confirmar Presença" : t('register.form.button')}
                     </>
                   )}
                 </button>
                  {showSuccess && (
                     <div className="text-center p-3 rounded-lg bg-green-500/20 text-green-300 border border-green-500 flex items-center justify-center gap-2">
                         <CheckCircleIcon className="w-5 h-5" />
-                        <p className="text-sm font-medium">{t('register.successMessage')}</p>
+                        <p className="text-sm font-medium">{isVip ? "Você foi adicionado à lista VIP!" : t('register.successMessage')}</p>
                     </div>
                 )}
             </div>

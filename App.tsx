@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import * as api from './firebase/service.ts';
-import { User, Event, Attendee, Supplier, Sector, UserRole, EventModules } from './types.ts';
+import { User, Event, Attendee, Supplier, Sector, UserRole, EventModules, EventType } from './types.ts';
 import { useTranslation } from './hooks/useTranslation.tsx';
 import LoginView from './components/views/LoginView.tsx';
 import EventSelectionView from './components/views/EventSelectionView.tsx';
@@ -168,18 +168,18 @@ const App: React.FC = () => {
     };
 
     // --- Event CRUD Wrappers ---
-    const handleCreateEvent = async (name: string, modules?: EventModules, allowPhotoChange?: boolean, allowGuestUploads?: boolean) => {
+    const handleCreateEvent = async (name: string, type: EventType, modules?: EventModules, allowPhotoChange?: boolean, allowGuestUploads?: boolean) => {
         try {
-            await api.createEvent(name, modules, allowPhotoChange, allowGuestUploads);
+            await api.createEvent(name, type, modules, allowPhotoChange, allowGuestUploads);
             if (user) refreshAndFilterEvents(user);
         } catch (err: any) {
             setError(err.message);
         }
     };
 
-    const handleUpdateEvent = async (id: string, name: string, modules?: EventModules, allowPhotoChange?: boolean, allowGuestUploads?: boolean) => {
+    const handleUpdateEvent = async (id: string, name: string, type?: EventType, modules?: EventModules, allowPhotoChange?: boolean, allowGuestUploads?: boolean) => {
         try {
-            await api.updateEvent(id, name, modules, allowPhotoChange, allowGuestUploads);
+            await api.updateEvent(id, name, type, modules, allowPhotoChange, allowGuestUploads);
             if (user) refreshAndFilterEvents(user);
         } catch (err: any) {
             setError(err.message);

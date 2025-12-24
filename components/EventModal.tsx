@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Event, EventModules } from '../types.ts';
+import { Event, EventModules, EventType } from '../types.ts';
 import { useTranslation } from '../hooks/useTranslation.tsx';
-import { XMarkIcon } from './icons.tsx';
+import { XMarkIcon, UsersIcon, FaceSmileIcon } from './icons.tsx';
 
 interface EventModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (name: string, eventId?: string, modules?: EventModules, allowPhotoChange?: boolean, allowGuestUploads?: boolean) => void;
+  onSave: (name: string, type: EventType, eventId?: string, modules?: EventModules, allowPhotoChange?: boolean, allowGuestUploads?: boolean) => void;
   eventToEdit?: Event | null;
 }
 
@@ -22,6 +22,7 @@ const defaultModules: EventModules = {
 const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, eventToEdit }) => {
   const { t } = useTranslation();
   const [eventName, setEventName] = useState('');
+  const [eventType, setEventType] = useState<EventType>('CREDENTIALING');
   const [modules, setModules] = useState<EventModules>(defaultModules);
   const [allowPhotoChange, setAllowPhotoChange] = useState(true);
   const [allowGuestUploads, setAllowGuestUploads] = useState(false);
@@ -30,11 +31,13 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, eventT
   useEffect(() => {
     if (eventToEdit) {
       setEventName(eventToEdit.name);
+      setEventType(eventToEdit.type || 'CREDENTIALING');
       setModules(eventToEdit.modules || defaultModules);
       setAllowPhotoChange(eventToEdit.allowPhotoChange !== undefined ? eventToEdit.allowPhotoChange : true);
       setAllowGuestUploads(eventToEdit.allowGuestUploads !== undefined ? eventToEdit.allowGuestUploads : false);
     } else {
       setEventName('');
+      setEventType('CREDENTIALING');
       setModules(defaultModules);
       setAllowPhotoChange(true);
       setAllowGuestUploads(false);
@@ -49,7 +52,7 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, eventT
       setError(t('events.modal.error'));
       return;
     }
-    onSave(eventName, eventToEdit?.id, modules, allowPhotoChange, allowGuestUploads);
+    onSave(eventName, eventType, eventToEdit?.id, modules, allowPhotoChange, allowGuestUploads);
   };
   
   const toggleModule = (key: keyof EventModules) => {
@@ -61,8 +64,8 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, eventT
 
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md border border-gray-700 flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="p-6 border-b border-gray-700 flex justify-between items-center">
+      <div className="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md border border-gray-700 flex flex-col max-h-[95vh] overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        <div className="p-6 border-b border-gray-700 flex justify-between items-center shrink-0">
           <h2 className="text-2xl font-bold text-white">
             {eventToEdit ? t('events.modal.editTitle') : t('events.modal.createTitle')}
           </h2>
@@ -70,7 +73,8 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, eventT
             <XMarkIcon className="w-6 h-6" />
           </button>
         </div>
-        <div className="p-8 space-y-6">
+        
+        <div className="p-8 space-y-6 overflow-y-auto">
           <div>
             <label htmlFor="eventName" className="block text-sm font-medium text-gray-300 mb-1">
               {t('events.modal.nameLabel')}
@@ -85,8 +89,34 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, eventT
               autoFocus
             />
             {error && <p className="text-red-400 text-sm mt-1">{error}</p>}
-            
-             <div className="flex items-center mt-3">
+          </div>
+
+          <div>
+              <label className="block text-sm font-medium text-gray-300 mb-3">
+                  Tipo de Evento
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                  <button 
+                    onClick={() => setEventType('CREDENTIALING')}
+                    className={`p-3 rounded-lg border flex flex-col items-center gap-2 transition-all ${eventType === 'CREDENTIALING' ? 'bg-indigo-600/20 border-indigo-500 ring-2 ring-indigo-500' : 'bg-gray-900/50 border-gray-700'}`}
+                  >
+                      <UsersIcon className={`w-6 h-6 ${eventType === 'CREDENTIALING' ? 'text-indigo-400' : 'text-gray-500'}`} />
+                      <span className="text-xs font-bold text-white uppercase tracking-wider">Credenciamento</span>
+                      <span className="text-[10px] text-gray-400 leading-tight">Staff, expositores e prestadores.</span>
+                  </button>
+                  <button 
+                    onClick={() => setEventType('VIP_LIST')}
+                    className={`p-3 rounded-lg border flex flex-col items-center gap-2 transition-all ${eventType === 'VIP_LIST' ? 'bg-pink-600/20 border-pink-500 ring-2 ring-pink-500' : 'bg-gray-900/50 border-gray-700'}`}
+                  >
+                      <FaceSmileIcon className={`w-6 h-6 ${eventType === 'VIP_LIST' ? 'text-pink-400' : 'text-gray-500'}`} />
+                      <span className="text-xs font-bold text-white uppercase tracking-wider">Lista VIP</span>
+                      <span className="text-[10px] text-gray-400 leading-tight">Convidados, promoters e vips.</span>
+                  </button>
+              </div>
+          </div>
+          
+          <div className="space-y-3">
+             <div className="flex items-center">
                 <input
                     type="checkbox"
                     id="allowPhotoChange"
@@ -98,7 +128,7 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, eventT
                     {t('events.modal.allowPhotoChange')}
                 </label>
             </div>
-             <div className="flex items-center mt-3">
+             <div className="flex items-center">
                 <input
                     type="checkbox"
                     id="allowGuestUploads"
@@ -133,12 +163,12 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, eventT
                   ))}
               </div>
           </div>
-
         </div>
-        <div className="p-6 bg-gray-900/50 rounded-b-2xl">
+
+        <div className="p-6 bg-gray-900/50 rounded-b-2xl shrink-0">
           <button
             onClick={handleSave}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300"
+            className={`w-full text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 ${eventType === 'VIP_LIST' ? 'bg-pink-600 hover:bg-pink-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}
           >
             {eventToEdit ? t('events.modal.saveButton') : t('events.modal.createButton')}
           </button>

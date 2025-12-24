@@ -1,7 +1,7 @@
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
 import { db, storage, FieldValue, Timestamp } from './config.ts';
-import { Attendee, CheckinStatus, Event, Supplier, Sector, SubCompany, User, EventModules } from '../types.ts';
+import { Attendee, CheckinStatus, Event, Supplier, Sector, SubCompany, User, EventModules, EventType } from '../types.ts';
 import { v4 as uuidv4 } from 'uuid';
 
 // Helper to extract data and id from snapshots
@@ -14,9 +14,10 @@ export const getEvents = async (): Promise<Event[]> => {
     return getCollectionData<Event>(snapshot);
 };
 
-export const createEvent = (name: string, modules?: EventModules, allowPhotoChange?: boolean, allowGuestUploads?: boolean): Promise<firebase.firestore.DocumentReference> => {
+export const createEvent = (name: string, type: EventType = 'CREDENTIALING', modules?: EventModules, allowPhotoChange?: boolean, allowGuestUploads?: boolean): Promise<firebase.firestore.DocumentReference> => {
     return db.collection('events').add({
         name,
+        type,
         createdAt: FieldValue.serverTimestamp(),
         modules: modules || { // Default all to true if not provided
             scanner: true,
@@ -31,8 +32,11 @@ export const createEvent = (name: string, modules?: EventModules, allowPhotoChan
     });
 };
 
-export const updateEvent = (id: string, name: string, modules?: EventModules, allowPhotoChange?: boolean, allowGuestUploads?: boolean) => {
+export const updateEvent = (id: string, name: string, type?: EventType, modules?: EventModules, allowPhotoChange?: boolean, allowGuestUploads?: boolean) => {
     const data: any = { name };
+    if (type) {
+        data.type = type;
+    }
     if (modules) {
         data.modules = modules;
     }

@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Attendee, CheckinStatus, Sector, Supplier } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
@@ -185,8 +184,9 @@ const FastCheckinView: React.FC<FastCheckinViewProps> = ({ attendees, sectors, s
                         ...validBatchData.map(data => data.part!)
                     ];
 
+                    // FIX: Updated model name to 'gemini-3-flash-preview' for multimodal reasoning.
                     const response = await ai.models.generateContent({
-                        model: 'gemini-2.5-flash',
+                        model: 'gemini-3-flash-preview',
                         contents: { parts },
                     });
 

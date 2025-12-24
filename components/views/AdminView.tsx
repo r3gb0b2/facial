@@ -55,6 +55,7 @@ const TABS: { id: AdminTab, labelKey: string, roles: UserRole[] }[] = [
 const AdminView: React.FC<AdminViewProps> = (props) => {
     const { user, eventData, currentEvent, currentEventId, currentEventName, onBackToEvents, onLogout, onRegister, setError } = props;
     const { t } = useTranslation();
+    const isVip = currentEvent.type === 'VIP_LIST';
 
     const availableTabs = useMemo(() => {
         return TABS.filter(tab => {
@@ -127,7 +128,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
             const cpf = row.cpf ? String(row.cpf).replace(/\D/g, '') : '';
             const sectorLabel = row.sector;
             // Try to map supplier name to ID if provided
-            const supplierName = row.fornecedor; 
+            const supplierName = row.fornecedor || row.promoter; 
             let supplierId = undefined;
             if (supplierName) {
                 const foundSupplier = eventData.suppliers.find(s => s.name.toLowerCase() === supplierName.toLowerCase());
@@ -144,12 +145,9 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
 
             try {
                 // Simple duplicate check to avoid errors during bulk import
-                // Ideally this should use the findAttendeeByCpf service but for bulk we just try/catch or rely on user caution
-                // Check against loaded attendees for speed
                 const exists = eventData.attendees.some(a => a.cpf.replace(/\D/g,'') === cpf);
                 if (exists) continue;
 
-                // If photo is not provided, use empty string to trigger UserAvatar fallback
                 const photo = row.photo || '';
 
                 await onRegister({
@@ -188,9 +186,17 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
         <div className="w-full h-screen flex flex-col p-4 md:p-6 space-y-4">
             <header className="flex-shrink-0 bg-gray-800/50 backdrop-blur-sm p-4 rounded-xl shadow-lg border border-gray-700">
                 <div className="flex justify-between items-center">
-                    <div>
-                        <h1 className="text-2xl font-bold text-white">{currentEventName}</h1>
-                        <button onClick={onBackToEvents} className="text-sm text-indigo-400 hover:underline">&larr; Trocar de evento</button>
+                    <div className="flex items-center gap-3">
+                        <div className={`w-3 h-10 rounded-full ${isVip ? 'bg-pink-500' : 'bg-indigo-500'}`}></div>
+                        <div>
+                            <h1 className="text-2xl font-bold text-white">{currentEventName}</h1>
+                            <div className="flex items-center gap-3">
+                                <button onClick={onBackToEvents} className="text-sm text-indigo-400 hover:underline">&larr; Trocar de evento</button>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-700 text-gray-300 font-bold uppercase tracking-wider">
+                                    {isVip ? 'Lista VIP' : 'Credenciamento'}
+                                </span>
+                            </div>
+                        </div>
                     </div>
                      <div className="flex items-center gap-4">
                         <span className="text-gray-400 text-sm hidden md:block">Logado como: {user.username} ({user.role})</span>
@@ -202,29 +208,39 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                 </div>
                  <nav className="mt-4 -mb-4 -mx-4 px-4 overflow-x-auto">
                     <div className="flex border-b border-gray-700">
-                        {availableTabs.map(tab => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
-                                className={`px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${activeTab === tab.id ? 'border-b-2 border-indigo-500 text-white' : 'text-gray-400 hover:text-white'}`}
-                            >
-                                {t(tab.labelKey)}
-                            </button>
-                        ))}
+                        {availableTabs.map(tab => {
+                            let label = t(tab.labelKey);
+                            // Override labels for VIP list mode
+                            if (isVip) {
+                                if (tab.id === 'register') label = "Cadastrar Convidado";
+                                if (tab.id === 'suppliers') label = "Promoters / Organizadores";
+                                if (tab.id === 'companies') label = "Empresas/Grupos";
+                            }
+
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setActiveTab(tab.id)}
+                                    className={`px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${activeTab === tab.id ? `border-b-2 ${isVip ? 'border-pink-500 text-pink-400' : 'border-indigo-500 text-white'}` : 'text-gray-400 hover:text-white'}`}
+                                >
+                                    {label}
+                                </button>
+                            );
+                        })}
                     </div>
                 </nav>
             </header>
             <main className="flex-grow overflow-y-auto rounded-lg">
                 <div className="py-6">
                     {activeTab === 'checkin' && <CheckinView {...checkinViewProps} />}
-                    {activeTab === 'register' && <RegisterView onRegister={onRegister} setError={setError} sectors={eventData.sectors} suppliers={eventData.suppliers} currentEventId={currentEventId} />}
-                    {activeTab === 'suppliers' && <SupplierManagementView currentEventId={currentEventId} suppliers={eventData.suppliers} attendees={eventData.attendees} sectors={eventData.sectors} onAddSupplier={handleAddSupplier} onUpdateSupplier={handleUpdateSupplier} onDeleteSupplier={handleDeleteSupplier} onSupplierStatusUpdate={handleSupplierStatusUpdate} onRegenerateAdminToken={handleRegenerateAdminToken} onUpdateSectorsForSelectedAttendees={handleUpdateSectorsForAttendees} setError={setError} />}
+                    {activeTab === 'register' && <RegisterView onRegister={onRegister} setError={setError} sectors={eventData.sectors} suppliers={eventData.suppliers} currentEventId={currentEventId} eventType={currentEvent.type} />}
+                    {activeTab === 'suppliers' && <SupplierManagementView currentEventId={currentEventId} suppliers={eventData.suppliers} attendees={eventData.attendees} sectors={eventData.sectors} onAddSupplier={handleAddSupplier} onUpdateSupplier={handleUpdateSupplier} onDeleteSupplier={handleDeleteSupplier} onSupplierStatusUpdate={handleSupplierStatusUpdate} onRegenerateAdminToken={handleRegenerateAdminToken} onUpdateSectorsForSelectedAttendees={handleUpdateSectorsForAttendees} setError={setError} eventType={currentEvent.type} />}
                     {activeTab === 'sectors' && <SectorManagementView sectors={eventData.sectors} onAddSector={handleAddSector} onUpdateSector={handleUpdateSector} onDeleteSector={handleDeleteSector} setError={setError} />}
                     {activeTab === 'companies' && <CompanyManagementView attendees={eventData.attendees} sectors={eventData.sectors} onUpdateSectorsForSelectedAttendees={handleUpdateSectorsForAttendees} setError={setError} />}
-                    {activeTab === 'spreadsheet' && <SpreadsheetUploadView onImport={handleImport} setError={setError} />}
+                    {activeTab === 'spreadsheet' && <SpreadsheetUploadView onImport={handleImport} setError={setError} eventType={currentEvent.type} />}
                     {activeTab === 'reports' && <WristbandReportView attendees={eventData.attendees} sectors={eventData.sectors} />}
                     {activeTab === 'logs' && <CheckinLogView attendees={eventData.attendees} />}
-                    {activeTab === 'scanner' && <QRCodeScannerView currentEvent={{ id: currentEventId, name: currentEventName, createdAt: null! }} attendees={eventData.attendees} onUpdateStatus={handleUpdateStatusForScanner} setError={setError} />}
+                    {activeTab === 'scanner' && <QRCodeScannerView currentEvent={{ id: currentEventId, name: currentEventName, createdAt: null!, type: currentEvent.type }} attendees={eventData.attendees} onUpdateStatus={handleUpdateStatusForScanner} setError={setError} />}
                     {activeTab === 'users' && <UserManagementView currentUser={user} users={users} events={eventsForUserManagement} onCreateUser={handleCreateUser} onUpdateUser={handleUpdateUser} onDeleteUser={handleDeleteUser} setError={setError} />}
                 </div>
             </main>

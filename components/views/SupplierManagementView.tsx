@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
 // FIX: Add file extensions to local imports.
-import { Supplier, Sector, Attendee, SubCompany, CheckinStatus } from '../../types.ts';
+import { Supplier, Sector, Attendee, SubCompany, CheckinStatus, EventType } from '../../types.ts';
 // FIX: Added .tsx extension to module import.
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { LinkIcon, NoSymbolIcon, CheckCircleIcon, PencilIcon, TrashIcon, XMarkIcon, EyeIcon, KeyIcon } from '../icons.tsx';
+import { LinkIcon, NoSymbolIcon, CheckCircleIcon, PencilIcon, TrashIcon, XMarkIcon, EyeIcon, KeyIcon, FaceSmileIcon, UsersIcon } from '../icons.tsx';
 import BulkUpdateSectorsModal from '../CompanySectorsModal.tsx';
 import * as api from '../../firebase/service.ts';
 import UserAvatar from '../UserAvatar.tsx';
@@ -21,11 +21,13 @@ interface SupplierManagementViewProps {
     onRegenerateAdminToken: (supplierId: string) => Promise<string>;
     onUpdateSectorsForSelectedAttendees: (attendeeIds: string[], sectorIds: string[]) => Promise<void>;
     setError: (message: string) => void;
+    eventType?: EventType;
 }
 
 
-const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ currentEventId, suppliers, attendees, sectors, onAddSupplier, onUpdateSupplier, onDeleteSupplier, onSupplierStatusUpdate, onRegenerateAdminToken, onUpdateSectorsForSelectedAttendees, setError }) => {
+const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ currentEventId, suppliers, attendees, sectors, onAddSupplier, onUpdateSupplier, onDeleteSupplier, onSupplierStatusUpdate, onRegenerateAdminToken, onUpdateSectorsForSelectedAttendees, setError, eventType = 'CREDENTIALING' }) => {
     const { t } = useTranslation();
+    const isVip = eventType === 'VIP_LIST';
     
     // State for the creation form
     const [supplierName, setSupplierName] = useState('');
@@ -135,7 +137,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!supplierName.trim()) {
-            setError(t('suppliers.noNameError'));
+            setError(isVip ? "O nome do promoter é obrigatório." : t('suppliers.noNameError'));
             return;
         }
         if (selectedSectors.length === 0) {
@@ -176,7 +178,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
         if (!editingSupplier) return;
 
         if (!editingSupplier.name.trim()) {
-            setError(t('suppliers.noNameError'));
+            setError(isVip ? "O nome do promoter é obrigatório." : t('suppliers.noNameError'));
             return;
         }
         if (editingSupplier.sectors.length === 0) {
@@ -211,7 +213,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
 
     const handleRegenerateToken = async (supplier: Supplier, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (window.confirm(`Tem certeza que deseja gerar um novo link de administrador para "${supplier.name}"? O link antigo deixará de funcionar.`)) {
+        if (window.confirm(`Tem certeza que deseja gerar um novo link de organizador para "${supplier.name}"? O link antigo deixará de funcionar.`)) {
             const newToken = await onRegenerateAdminToken(supplier.id);
             handleCopyAdminLink(newToken, supplier.id, e);
         }
@@ -219,14 +221,18 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
 
     const handleDelete = async (supplier: Supplier, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (window.confirm(t('suppliers.deleteConfirm', supplier.name))) {
+        const confirmMsg = isVip 
+            ? `Tem certeza que deseja deletar o promoter "${supplier.name}"? Esta ação não pode ser desfeita.`
+            : t('suppliers.deleteConfirm', supplier.name);
+
+        if (window.confirm(confirmMsg)) {
             try {
                 await onDeleteSupplier(supplier);
             } catch (err: any) {
                  if (err.message.includes("cannot be deleted")) {
-                    setError(t('suppliers.deleteErrorInUse', supplier.name));
+                    setError(isVip ? `O promoter "${supplier.name}" possui convidados e não pode ser excluído.` : t('suppliers.deleteErrorInUse', supplier.name));
                 } else {
-                    setError(err.message || 'Falha ao deletar o fornecedor.');
+                    setError(err.message || 'Falha ao deletar o organizador.');
                 }
             }
         }
@@ -254,6 +260,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
 
         setSelectedAttendeeIds(prev => {
             const newSet = new Set(prev);
+            // FIX: Replaced 'allSelectedInCompany' with 'allSelectedInSupplier' to resolve the reference error.
             if (allSelectedInSupplier) {
                 supplierAttendeeIds.forEach(id => newSet.delete(id));
             } else {
@@ -275,13 +282,13 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
 
     const handleBlockUser = async (attendeeId: string) => {
         const reason = window.prompt("Por favor, informe o motivo do bloqueio (opcional):");
-        if(reason !== null){ // If null, user cancelled prompt
+        if(reason !== null){ 
             await api.blockAttendee(currentEventId, attendeeId, reason);
         }
     }
 
     const handleUnblockUser = async (attendeeId: string) => {
-        if(window.confirm('Deseja realmente desbloquear este colaborador?')) {
+        if(window.confirm('Deseja realmente desbloquear este registro?')) {
             await api.unblockAttendee(currentEventId, attendeeId);
         }
     }
@@ -297,7 +304,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                     id={`sector-${sector.id}-${isEditing}`}
                     checked={currentSectors.includes(sector.id)}
                     onChange={() => handleSectorChange(sector.id, isEditing)}
-                    className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
+                    className={`h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500`}
                     disabled={isSubmitting && !isEditing}
                 />
                 <label htmlFor={`sector-${sector.id}-${isEditing}`} className="text-white cursor-pointer">{sector.label}</label>
@@ -314,21 +321,23 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
         
         return (
             <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">{t('suppliers.subCompaniesLabel')}</label>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                    {isVip ? "Grupos / Organizações Vinculadas (Opcional)" : t('suppliers.subCompaniesLabel')}
+                </label>
                 <div className="flex flex-col sm:flex-row gap-2">
                     <input
                         type="text"
                         value={nameValue}
                         onChange={(e) => setNameValue(e.target.value)}
                         className="flex-grow bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                        placeholder={t('suppliers.subCompaniesPlaceholder')}
+                        placeholder={isVip ? "Nome do Grupo/Empresa" : t('suppliers.subCompaniesPlaceholder')}
                     />
                     <select
                         value={sectorValue}
                         onChange={(e) => setSectorValue(e.target.value)}
                         className="bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     >
-                        <option value="" disabled>{t('suppliers.subCompanySectorPlaceholder')}</option>
+                        <option value="" disabled>{isVip ? "Tipo" : t('suppliers.subCompanySectorPlaceholder')}</option>
                         {sectors.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
                     </select>
                     <button type="button" onClick={() => handleAddSubCompany(isEditing)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex-shrink-0">{t('suppliers.addSubCompanyButton')}</button>
@@ -370,30 +379,30 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
 
     return (
         <div className="w-full max-w-7xl mx-auto space-y-6">
-            <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
-                <h2 className="text-3xl font-bold text-white text-center mb-6">{t('suppliers.generateTitle')}</h2>
+            <div className={`bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border ${isVip ? 'border-pink-500/30' : 'border-gray-700'}`}>
+                <h2 className="text-3xl font-bold text-white text-center mb-6">{isVip ? "Gestão de Promoters / Organizadores" : t('suppliers.generateTitle')}</h2>
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label htmlFor="supplierName" className="block text-sm font-medium text-gray-300 mb-1">{t('suppliers.nameLabel')}</label>
+                            <label htmlFor="supplierName" className="block text-sm font-medium text-gray-300 mb-1">{isVip ? "Nome do Promoter / Responsável" : t('suppliers.nameLabel')}</label>
                             <input
                                 type="text" id="supplierName" value={supplierName} onChange={(e) => setSupplierName(e.target.value)}
                                 className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                placeholder={t('suppliers.namePlaceholder')}
+                                placeholder={isVip ? "Ex: Promoter João Silva" : t('suppliers.namePlaceholder')}
                             />
                         </div>
                         <div>
-                            <label htmlFor="limit" className="block text-sm font-medium text-gray-300 mb-1">{t('suppliers.limitLabel')}</label>
+                            <label htmlFor="limit" className="block text-sm font-medium text-gray-300 mb-1">{isVip ? "Limite de Convidados" : t('suppliers.limitLabel')}</label>
                             <input
                                 type="number" id="limit" value={limit} onChange={(e) => setLimit(e.target.value)}
                                 className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                placeholder={t('suppliers.limitPlaceholder')}
+                                placeholder="Ex: 100"
                                 min="1"
                             />
                         </div>
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">{t('suppliers.sectorsLabel')}</label>
+                        <label className="block text-sm font-medium text-gray-300 mb-2">{isVip ? "Tipos de Convidados Permitidos" : t('suppliers.sectorsLabel')}</label>
                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 p-4 bg-gray-900/50 rounded-lg">
                             {renderSectorCheckboxes(false)}
                         </div>
@@ -401,14 +410,14 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
 
                     {renderSubCompanyManager(false)}
 
-                    <button type="submit" disabled={isSubmitting} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 disabled:bg-gray-500">
-                        {t('suppliers.generateButton')}
+                    <button type="submit" disabled={isSubmitting} className={`w-full text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 disabled:bg-gray-500 ${isVip ? 'bg-pink-600 hover:bg-pink-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
+                        {isVip ? "Criar Link de Promoter" : t('suppliers.generateButton')}
                     </button>
                 </form>
             </div>
 
-            <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
-                <h3 className="text-2xl font-bold text-white text-center mb-6">{t('suppliers.existingLinks')}</h3>
+            <div className={`bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border ${isVip ? 'border-pink-500/30' : 'border-gray-700'}`}>
+                <h3 className="text-2xl font-bold text-white text-center mb-6">{isVip ? "Promoters e Links de Convite" : t('suppliers.existingLinks')}</h3>
                 {sortedSuppliers.length > 0 ? (
                     <div className="space-y-4">
                         {sortedSuppliers.map(supplier => {
@@ -418,10 +427,9 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                             const supplierAttendees = attendees
                                 .filter(a => a.supplierId === supplier.id)
                                 .sort((a, b) => {
-                                    // Sort blocked/rejected to the top for visibility
                                     if (a.status === CheckinStatus.BLOCKED && b.status !== CheckinStatus.BLOCKED) return -1;
                                     if (b.status === CheckinStatus.BLOCKED && a.status !== CheckinStatus.BLOCKED) return 1;
-                                    return b.createdAt.seconds - a.createdAt.seconds; // Newest first
+                                    return b.createdAt.seconds - a.createdAt.seconds; 
                                 });
                             const allInSupplierSelected = supplierAttendees.length > 0 && supplierAttendees.every(a => selectedAttendeeIds.has(a.id));
 
@@ -440,7 +448,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                         </div>
                                     ) : (
                                         <>
-                                        <div onClick={() => handleToggleSupplier(supplier.id)} className="p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 cursor-pointer hover:bg-gray-800/50">
+                                        <div onClick={() => handleToggleSupplier(supplier.id)} className={`p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 cursor-pointer hover:bg-gray-800/50 border-l-4 ${supplier.active ? (isVip ? 'border-pink-500' : 'border-green-500') : 'border-gray-600'}`}>
                                             <div className="flex-grow">
                                                 <h4 className="font-bold text-lg text-white">{supplier.name}</h4>
                                                 <div className="flex items-center gap-2 text-sm text-gray-400 mt-1">
@@ -448,7 +456,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                                         {supplier.active ? t('suppliers.active') : t('suppliers.inactive')}
                                                     </span>
                                                     <span>&bull;</span>
-                                                    <span>{t('suppliers.registrations')}: {currentCount} / {supplier.registrationLimit}</span>
+                                                    <span>{isVip ? 'Convidados' : t('suppliers.registrations')}: {currentCount} / {supplier.registrationLimit}</span>
                                                 </div>
                                                  <div className="flex flex-wrap gap-1 mt-2">
                                                     {(supplier.sectors || []).map(id => {
@@ -461,12 +469,12 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                                 <button onClick={(e) => onSupplierStatusUpdate(supplier.id, !supplier.active)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700" title={supplier.active ? t('suppliers.disableButton') : t('suppliers.enableButton')}>
                                                     {supplier.active ? <NoSymbolIcon className="w-5 h-5"/> : <CheckCircleIcon className="w-5 h-5"/>}
                                                 </button>
-                                                <button onClick={(e) => handleCopyLink(supplier.id, e)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700" title={t('suppliers.copyButton')}>
+                                                <button onClick={(e) => handleCopyLink(supplier.id, e)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700" title={isVip ? "Copiar link de convite" : t('suppliers.copyButton')}>
                                                     {copiedLink === supplier.id ? <CheckCircleIcon className="w-5 h-5 text-green-400"/> : <LinkIcon className="w-5 h-5"/>}
                                                 </button>
                                                 {supplier.adminToken && (
                                                     <>
-                                                        <button onClick={(e) => handleCopyAdminLink(supplier.adminToken!, supplier.id, e)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700" title={t('suppliers.adminLink.copyTooltip')}>
+                                                        <button onClick={(e) => handleCopyAdminLink(supplier.adminToken!, supplier.id, e)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700" title={isVip ? "Copiar link de controle do promoter" : t('suppliers.adminLink.copyTooltip')}>
                                                           {copiedAdminLink === supplier.id ? <CheckCircleIcon className="w-5 h-5 text-green-400"/> : <EyeIcon className="w-5 h-5"/>}
                                                         </button>
                                                         <button onClick={(e) => handleRegenerateToken(supplier, e)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700" title={t('suppliers.adminLink.regenerateTooltip')}>
@@ -504,9 +512,9 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                                         <thead className="text-xs text-gray-400 uppercase bg-gray-800/60">
                                                             <tr>
                                                                 <th className="px-4 py-3 w-8"></th>
-                                                                <th className="px-4 py-3">{t('suppliers.table.colaborador')}</th>
+                                                                <th className="px-4 py-3">{isVip ? "Convidado" : t('suppliers.table.colaborador')}</th>
                                                                 <th className="px-4 py-3">{t('suppliers.table.status')}</th>
-                                                                <th className="px-4 py-3">{t('suppliers.table.origin')}</th>
+                                                                <th className="px-4 py-3">Origem</th>
                                                                 <th className="px-4 py-3">{t('suppliers.table.access')}</th>
                                                                 <th className="px-4 py-3 text-center">{t('suppliers.table.actions')}</th>
                                                             </tr>
@@ -574,7 +582,6 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                                                                 <button 
                                                                                     onClick={() => handleUnblockUser(attendee.id)}
                                                                                     className="text-xs bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded"
-                                                                                    title={t('suppliers.actions.unblock')}
                                                                                 >
                                                                                     Desbloquear
                                                                                 </button>
@@ -582,7 +589,6 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                                                                  <button 
                                                                                     onClick={() => handleBlockUser(attendee.id)}
                                                                                     className="text-xs bg-red-600/80 hover:bg-red-700 text-white px-2 py-1 rounded flex items-center gap-1 mx-auto"
-                                                                                    title={t('suppliers.actions.block')}
                                                                                 >
                                                                                     <NoSymbolIcon className="w-3 h-3" />
                                                                                     Bloquear
@@ -596,7 +602,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                                     </table>
                                                     </>
                                                 ) : (
-                                                    <p className="text-sm text-gray-500 text-center py-4">Nenhum colaborador cadastrado para este fornecedor.</p>
+                                                    <p className="text-sm text-gray-500 text-center py-4">Nenhum registro para este organizador.</p>
                                                 )}
                                             </div>
                                          )}
@@ -607,7 +613,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                         })}
                     </div>
                 ) : (
-                     <p className="text-center text-gray-500">{t('suppliers.noLinks')}</p>
+                     <p className="text-center text-gray-500">{isVip ? "Nenhum promoter cadastrado." : t('suppliers.noLinks')}</p>
                 )}
             </div>
              {selectedAttendeeIds.size > 0 && (

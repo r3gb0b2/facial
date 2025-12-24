@@ -15,6 +15,8 @@ export enum CheckinStatus {
   REJECTED = 'REJECTED', // Recusado pelo Admin
 }
 
+export type EventType = 'CREDENTIALING' | 'VIP_LIST';
+
 export interface Attendee {
   id: string;
   name: string;
@@ -56,6 +58,7 @@ export interface EventModules {
 export interface Event {
   id: string;
   name: string;
+  type: EventType;
   createdAt: FirebaseTimestamp;
   modules?: EventModules;
   allowPhotoChange?: boolean; // If true, existing users from other events can update their photo
