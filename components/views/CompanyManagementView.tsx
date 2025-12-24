@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo } from 'react';
 import { Attendee, Sector } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { BuildingOfficeIcon, PencilIcon } from '../icons.tsx';
+import { BuildingOfficeIcon, PencilIcon, CheckCircleIcon, XMarkIcon } from '../icons.tsx';
 import BulkUpdateSectorsModal from '../CompanySectorsModal.tsx';
 
 interface CompanyManagementViewProps {
@@ -49,11 +50,8 @@ const CompanyManagementView: React.FC<CompanyManagementViewProps> = ({
     const handleToggleAttendee = (attendeeId: string) => {
         setSelectedAttendeeIds(prev => {
             const newSet = new Set(prev);
-            if (newSet.has(attendeeId)) {
-                newSet.delete(attendeeId);
-            } else {
-                newSet.add(attendeeId);
-            }
+            if (newSet.has(attendeeId)) newSet.delete(attendeeId);
+            else newSet.add(attendeeId);
             return newSet;
         });
     };
@@ -76,45 +74,46 @@ const CompanyManagementView: React.FC<CompanyManagementViewProps> = ({
     const handleSaveSectors = async (sectorIds: string[]) => {
         try {
             await onUpdateSectorsForSelectedAttendees(Array.from(selectedAttendeeIds), sectorIds);
-            setSelectedAttendeeIds(new Set()); // Clear selection on success
+            setSelectedAttendeeIds(new Set());
         } catch (error) {
-            console.error("Failed to update company sectors:", error);
             setError("Falha ao atualizar setores.");
         }
     };
 
     return (
         <div className="w-full max-w-4xl mx-auto">
-            <div className="bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
-                <h2 className="text-3xl font-bold text-white mb-6 flex items-center justify-center gap-3">
-                    <BuildingOfficeIcon className="w-8 h-8"/>
+            <div className="bg-gray-800 p-8 rounded-xl border border-gray-700 shadow-xl">
+                <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+                    <BuildingOfficeIcon className="w-6 h-6 text-indigo-500" />
                     {t('companies.title')}
                 </h2>
+                
                 {companies.length === 0 ? (
-                    <div className="text-center text-gray-400 py-8">
-                        <p className="text-lg mb-2">{t('companies.noCompanies')}</p>
-                        <p className="text-sm">{t('companies.noCompaniesSubtitle')}</p>
+                    <div className="text-center py-10 border-2 border-dashed border-gray-700 rounded-xl">
+                        <p className="text-gray-500 font-medium">{t('companies.noCompanies')}</p>
+                        <p className="text-xs text-gray-600 mt-1">{t('companies.noCompaniesSubtitle')}</p>
                     </div>
                 ) : (
-                    <div className="space-y-2">
+                    <div className="space-y-3">
                         {companies.map((company) => {
                              const isExpanded = expandedCompany === company.name;
                              const allInCompanySelected = company.attendees.every(a => selectedAttendeeIds.has(a.id));
 
                              return (
-                                <div key={company.name} className="bg-gray-900/70 rounded-lg overflow-hidden">
-                                    <button onClick={() => handleToggleCompany(company.name)} className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-800 transition-colors">
+                                <div key={company.name} className="bg-gray-900/50 border border-gray-700 rounded-lg overflow-hidden transition-all">
+                                    <button onClick={() => handleToggleCompany(company.name)} className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-800">
                                         <div>
-                                            <p className="font-semibold text-white text-lg">{company.name}</p>
-                                            <p className="text-sm text-gray-400">{t('companies.attendeeCount', company.attendees.length)}</p>
+                                            <p className="font-bold text-white">{company.name}</p>
+                                            <p className="text-xs text-indigo-400">{t('companies.attendeeCount', company.attendees.length)}</p>
                                         </div>
-                                        <svg className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <svg className={`w-5 h-5 text-gray-500 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                         </svg>
                                     </button>
+                                    
                                      {isExpanded && (
                                         <div className="p-4 border-t border-gray-700 bg-black/20">
-                                            <div className="flex items-center mb-2 p-2">
+                                            <div className="flex items-center mb-4 pb-3 border-b border-gray-800">
                                                 <input
                                                     type="checkbox"
                                                     id={`select-all-${company.name}`}
@@ -122,23 +121,21 @@ const CompanyManagementView: React.FC<CompanyManagementViewProps> = ({
                                                     onChange={() => handleSelectAllInCompany(company.attendees)}
                                                     className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
                                                 />
-                                                <label htmlFor={`select-all-${company.name}`} className="ml-3 text-sm font-medium text-gray-300 cursor-pointer">{t('companies.selectAll')}</label>
+                                                <label htmlFor={`select-all-${company.name}`} className="ml-3 text-sm font-bold text-gray-300 cursor-pointer">{t('companies.selectAll')}</label>
                                             </div>
-                                            <ul className="space-y-1 max-h-60 overflow-y-auto">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-2">
                                                 {company.attendees.map(attendee => (
-                                                    <li key={attendee.id} className="p-2 rounded-md hover:bg-gray-700/50">
-                                                        <label className="flex items-center cursor-pointer">
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={selectedAttendeeIds.has(attendee.id)}
-                                                                onChange={() => handleToggleAttendee(attendee.id)}
-                                                                className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
-                                                            />
-                                                            <span className="ml-3 text-white">{attendee.name}</span>
-                                                        </label>
-                                                    </li>
+                                                    <label key={attendee.id} className="flex items-center p-2 rounded hover:bg-gray-800 cursor-pointer group">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedAttendeeIds.has(attendee.id)}
+                                                            onChange={() => handleToggleAttendee(attendee.id)}
+                                                            className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
+                                                        />
+                                                        <span className="ml-3 text-sm text-gray-300 group-hover:text-white">{attendee.name}</span>
+                                                    </label>
                                                 ))}
-                                            </ul>
+                                            </div>
                                         </div>
                                      )}
                                 </div>
@@ -147,18 +144,24 @@ const CompanyManagementView: React.FC<CompanyManagementViewProps> = ({
                     </div>
                 )}
             </div>
+
             {selectedAttendeeIds.size > 0 && (
-                <div className="fixed bottom-5 right-5 z-20 bg-gray-800 border border-gray-600 shadow-2xl rounded-lg p-3 flex items-center gap-4 animate-fade-in-up">
-                    <p className="text-white font-semibold">{t('companies.selectedCount', selectedAttendeeIds.size)}</p>
+                <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 text-white shadow-2xl rounded-full px-6 py-4 flex items-center gap-6 animate-in slide-in-from-bottom-10">
+                    <p className="text-sm font-black uppercase tracking-widest">{t('companies.selectedCount', selectedAttendeeIds.size)}</p>
+                    <div className="w-[1px] h-6 bg-white/20"></div>
                     <button 
                         onClick={() => setIsModalOpen(true)}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2"
+                        className="flex items-center gap-2 hover:scale-105 transition-transform"
                     >
-                       <PencilIcon className="w-4 h-4" />
-                       {t('companies.editSelectedButton')}
+                       <PencilIcon className="w-5 h-5" />
+                       <span className="text-sm font-bold uppercase tracking-widest">{t('companies.editSelectedButton')}</span>
+                    </button>
+                    <button onClick={() => setSelectedAttendeeIds(new Set())} className="text-white/60 hover:text-white">
+                        <XMarkIcon className="w-6 h-6" />
                     </button>
                 </div>
             )}
+
              <BulkUpdateSectorsModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
