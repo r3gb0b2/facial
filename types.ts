@@ -21,6 +21,7 @@ export interface Attendee {
   id: string;
   name: string;
   cpf: string;
+  email?: string; // Field for Guests
   photo: string; // This is a URL to the image in Firebase Storage
   sectors: string[];
   status: CheckinStatus;
