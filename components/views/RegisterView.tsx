@@ -29,7 +29,6 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
   const [name, setName] = useState('');
   const [cpf, setCpf] = useState('');
   const [email, setEmail] = useState('');
-  const [age, setAge] = useState('');
   const [sector, setSector] = useState('');
   const [selectedSupplierId, setSelectedSupplierId] = useState('');
   const [subCompany, setSubCompany] = useState('');
@@ -63,7 +62,6 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
         if (existingAttendee) {
             setName(existingAttendee.name);
             setEmail(existingAttendee.email || '');
-            setAge(existingAttendee.age ? String(existingAttendee.age) : '');
             setPhoto(existingAttendee.photo);
             if (activeEventId && existingAttendee.eventId === activeEventId) {
               setCpfCheckMessage(t('register.cpfAlreadyRegistered'));
@@ -92,12 +90,8 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
     }
     setIsSubmitting(true);
     try {
-      await onRegister({ 
-          name, cpf: rawCpf, email: email.trim(), 
-          age: age ? parseInt(age) : undefined,
-          photo, sectors: [sector], subCompany 
-      }, isAdminView ? selectedSupplierId : undefined);
-      setName(''); setCpf(''); setEmail(''); setAge(''); setPhoto(null); setSubCompany('');
+      await onRegister({ name, cpf: rawCpf, email: email.trim(), photo, sectors: [sector], subCompany }, isAdminView ? selectedSupplierId : undefined);
+      setName(''); setCpf(''); setEmail(''); setPhoto(null); setSubCompany('');
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 5000);
     } catch (error: any) {
@@ -109,6 +103,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
 
   const formatCPF = (value: string) => value.replace(/\D/g, '').slice(0, 11).replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
 
+  // --- VIP VISTA PÚBLICA (LINK DA PROMOTER) ---
   if (isVip) {
       return (
           <div className="w-full max-w-5xl mx-auto">
@@ -143,15 +138,9 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
                                       <label className="absolute -top-4 left-0 text-[10px] font-black uppercase tracking-widest text-neutral-600">Documento (CPF)</label>
                                       {cpfCheckMessage && <p className="text-[10px] font-black text-rose-500/80 mt-2 uppercase tracking-widest">{cpfCheckMessage}</p>}
                                   </div>
-                                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                      <div className="md:col-span-3 relative group">
-                                          <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-transparent border-b border-neutral-800 py-3 text-white focus:outline-none focus:border-rose-500 transition-all font-bold placeholder:text-neutral-800 text-lg" placeholder="NOME COMPLETO" required disabled={isSubmitting || existingAttendeeFound} />
-                                          <label className="absolute -top-4 left-0 text-[10px] font-black uppercase tracking-widest text-neutral-600">Convidado</label>
-                                      </div>
-                                      <div className="relative group">
-                                          <input type="number" value={age} onChange={(e) => setAge(e.target.value)} className="w-full bg-transparent border-b border-neutral-800 py-3 text-white focus:outline-none focus:border-rose-500 transition-all font-bold placeholder:text-neutral-800 text-lg" placeholder="--" required disabled={isSubmitting || existingAttendeeFound} />
-                                          <label className="absolute -top-4 left-0 text-[10px] font-black uppercase tracking-widest text-neutral-600">Idade</label>
-                                      </div>
+                                  <div className="relative group">
+                                      <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-transparent border-b border-neutral-800 py-3 text-white focus:outline-none focus:border-rose-500 transition-all font-bold placeholder:text-neutral-800 text-lg" placeholder="NOME COMPLETO" required disabled={isSubmitting || existingAttendeeFound} />
+                                      <label className="absolute -top-4 left-0 text-[10px] font-black uppercase tracking-widest text-neutral-600">Convidado</label>
                                   </div>
                                   <div className="relative group">
                                       <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-transparent border-b border-neutral-800 py-3 text-white focus:outline-none focus:border-rose-500 transition-all font-bold placeholder:text-neutral-800 text-lg" placeholder="EXEMPLO@EMAIL.COM" required disabled={isSubmitting || existingAttendeeFound} />
@@ -174,20 +163,37 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
                       </div>
                   </div>
               </div>
+              {showSuccess && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                    <div className="max-w-sm w-full bg-neutral-900 border border-rose-500/30 rounded-[3rem] p-10 text-center shadow-2xl">
+                        <CheckCircleIcon className="w-20 h-20 text-rose-600 mx-auto mb-6" />
+                        <h3 className="text-2xl font-black text-white mb-2 uppercase tracking-tighter">Bem-vindo à Lista</h3>
+                        <p className="text-neutral-400 text-sm mb-8">Sua presença VIP foi confirmada.</p>
+                        <button onClick={() => setShowSuccess(false)} className="w-full py-4 bg-white text-black font-black uppercase tracking-widest text-[10px] rounded-2xl">OK</button>
+                    </div>
+                </div>
+              )}
           </div>
       );
   }
 
+  // --- MODO CORPORATIVO PADRÃO ---
   return (
     <div className="w-full max-w-4xl mx-auto bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border border-gray-700">
-        <div className="text-center mb-10"><h2 className="text-3xl font-bold text-white tracking-tight">{t('register.title')}</h2></div>
+        <div className="text-center mb-10">
+            <h2 className="text-3xl font-bold text-white tracking-tight">{t('register.title')}</h2>
+        </div>
         <form onSubmit={handleRegisterSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-12">
             <div className="space-y-6">
                 <input type="text" value={cpf} onChange={(e) => setCpf(formatCPF(e.target.value))} onBlur={handleCpfBlur} className="w-full bg-gray-900 border border-gray-700 rounded-xl py-3 px-4 text-white" placeholder={t('register.form.cpfLabel')} />
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-gray-900 border border-gray-700 rounded-xl py-3 px-4 text-white" placeholder={t('register.form.nameLabel')} disabled={existingAttendeeFound} />
-                <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-xl">{isSubmitting ? "Enviando..." : t('register.form.button')}</button>
+                <button type="submit" disabled={isSubmitting || existingAttendeeFound || !photo} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-xl">
+                    {isSubmitting ? "Enviando..." : t('register.form.button')}
+                </button>
             </div>
-            <div className="flex justify-center"><WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting} allowUpload={allowGuestUploads} /></div>
+            <div className="flex justify-center">
+                <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting} allowUpload={allowGuestUploads} />
+            </div>
         </form>
     </div>
   );
