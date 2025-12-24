@@ -43,7 +43,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
     return {
       searchTerm: '',
       searchBy: 'ALL',
-      statusFilter: CheckinStatus.PENDING,
+      statusFilter: 'ALL',
       supplierFilter: 'ALL',
       ageMin: '',
       ageMax: '',
@@ -87,7 +87,6 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
   
   const handleBulkStatusUpdate = async (status: CheckinStatus) => {
       try {
-          // FIX: Explicitly typed id as string to avoid "unknown" type error during bulk update
           await Promise.all(Array.from(selectedAttendeeIds).map((id: string) => 
             api.updateAttendeeStatus(currentEventId, id, status, user.username)
           ));
@@ -104,7 +103,6 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
 
   const handleExportToExcel = () => {
     const dataToExport = attendees.map(attendee => {
-        // FIX: Improved type safety for sector labels join operation by using a type guard for filtering.
         const sectorLabels = (attendee.sectors || [])
             .map(id => sectorMap.get(id)?.label)
             .filter((l): l is string => typeof l === 'string')
@@ -140,7 +138,6 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
         else { if (attendee.supplierId !== supplierFilter) return false; }
       }
       
-      // Filtro de idade
       if (ageMin || ageMax) {
           const attendeeAge = attendee.age || 0;
           if (attendeeAge < min || attendeeAge > max) return false;
@@ -167,8 +164,14 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
       total: attendees.length,
   }), [attendees]);
 
-  const containerClass = isVip ? "bg-neutral-900/50 backdrop-blur-xl p-6 md:p-8 rounded-3xl shadow-2xl border border-white/10" : "bg-gray-800/50 backdrop-blur-sm p-6 rounded-2xl border border-gray-700";
-  const inputClass = isVip ? "w-full bg-black/50 border border-neutral-700 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-rose-500/50 transition-all text-sm" : "w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm";
+  // UI CONFIGS DIFERENCIADAS
+  const containerClass = isVip 
+    ? "bg-neutral-900/50 backdrop-blur-xl p-6 md:p-8 rounded-3xl shadow-2xl border border-white/10" 
+    : "bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg";
+
+  const inputClass = isVip 
+    ? "w-full bg-black/50 border border-neutral-700 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-rose-500/50 transition-all text-sm" 
+    : "w-full bg-gray-900 border border-gray-700 rounded-lg py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm";
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-8 pb-32">
@@ -176,12 +179,12 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
       {/* Dashboard de Contadores */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-              { label: t('checkin.stats.total'), val: stats.total, color: 'text-white' },
-              { label: t('checkin.stats.pending'), val: stats.pending, color: 'text-amber-400' },
-              { label: t('checkin.stats.checkedIn'), val: stats.checkedIn, color: 'text-rose-500' },
-              { label: t('checkin.stats.rejected'), val: stats.rejected, color: 'text-neutral-500' }
+              { label: t('checkin.stats.total'), val: stats.total, color: 'text-white', bg: isVip ? 'bg-neutral-900/80 border-white/5' : 'bg-gray-800 border-gray-700' },
+              { label: t('checkin.stats.pending'), val: stats.pending, color: 'text-amber-400', bg: isVip ? 'bg-neutral-900/80 border-white/5' : 'bg-gray-800 border-gray-700' },
+              { label: t('checkin.stats.checkedIn'), val: stats.checkedIn, color: isVip ? 'text-rose-500' : 'text-green-400', bg: isVip ? 'bg-neutral-900/80 border-white/5' : 'bg-gray-800 border-gray-700' },
+              { label: t('checkin.stats.rejected'), val: stats.rejected, color: 'text-neutral-500', bg: isVip ? 'bg-neutral-900/80 border-white/5' : 'bg-gray-800 border-gray-700' }
           ].map(s => (
-              <div key={s.label} className="bg-neutral-900/80 border border-white/5 p-6 rounded-[2rem] text-center shadow-xl">
+              <div key={s.label} className={`${s.bg} border p-6 rounded-[2rem] text-center shadow-xl`}>
                   <p className={`text-4xl font-black tracking-tighter ${s.color}`}>{s.val}</p>
                   <p className="text-[10px] text-neutral-500 uppercase font-black tracking-widest mt-2">{s.label}</p>
               </div>
@@ -216,7 +219,6 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
                 className={inputClass}
              >
                 <option value="ALL">{t('checkin.filter.allStatuses')}</option>
-                {/* FIX: Cast enum value s to string to ensure type safety in dynamic keys and toLowerCase calls */}
                 {Object.values(CheckinStatus).map(s => <option key={s as string} value={s as string}>{t(`status.${(s as string).toLowerCase()}`)}</option>)}
              </select>
              <select
@@ -225,7 +227,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
              >
                 <option value="ALL">{t('checkin.filter.allSuppliers')}</option>
                 {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                <option value="">Sem Host Vinculada</option>
+                <option value="">{isVip ? 'Sem Host Vinculada' : 'Sem Fornecedor'}</option>
              </select>
              <div className="flex gap-2">
                 <input type="number" placeholder="Min Idade" value={ageMin} onChange={(e) => handleFilterChange('ageMin', e.target.value)} className={inputClass} />
@@ -244,7 +246,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
           <div key={attendee.id} className="relative group">
             <div 
                 onClick={(e) => toggleAttendeeSelection(attendee.id, e)}
-                className={`absolute top-4 left-4 z-20 w-6 h-6 rounded-lg border-2 transition-all cursor-pointer flex items-center justify-center ${selectedAttendeeIds.has(attendee.id) ? 'bg-rose-500 border-rose-500' : 'bg-black/40 border-white/20 hover:border-rose-500'}`}
+                className={`absolute top-4 left-4 z-20 w-6 h-6 rounded-lg border-2 transition-all cursor-pointer flex items-center justify-center ${selectedAttendeeIds.has(attendee.id) ? (isVip ? 'bg-rose-500 border-rose-500' : 'bg-indigo-600 border-indigo-600') : 'bg-black/40 border-white/20 hover:border-indigo-500'}`}
             >
                 {selectedAttendeeIds.has(attendee.id) && <CheckCircleIcon className="w-4 h-4 text-white" />}
             </div>
@@ -261,10 +263,10 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
       
       {/* Botão de Ação em Massa */}
       {selectedAttendeeIds.size > 0 && (
-          <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[80] bg-neutral-900 border border-rose-500/30 p-4 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.9)] flex items-center gap-6 animate-in slide-in-from-bottom-10">
+          <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[80] border p-4 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.9)] flex items-center gap-6 animate-in slide-in-from-bottom-10 ${isVip ? 'bg-neutral-900 border-rose-500/30' : 'bg-gray-800 border-indigo-500/30'}`}>
               <p className="text-white font-black uppercase text-[10px] tracking-widest ml-4">{selectedAttendeeIds.size} selecionados</p>
               <div className="h-6 w-[1px] bg-white/10"></div>
-              <button onClick={() => handleBulkStatusUpdate(CheckinStatus.CHECKED_IN)} className="bg-rose-600 text-white font-black uppercase tracking-widest text-[9px] py-3 px-6 rounded-xl hover:bg-rose-500">Aprovar Todos</button>
+              <button onClick={() => handleBulkStatusUpdate(CheckinStatus.CHECKED_IN)} className={`${isVip ? 'bg-rose-600 hover:bg-rose-500' : 'bg-indigo-600 hover:bg-indigo-500'} text-white font-black uppercase tracking-widest text-[9px] py-3 px-6 rounded-xl`}>Aprovar Todos</button>
               <button onClick={() => setSelectedAttendeeIds(new Set<string>())} className="text-neutral-500 hover:text-white transition-colors p-2"><XMarkIcon className="w-6 h-6"/></button>
           </div>
       )}
