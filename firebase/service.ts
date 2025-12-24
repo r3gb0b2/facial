@@ -50,8 +50,6 @@ export const updateEvent = (id: string, name: string, type?: EventType, modules?
 };
 
 export const deleteEvent = (id: string) => {
-    // Note: This is a simple delete. In a real app, you'd want a Cloud Function
-    // to recursively delete all subcollections (attendees, suppliers, etc.).
     return db.collection('events').doc(id).delete();
 };
 
@@ -68,7 +66,6 @@ export const subscribeToEventData = (
     };
 
     const updateCallback = () => {
-        // Create a shallow copy to ensure React detects the change
         callback({ ...data });
     };
 
@@ -87,8 +84,6 @@ export const subscribeToEventData = (
         updateCallback();
     }, onError);
 
-
-    // Return a function that unsubscribes from all listeners
     return () => {
         attendeesUnsub();
         suppliersUnsub();
@@ -103,17 +98,14 @@ export const getAttendees = async (eventId: string): Promise<Attendee[]> => {
 };
 
 export const findAttendeeByCpf = async (cpf: string, eventId?: string): Promise<(Attendee & { eventId?: string }) | null> => {
-    // 1. If eventId is provided, check specifically within that event first (for strict duplicate check in current event)
     if (eventId) {
         const localSnapshot = await db.collection('events').doc(eventId).collection('attendees').where('cpf', '==', cpf).limit(1).get();
         if (!localSnapshot.empty) {
              const attendee = getData<Attendee>(localSnapshot.docs[0]);
-             return { ...attendee, eventId: eventId }; // Explicitly from this event
+             return { ...attendee, eventId: eventId };
         }
     }
 
-    // 2. If not found locally (or no eventId provided), search globally to find data to pre-fill
-    // This allows finding a user from a PAST event to copy their photo/name
     let query: firebase.firestore.Query = db.collectionGroup('attendees').where('cpf', '==', cpf).limit(1);
     
     const snapshot = await query.get();
@@ -122,17 +114,10 @@ export const findAttendeeByCpf = async (cpf: string, eventId?: string): Promise<
     }
     
     const attendee = getData<Attendee>(snapshot.docs[0]);
-    
-    // Retrieve the eventId from the document reference parent path
-    // Path is events/{eventId}/attendees/{docId}
-    // parent = attendees, parent.parent = events/{eventId}
     const docEventId = snapshot.docs[0].ref.parent.parent?.id;
-
-    // Return the attendee with the eventId where it was found
     return { ...attendee, eventId: docEventId };
 };
 
-// Checks if the CPF is blocked in ANY event
 export const checkBlockedStatus = async (cpf: string): Promise<{ isBlocked: true, reason: string, eventName: string } | null> => {
     const snapshot = await db.collectionGroup('attendees')
         .where('cpf', '==', cpf)
@@ -145,7 +130,6 @@ export const checkBlockedStatus = async (cpf: string): Promise<{ isBlocked: true
     const doc = snapshot.docs[0];
     const data = doc.data() as Attendee;
     
-    // Attempt to fetch event name
     let eventName = 'Evento desconhecido';
     const eventId = doc.ref.parent.parent?.id;
     
@@ -164,35 +148,27 @@ export const checkBlockedStatus = async (cpf: string): Promise<{ isBlocked: true
 }
 
 const uploadPhoto = async (photoDataUrl: string, cpf: string): Promise<string> => {
-    // If the provided string is already a downloadable URL (from spreadsheet), just return it.
     if (photoDataUrl.startsWith('http://') || photoDataUrl.startsWith('https://')) {
         return photoDataUrl;
     }
-    // Otherwise, assume it's a base64 Data URL and upload it.
     const blob = await (await fetch(photoDataUrl)).blob();
     const ref = storage.ref(`photos/${cpf}-${Date.now()}.png`);
     const snapshot = await ref.put(blob);
     return snapshot.ref.getDownloadURL();
 };
 
-
 export const addAttendee = async (eventId: string, attendeeData: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>, supplierId?: string) => {
-    // Check if photo is a data URL that needs uploading
     let photoUrl = attendeeData.photo;
     if (attendeeData.photo.startsWith('data:image') || !attendeeData.photo.startsWith('http')) {
         photoUrl = await uploadPhoto(attendeeData.photo, attendeeData.cpf);
     }
 
-    // Determine initial status: If it has a blockReason (from previous blocking logic), 
-    // it should go to PENDING_APPROVAL instead of PENDING.
     const initialStatus = attendeeData.blockReason ? CheckinStatus.PENDING_APPROVAL : CheckinStatus.PENDING;
 
-    // FIX: Ensure no 'undefined' fields are sent to Firestore (e.g., email)
-    const cleanData = { ...attendeeData };
-    if (cleanData.email === undefined) cleanData.email = '';
-
+    // FIX: Previne erro de undefined no Firestore
     const data: Omit<Attendee, 'id'> = {
-        ...cleanData,
+        ...attendeeData,
+        email: attendeeData.email || '', 
         photo: photoUrl,
         eventId,
         status: initialStatus,
@@ -209,12 +185,9 @@ export const requestNewRegistration = async (eventId: string, attendeeData: Omit
         photoUrl = await uploadPhoto(attendeeData.photo, attendeeData.cpf);
     }
 
-    // FIX: Ensure no 'undefined' fields are sent to Firestore (e.g., email)
-    const cleanData = { ...attendeeData };
-    if (cleanData.email === undefined) cleanData.email = '';
-
     const data: Omit<Attendee, 'id'> = {
-        ...cleanData,
+        ...attendeeData,
+        email: attendeeData.email || '',
         photo: photoUrl,
         eventId,
         status: CheckinStatus.PENDING_APPROVAL,
@@ -226,18 +199,12 @@ export const requestNewRegistration = async (eventId: string, attendeeData: Omit
 };
 
 export const approveNewRegistration = (eventId: string, attendeeId: string) => {
-    // When approving a new registration (or one flagged due to blocks), 
-    // we set it to PENDING and clear the blockReason if it was just a warning flag.
-    // However, keeping blockReason might be useful for history. 
-    // If we want to clear the 'flag', we might need to delete blockReason or keep it.
-    // For now, let's keep it as historical data but change status to PENDING.
     return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).update({
         status: CheckinStatus.PENDING,
     });
 };
 
 export const rejectNewRegistration = (eventId: string, attendeeId: string) => {
-    // Instead of deleting, we change status to REJECTED to keep a record
     return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).update({
         status: CheckinStatus.REJECTED
     });
@@ -251,7 +218,6 @@ export const blockAttendee = (eventId: string, attendeeId: string, reason?: stri
 }
 
 export const unblockAttendee = (eventId: string, attendeeId: string) => {
-    // Reset to pending when unblocking
     return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).update({
         status: CheckinStatus.PENDING,
         blockReason: FieldValue.delete()
@@ -276,14 +242,12 @@ export const updateAttendeeStatus = (eventId: string, attendeeId: string, status
             dataToUpdate.checkedOutBy = username;
             break;
         case CheckinStatus.PENDING:
-            // This handles cancelling a check-in or checkout
             dataToUpdate.checkinTime = FieldValue.delete();
             dataToUpdate.checkoutTime = FieldValue.delete();
             dataToUpdate.wristbands = FieldValue.delete();
             dataToUpdate.checkedInBy = FieldValue.delete();
             dataToUpdate.checkedOutBy = FieldValue.delete();
             break;
-        // Blocked/Rejected don't need timestamp logic specifically, just status update
     }
 
     return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).update(dataToUpdate);
@@ -292,13 +256,7 @@ export const updateAttendeeStatus = (eventId: string, attendeeId: string, status
 export const updateAttendeeDetails = async (eventId: string, attendeeId: string, data: Partial<Attendee>) => {
     const dataToUpdate = { ...data };
     
-    // Handle photo upload if it's a new base64 string
     if (dataToUpdate.photo && dataToUpdate.photo.startsWith('data:image')) {
-        // Use CPF as identifier if available, otherwise fallback to attendeeId. 
-        // Note: The caller should ideally pass the CPF if it's being updated, 
-        // but if not, we might need to fetch the doc or just use ID. 
-        // We assume 'data' contains the relevant info or we rely on uuid in uploadPhoto if CPF is missing.
-        // However, uploadPhoto uses CPF for naming. Let's pass attendeeId as fallback.
         const identifier = dataToUpdate.cpf || attendeeId;
         dataToUpdate.photo = await uploadPhoto(dataToUpdate.photo, identifier);
     }
@@ -328,8 +286,6 @@ export const approveSubstitution = async (eventId: string, attendeeId: string) =
 
     const { name, cpf, photo: photoDataUrl, newSectorIds } = attendee.substitutionData;
 
-    // VALIDATION: Ensure critical data exists before creating the update object.
-    // This prevents accidental deletion of fields if substitutionData is malformed.
     if (typeof name !== 'string' || name.trim() === '') {
         throw new Error("Invalid substitution data: name is missing or invalid.");
     }
@@ -344,7 +300,6 @@ export const approveSubstitution = async (eventId: string, attendeeId: string) =
         substitutionData: FieldValue.delete(),
     };
 
-    // Only upload and update photo if a new base64 photo is provided
     if (photoDataUrl && photoDataUrl.startsWith('data:image')) {
         const photoUrl = await uploadPhoto(photoDataUrl, cpf);
         dataToUpdate.photo = photoUrl;
@@ -444,25 +399,26 @@ export const updateSupplierStatus = (eventId: string, supplierId: string, active
 export const subscribeToSupplierForRegistration = (
     eventId: string,
     supplierId: string,
-    callback: (data: { data: Supplier & { eventId: string }, name: string, sectors: Sector[], allowPhotoChange: boolean, allowGuestUploads: boolean } | null) => void,
+    callback: (data: { data: Supplier & { eventId: string }, name: string, sectors: Sector[], allowPhotoChange: boolean, allowGuestUploads: boolean, type: EventType } | null) => void,
     onError: (error: Error) => void
 ) => {
     const data = {
         eventName: null as string | null,
-        allowPhotoChange: true as boolean, // Default
-        allowGuestUploads: false as boolean, // Default
+        eventType: 'CREDENTIALING' as EventType,
+        allowPhotoChange: true as boolean,
+        allowGuestUploads: false as boolean,
         supplier: null as (Supplier & { eventId: string }) | null,
         allSectors: null as Sector[] | null,
     };
 
     const updateCallback = () => {
         if (data.eventName !== null && data.supplier !== null && data.allSectors !== null) {
-            const { eventName, supplier, allSectors, allowPhotoChange, allowGuestUploads } = data;
+            const { eventName, eventType, supplier, allSectors, allowPhotoChange, allowGuestUploads } = data;
             const validSectorIds = new Set(allSectors.map(s => s.id));
             const dataForUI = { ...supplier };
             dataForUI.sectors = (supplier.sectors || []).filter(sectorId => validSectorIds.has(sectorId));
             dataForUI.subCompanies = (supplier.subCompanies || []).filter(sc => validSectorIds.has(sc.sector));
-            callback({ data: dataForUI, name: eventName, sectors: allSectors, allowPhotoChange, allowGuestUploads });
+            callback({ data: dataForUI, name: eventName, sectors: allSectors, allowPhotoChange, allowGuestUploads, type: eventType });
         }
     };
     
@@ -481,6 +437,7 @@ export const subscribeToSupplierForRegistration = (
         }
         const eventData = eventSnap.data();
         data.eventName = eventData?.name || 'Evento';
+        data.eventType = eventData?.type || 'CREDENTIALING';
         data.allowPhotoChange = eventData?.allowPhotoChange !== undefined ? eventData.allowPhotoChange : true;
         data.allowGuestUploads = eventData?.allowGuestUploads !== undefined ? eventData.allowGuestUploads : false;
         updateCallback();
@@ -519,7 +476,6 @@ export const subscribeToSupplierAdminData = (
     let unsubscribes: (() => void)[] = [];
 
     const findAndSubscribe = async () => {
-        // Clean up previous listeners if this function is ever called again for the same token
         unsubscribes.forEach(unsub => unsub());
         unsubscribes = [];
 
@@ -545,7 +501,6 @@ export const subscribeToSupplierAdminData = (
         const eventId = eventRef.id;
 
         const updateCallback = () => {
-            // Only fire callback once all data sources have loaded at least once
             if (eventName !== null && supplier !== null && sectors !== null && attendees !== null) {
                 callback({ eventName, attendees, eventId, supplierId: supplier.id, supplier, sectors });
             }
@@ -579,8 +534,6 @@ export const subscribeToSupplierAdminData = (
     };
 
     findAndSubscribe().catch(onError);
-
-    // Return a function to clean up all listeners
     return () => unsubscribes.forEach(unsub => unsub());
 };
 
@@ -600,7 +553,6 @@ export const updateSector = (eventId: string, sectorId: string, data: { label: s
 };
 
 export const deleteSector = async (eventId: string, sectorId: string) => {
-    // Check if sector is in use by any supplier or attendee
     const suppliersSnap = await db.collection('events').doc(eventId).collection('suppliers').where('sectors', 'array-contains', sectorId).get();
     const attendeesSnap = await db.collection('events').doc(eventId).collection('attendees').where('sectors', 'array-contains', sectorId).get();
 
@@ -618,9 +570,7 @@ export const authenticateUser = async (username: string, password: string): Prom
         return null;
     }
     const user = getData<User>(snapshot.docs[0]);
-    // Note: In a real-world application, passwords should be hashed and compared securely.
     if (user.password === password) {
-        // CHECK ACTIVE STATUS
         if (user.active === false) {
             throw new Error("Este usuário está pendente de aprovação ou foi bloqueado.");
         }
@@ -632,7 +582,6 @@ export const authenticateUser = async (username: string, password: string): Prom
 
 export const getUsers = async (): Promise<User[]> => {
     const snapshot = await db.collection('users').orderBy('username', 'asc').get();
-    // Exclude passwords from the data sent to the client
     return snapshot.docs.map(doc => {
         const data = doc.data();
         delete data.password;
@@ -641,12 +590,10 @@ export const getUsers = async (): Promise<User[]> => {
 };
 
 export const createUser = async (userData: Omit<User, 'id'>) => {
-    // Check for unique username server-side
     const snapshot = await db.collection('users').where('username', '==', userData.username).get();
     if (!snapshot.empty) {
         throw new Error("Username already exists.");
     }
-    // Ensure active flag is set (default to true for admin created users, unless specified otherwise)
     const userWithStatus = {
         ...userData,
         active: userData.active !== undefined ? userData.active : true
@@ -678,7 +625,6 @@ export const validateUserInvite = async (token: string): Promise<{ eventId: stri
 
 export const registerUserWithInvite = async (token: string, userData: Pick<User, 'username' | 'password'>) => {
      return db.runTransaction(async (transaction) => {
-        // 1. Validate Invite again inside transaction
         const inviteQuery = await db.collection('user_invites').where('token', '==', token).where('used', '==', false).limit(1).get();
         if (inviteQuery.empty) {
              throw new Error("Convite inválido ou expirado.");
@@ -686,31 +632,26 @@ export const registerUserWithInvite = async (token: string, userData: Pick<User,
         const inviteDoc = inviteQuery.docs[0];
         const inviteData = inviteDoc.data();
 
-        // 2. Check for unique username
         const userQuery = await db.collection('users').where('username', '==', userData.username).limit(1).get();
         if (!userQuery.empty) {
             throw new Error("Nome de usuário já existe.");
         }
 
-        // 3. Create User
         const newUserRef = db.collection('users').doc();
         const newUser: Omit<User, 'id'> = {
             username: userData.username,
             password: userData.password,
             role: 'checkin',
             active: false, // Pending approval
-            linkedEventIds: [inviteData.eventId], // Linked to the event from invite
+            linkedEventIds: [inviteData.eventId],
             createdBy: 'invite_system'
         };
         
         transaction.set(newUserRef, newUser);
-
-        // 4. Mark invite as used
         transaction.update(inviteDoc.ref, { used: true, usedAt: FieldValue.serverTimestamp(), usedBy: newUserRef.id });
     });
 };
 
-// Deprecated/Legacy simple registration (kept for compatibility if needed, but flow replaced by invites)
 export const registerPendingUser = async (userData: Pick<User, 'username' | 'password'>) => {
     const snapshot = await db.collection('users').where('username', '==', userData.username).get();
     if (!snapshot.empty) {
@@ -727,7 +668,6 @@ export const registerPendingUser = async (userData: Pick<User, 'username' | 'pas
 };
 
 export const updateUser = (id: string, data: Partial<User>) => {
-    // If password is an empty string or undefined, don't update it.
     if (!data.password) {
         delete data.password;
     }

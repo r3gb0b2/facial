@@ -21,7 +21,7 @@ const App: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     
     // States for public link routes
-    const [supplierInfo, setSupplierInfo] = useState<{ data: Supplier & { eventId: string }, name: string, sectors: Sector[], allowPhotoChange: boolean, allowGuestUploads: boolean } | null>(null);
+    const [supplierInfo, setSupplierInfo] = useState<{ data: Supplier & { eventId: string }, name: string, sectors: Sector[], allowPhotoChange: boolean, allowGuestUploads: boolean, type: EventType } | null>(null);
     const [supplierAdminData, setSupplierAdminData] = useState<{ eventName: string, attendees: Attendee[], eventId: string, supplierId: string, supplier: Supplier, sectors: Sector[] } | null>(null);
     const [publicLinkError, setPublicLinkError] = useState<string | null>(null);
     const [isUserSignupMode, setIsUserSignupMode] = useState(false);
@@ -77,7 +77,6 @@ const App: React.FC = () => {
             );
             return () => unsubscribe();
         } else {
-            // No public link params, check for a saved session
             try {
                 const savedUser = sessionStorage.getItem('currentUser');
                 if (savedUser) {
@@ -91,7 +90,6 @@ const App: React.FC = () => {
         }
     }, [t]);
 
-    // Helper to refetch and filter events for the current user
     const refreshAndFilterEvents = async (currentUser: User) => {
         try {
             const allEvents = await api.getEvents();
@@ -106,7 +104,6 @@ const App: React.FC = () => {
         }
     };
 
-    // Effect for handling main app data subscription
     useEffect(() => {
         if (user && currentEventId) {
             const unsubscribe = api.subscribeToEventData(
@@ -116,7 +113,6 @@ const App: React.FC = () => {
             );
             return () => unsubscribe();
         } else if (user) {
-            // Load events list when user is logged in but no event selected
              refreshAndFilterEvents(user);
         }
     }, [user, currentEventId]);
@@ -131,7 +127,7 @@ const App: React.FC = () => {
                     id: 'superadmin',
                     username: 'superadmin',
                     role: 'superadmin',
-                    linkedEventIds: [] // superadmin has access to all events
+                    linkedEventIds: []
                 };
             } else {
                 authenticatedUser = await api.authenticateUser(username, password);
@@ -155,7 +151,7 @@ const App: React.FC = () => {
         sessionStorage.removeItem('currentUser');
         setIsUserSignupMode(false);
         setInviteToken(null);
-        window.location.href = window.location.origin; // Clear URL params
+        window.location.href = window.location.origin;
     };
 
     const handleSelectEvent = (eventId: string) => {
@@ -167,7 +163,6 @@ const App: React.FC = () => {
         setEventData({ attendees: [], suppliers: [], sectors: [] });
     };
 
-    // --- Event CRUD Wrappers ---
     const handleCreateEvent = async (name: string, type: EventType, modules?: EventModules, allowPhotoChange?: boolean, allowGuestUploads?: boolean) => {
         try {
             await api.createEvent(name, type, modules, allowPhotoChange, allowGuestUploads);
@@ -195,7 +190,6 @@ const App: React.FC = () => {
         }
     };
 
-    // --- Attendee CRUD Wrappers ---
     const handleRegister = async (newAttendee: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>, supplierId?: string) => {
         if (!currentEventId) return;
         await api.addAttendee(currentEventId, newAttendee, supplierId);
@@ -258,7 +252,6 @@ const App: React.FC = () => {
         );
     }
 
-    // 1. User Self-Registration Route
     if (isUserSignupMode) {
         return (
             <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
@@ -273,7 +266,6 @@ const App: React.FC = () => {
         );
     }
 
-    // 2. Public Link Error
     if (publicLinkError) {
         return (
             <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
@@ -282,26 +274,25 @@ const App: React.FC = () => {
         );
     }
 
-    // 3. Public Supplier Registration View
     if (supplierInfo) {
          return (
-            <div className="min-h-screen bg-gray-900 py-10 px-4">
+            <div className="min-h-screen bg-[#050505] py-10 px-4">
                 <RegisterView
                     onRegister={handlePublicRegister}
-                    setError={(msg) => alert(msg)} // Simple alert for public view or create a local toast state
+                    setError={(msg) => alert(msg)}
                     sectors={supplierInfo.sectors}
-                    predefinedSector={supplierInfo.data.sectors} // Can be string[] 
+                    predefinedSector={supplierInfo.data.sectors}
                     eventName={supplierInfo.name}
                     supplierName={supplierInfo.data.name}
                     supplierInfo={supplierInfo}
                     allowPhotoChange={supplierInfo.allowPhotoChange}
                     allowGuestUploads={supplierInfo.allowGuestUploads}
+                    eventType={supplierInfo.type}
                 />
             </div>
         );
     }
 
-    // 4. Supplier Admin Dashboard (Read-Only/Request Mode)
     if (supplierAdminData) {
         return (
             <div className="min-h-screen bg-gray-900">
@@ -316,7 +307,6 @@ const App: React.FC = () => {
         );
     }
 
-    // 5. Login View
     if (!user) {
         return (
             <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
@@ -325,7 +315,6 @@ const App: React.FC = () => {
         );
     }
 
-    // 6. Event Selection View (Logged in, no event selected)
     if (!currentEventId) {
         return (
              <div className="min-h-screen bg-gray-900 p-4 flex items-center justify-center">
@@ -342,10 +331,8 @@ const App: React.FC = () => {
         );
     }
 
-    // 7. Main Admin Dashboard (Logged in, event selected)
     const currentEvent = events.find(e => e.id === currentEventId);
     
-    // Safety check in case event was deleted while user was active
     if (!currentEvent) {
         handleBackToEvents();
         return null;

@@ -51,7 +51,6 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
   const isAdminView = !predefinedSector;
   const hasSubCompanies = Array.isArray(supplierInfo?.data.subCompanies) && supplierInfo!.data.subCompanies!.length > 0;
 
-  // FIX: Define isSupplierWithSingleSector to resolve "Cannot find name" error.
   const isSupplierWithSingleSector = useMemo(() => {
     if (isAdminView) return false;
     if (typeof predefinedSector === 'string') return !!predefinedSector;
@@ -89,7 +88,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
     }
 
     setIsCheckingCpf(true);
-    setCpfCheckMessage('Verificando...');
+    setCpfCheckMessage('Verificando documento...');
     setPhoto(null);
     setName('');
     setExistingAttendeeFound(false);
@@ -116,19 +115,19 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
             const isRegisteredInCurrentEvent = activeEventId && existingAttendee.eventId === activeEventId;
 
             if (isRegisteredInCurrentEvent) {
-              setCpfCheckMessage('CPF já registrado neste evento.');
+              setCpfCheckMessage('Seu cadastro já consta em nossa lista VIP.');
               setExistingAttendeeFound(true);
               setIsPhotoLocked(true); 
             } else {
-              setCpfCheckMessage('Cadastro encontrado. Dados restaurados.');
+              setCpfCheckMessage('Identidade reconhecida. Dados restaurados.');
               setExistingAttendeeFound(false); 
               if (!allowPhotoChange) setIsPhotoLocked(true);
             }
         } else {
-            setCpfCheckMessage('CPF não cadastrado. Prossiga com o registro.');
+            setCpfCheckMessage('Novo cadastro detectado. Seja bem-vindo.');
         }
     } catch (error: any) {
-        setError('Erro ao verificar CPF.');
+        setError('Erro na validação do documento.');
         setCpfCheckMessage('');
     } finally {
         setIsCheckingCpf(false);
@@ -141,7 +140,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
 
     // Validation
     if (!name || !rawCpf || !photo || (isVip && !email)) {
-      setError('Por favor, preencha todos os campos obrigatórios (incluindo E-mail e Foto).');
+      setError('Por favor, preencha seu nome, e-mail, documento e capture sua foto.');
       return;
     }
 
@@ -150,7 +149,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
       const attendeeData: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'> = { 
           name, 
           cpf: rawCpf, 
-          email: email || '', // FIX: Avoid undefined values for Firestore
+          email: email || '', 
           photo, 
           sectors: [sector],
           ...(subCompany && { subCompany })
@@ -162,10 +161,10 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
 
       await onRegister(attendeeData, isAdminView ? selectedSupplierId : undefined);
       
-      // Success flow
+      // Clear form
       setName(''); setCpf(''); setEmail(''); setPhoto(null);
       setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 5000);
+      setTimeout(() => setShowSuccess(false), 8000);
     } catch (error: any) {
       setError(error.message || "Falha ao registrar.");
     } finally {
@@ -178,28 +177,28 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
   };
 
   // =========================================================================
-  // VIEW: VIP LIST (SOPHISTICATED DARK GOLD)
+  // VIEW: VIP LIST (PUBLIC SOPHISTICATED)
   // =========================================================================
   if (isVip) {
     return (
       <div className="w-full min-h-screen flex items-center justify-center py-12 px-4 bg-[#050505]">
         <div className="w-full max-w-6xl relative">
-          {/* Decorative Gradients */}
+          
           <div className="absolute -top-32 -left-32 w-80 h-80 bg-rose-900/10 rounded-full blur-[120px]"></div>
           <div className="absolute -bottom-32 -right-32 w-80 h-80 bg-amber-900/10 rounded-full blur-[120px]"></div>
           
           <div className="relative bg-neutral-900/40 backdrop-blur-3xl border border-white/5 rounded-[4rem] overflow-hidden shadow-[0_80px_150px_rgba(0,0,0,0.8)]">
-            <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[600px]">
+            <div className="grid grid-cols-1 lg:grid-cols-12 min-h-[650px]">
               
               {/* Left Side: Sophisticated Form */}
               <div className="lg:col-span-7 p-10 md:p-16 flex flex-col justify-center">
                 <header className="mb-14">
                   <div className="flex items-center gap-4 mb-6">
                     <div className="w-12 h-[1px] bg-gradient-to-r from-rose-500 to-transparent"></div>
-                    <span className="text-[10px] font-black uppercase tracking-[0.6em] text-rose-500">Privé & Unique</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.6em] text-rose-500">Privé & Unique List</span>
                   </div>
                   <h1 className="text-5xl md:text-6xl font-black text-white tracking-tighter mb-6 leading-[0.9] uppercase">
-                    Solicitar <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-400 via-amber-200 to-rose-400">Acesso VIP</span>
+                    Solicitar <br/><span className="text-transparent bg-clip-text bg-gradient-to-r from-rose-400 via-amber-200 to-rose-400">Presença VIP</span>
                   </h1>
                   <p className="text-neutral-500 text-sm font-medium tracking-widest uppercase">
                     {eventName} • {supplierName ? `Hosted by ${supplierName}` : 'Guest Registration'}
@@ -213,11 +212,11 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
                       <input
                         type="text" value={name} onChange={(e) => setName(e.target.value)}
                         className="w-full bg-transparent border-b border-neutral-800 py-5 text-white focus:outline-none focus:border-rose-500 transition-all placeholder:text-neutral-800 text-xl font-bold"
-                        placeholder="NOME COMPLETO"
+                        placeholder="SEU NOME COMPLETO"
                         required
                         disabled={isSubmitting || existingAttendeeFound}
                       />
-                      <label className="absolute -top-4 left-0 text-[10px] font-black uppercase tracking-[0.3em] text-neutral-600 group-focus-within:text-rose-500 transition-colors">Nome do Convidado</label>
+                      <label className="absolute -top-4 left-0 text-[10px] font-black uppercase tracking-[0.3em] text-neutral-600 group-focus-within:text-rose-500 transition-colors">Nome Completo</label>
                     </div>
 
                     {/* Input Group: Email */}
@@ -225,14 +224,14 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
                       <input
                         type="email" value={email} onChange={(e) => setEmail(e.target.value)}
                         className="w-full bg-transparent border-b border-neutral-800 py-5 text-white focus:outline-none focus:border-rose-500 transition-all placeholder:text-neutral-800 text-xl font-bold"
-                        placeholder="E-MAIL DE CONTATO"
+                        placeholder="E-MAIL PARA CONTATO"
                         required
                         disabled={isSubmitting || existingAttendeeFound}
                       />
-                      <label className="absolute -top-4 left-0 text-[10px] font-black uppercase tracking-[0.3em] text-neutral-600 group-focus-within:text-rose-500 transition-colors">Email Exclusive</label>
+                      <label className="absolute -top-4 left-0 text-[10px] font-black uppercase tracking-[0.3em] text-neutral-600 group-focus-within:text-rose-500 transition-colors">Email de Confirmação</label>
                     </div>
 
-                    {/* Input Group: CPF & Supplier */}
+                    {/* Input Group: CPF & Responsável */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                       <div className="relative group">
                         <input
@@ -243,10 +242,10 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
                           required
                           disabled={isSubmitting}
                         />
-                        <label className="absolute -top-4 left-0 text-[10px] font-black uppercase tracking-[0.3em] text-neutral-600 group-focus-within:text-rose-500 transition-colors">Identidade (CPF)</label>
+                        <label className="absolute -top-4 left-0 text-[10px] font-black uppercase tracking-[0.3em] text-neutral-600 group-focus-within:text-rose-500 transition-colors">Seu CPF</label>
                       </div>
 
-                      {isAdminView && (
+                      {isAdminView ? (
                         <div className="relative group">
                            <select
                             value={selectedSupplierId} onChange={(e) => setSelectedSupplierId(e.target.value)}
@@ -254,11 +253,19 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
                             required
                             disabled={isSubmitting || existingAttendeeFound}
                           >
-                            <option value="" className="bg-neutral-900">DIVULGADORA / PROMOTER</option>
+                            <option value="" className="bg-neutral-900">DIVULGADORA / HOST</option>
                             {suppliers.map(s => <option key={s.id} value={s.id} className="bg-neutral-900">{s.name.toUpperCase()}</option>)}
                           </select>
                           <label className="absolute -top-4 left-0 text-[10px] font-black uppercase tracking-[0.3em] text-neutral-600 group-focus-within:text-rose-500 transition-colors">Responsável</label>
                         </div>
+                      ) : (
+                          <div className="relative group">
+                            <input
+                              type="text" readOnly value={supplierName?.toUpperCase()}
+                              className="w-full bg-transparent border-b border-neutral-800 py-5 text-neutral-400 focus:outline-none font-bold text-sm tracking-widest"
+                            />
+                            <label className="absolute -top-4 left-0 text-[10px] font-black uppercase tracking-[0.3em] text-neutral-600">A convite de</label>
+                          </div>
                       )}
                     </div>
                   </div>
@@ -281,9 +288,9 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
                         {isSubmitting ? (
                             <>
                                 <SpinnerIcon className="w-5 h-5 animate-spin" />
-                                ANALISANDO SOLICITAÇÃO...
+                                ANALISANDO BIO-IDENTIDADE...
                             </>
-                        ) : 'GARANTIR MINHA VAGA VIP'}
+                        ) : 'CONFIRMAR MINHA PRESENÇA VIP'}
                       </span>
                     </button>
                   </div>
@@ -295,7 +302,6 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(244,63,94,0.05)_0%,transparent_70%)]"></div>
                  
                  <div className="relative group w-full max-w-sm">
-                  {/* Glowing Ring */}
                   <div className="absolute -inset-1.5 rounded-full bg-gradient-to-tr from-rose-500 via-amber-500 to-rose-500 opacity-20 blur-2xl group-hover:opacity-50 transition-opacity duration-1000 animate-pulse"></div>
                   
                   <div className="relative">
@@ -311,7 +317,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
 
                   {!photo && (
                     <div className="absolute bottom-12 left-1/2 -translate-x-1/2 text-center pointer-events-none">
-                        <span className="text-[9px] font-black uppercase tracking-[0.4em] text-rose-500/60 whitespace-nowrap">Selfie de Identificação</span>
+                        <span className="text-[9px] font-black uppercase tracking-[0.4em] text-rose-500/60 whitespace-nowrap">Selfie para Identificação</span>
                     </div>
                   )}
 
@@ -335,10 +341,10 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
                 <div className="w-24 h-24 bg-gradient-to-br from-rose-600 to-amber-600 rounded-full mx-auto mb-12 flex items-center justify-center shadow-[0_0_50px_rgba(244,63,94,0.3)] animate-bounce">
                     <CheckCircleIcon className="w-12 h-12 text-white" />
                 </div>
-                <h3 className="text-4xl font-black text-white mb-6 uppercase tracking-tighter">Confirmation</h3>
+                <h3 className="text-4xl font-black text-white mb-6 uppercase tracking-tighter">Confirmação</h3>
                 <p className="text-neutral-400 text-base leading-relaxed mb-12 font-medium tracking-wide">
-                  Sua vaga na lista VIP foi reservada. <br/>
-                  <span className="text-rose-400/80 text-sm mt-4 block">Prepare seu documento original com foto para a recepção do evento.</span>
+                  Sua vaga na lista VIP foi reservada com sucesso. <br/>
+                  <span className="text-rose-400/80 text-sm mt-4 block italic font-bold">Apresente seu documento original com foto na recepção do evento.</span>
                 </p>
                 <button onClick={() => setShowSuccess(false)} className="w-full py-6 bg-white text-black font-black uppercase tracking-[0.3em] text-[10px] rounded-[2rem] hover:bg-neutral-200 transition-all active:scale-95 shadow-2xl">Confirmar Leitura</button>
              </div>
