@@ -1,8 +1,7 @@
-
 import React, { useState, useMemo } from 'react';
 import { Attendee, CheckinStatus, Sector, Supplier } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { EyeIcon, PencilIcon, SearchIcon, UsersIcon, SparklesIcon } from '../icons.tsx';
+import { EyeIcon, PencilIcon, SearchIcon, UsersIcon } from '../icons.tsx';
 import SubstitutionRequestModal from '../SubstitutionRequestModal.tsx';
 import SupplierRegistrationModal from '../SupplierRegistrationModal.tsx';
 
@@ -14,137 +13,191 @@ interface SupplierAdminViewProps {
   sectors: Sector[];
 }
 
+// Helper function for accent-insensitive search
 const normalizeString = (str: string) => {
   if (!str) return '';
-  return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  return str
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
 };
+
 
 const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attendees, eventId, supplier, sectors }) => {
   const { t } = useTranslation();
   const [editingAttendee, setEditingAttendee] = useState<Attendee | null>(null);
+  const [submittedEdits, setSubmittedEdits] = useState<Set<string>>(new Set());
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  
+  // State for filters
   const [searchTerm, setSearchTerm] = useState('');
+  const [companyFilter, setCompanyFilter] = useState('ALL');
 
-  const stats = useMemo(() => {
-    const total = attendees.length;
-    const checkedIn = attendees.filter(a => a.status === CheckinStatus.CHECKED_IN).length;
-    const limit = supplier.registrationLimit || 0;
-    const percentage = limit > 0 ? Math.min((total / limit) * 100, 100) : 0;
-    return { total, checkedIn, limit, percentage };
-  }, [attendees, supplier]);
+  const handleEditSuccess = (attendeeId: string) => {
+    setSubmittedEdits(prev => new Set(prev).add(attendeeId));
+  };
+  
+  const handleRegisterSuccess = () => {
+    setSuccessMessage(t('supplierAdmin.modal.successMessage'));
+    setTimeout(() => setSuccessMessage(''), 5000);
+  };
+
+  const uniqueCompanies = useMemo(() => {
+    const companies = new Set<string>();
+    attendees.forEach(attendee => {
+        if (attendee.subCompany) {
+            companies.add(attendee.subCompany);
+        }
+    });
+    return Array.from(companies).sort();
+  }, [attendees]);
 
   const filteredAttendees = useMemo(() => {
     const normalizedTerm = normalizeString(searchTerm);
-    return attendees.filter(a => normalizeString(a.name).includes(normalizedTerm))
-                    .sort((a, b) => a.name.localeCompare(b.name));
-  }, [attendees, searchTerm]);
+
+    const filtered = attendees.filter((attendee) => {
+      // Company filter
+      if (companyFilter !== 'ALL' && attendee.subCompany !== companyFilter) {
+        return false;
+      }
+
+      // Search term filter
+      if (normalizedTerm) {
+        const nameMatch = normalizeString(attendee.name).includes(normalizedTerm);
+        if (!nameMatch) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    return filtered.sort((a, b) => a.name.localeCompare(b.name));
+  }, [attendees, searchTerm, companyFilter]);
+
+  const allowedSectorsForSupplier = useMemo(() => {
+    return sectors.filter(s => (supplier.sectors || []).includes(s.id));
+  }, [sectors, supplier]);
+
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-4 md:p-10 font-sans selection:bg-rose-500/30">
-      <div className="max-w-7xl mx-auto space-y-12">
-        
-        {/* Header Elegante */}
-        <header className="flex flex-col lg:flex-row justify-between items-end lg:items-center gap-8 bg-neutral-900/40 p-8 md:p-12 rounded-[3rem] border border-white/5 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-rose-600 via-amber-400 to-rose-600"></div>
-            <div>
-                <div className="flex items-center gap-3 mb-4">
-                    <SparklesIcon className="w-5 h-5 text-rose-500" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.5em] text-neutral-500">Privé Management Portal</span>
-                </div>
-                <h1 className="text-4xl md:text-5xl font-black tracking-tighter uppercase leading-none mb-3">
-                    {supplier.name} <span className="text-transparent bg-clip-text bg-gradient-to-r from-neutral-200 to-neutral-500">Dashboard</span>
-                </h1>
-                <p className="text-neutral-500 font-bold text-sm tracking-widest uppercase">{eventName}</p>
-            </div>
-
-            <div className="flex items-center gap-10">
-                <div className="text-center">
-                    <p className="text-4xl font-black tracking-tighter leading-none">{stats.total}</p>
-                    <p className="text-[9px] text-neutral-600 uppercase font-black tracking-widest mt-2">Reservas</p>
-                </div>
-                <div className="w-[1px] h-12 bg-white/5"></div>
-                <div className="text-center">
-                    <p className="text-4xl font-black tracking-tighter leading-none text-rose-500">{stats.limit - stats.total}</p>
-                    <p className="text-[9px] text-neutral-600 uppercase font-black tracking-widest mt-2">Disponíveis</p>
-                </div>
-                <button 
-                    onClick={() => setIsRegisterModalOpen(true)}
-                    disabled={stats.total >= stats.limit}
-                    className="bg-white text-black font-black uppercase tracking-widest text-[11px] py-5 px-10 rounded-2xl hover:scale-105 transition-all shadow-2xl active:scale-95 disabled:bg-neutral-800 disabled:text-neutral-600"
-                >
-                    Novo Convidado VIP
-                </button>
-            </div>
+    <div className="w-full min-h-screen p-4 md:p-8">
+      <div className="w-full max-w-7xl mx-auto">
+        <header className="py-6 text-center">
+            <EyeIcon className="w-12 h-12 mx-auto text-indigo-400 mb-2" />
+            <h1 className="text-3xl md:text-4xl font-bold text-white">
+            {t('supplierAdmin.title')}
+            </h1>
+            <p className="text-gray-400 mt-1 text-lg">{t('supplierAdmin.supplier')} <span className="font-semibold text-gray-300">{supplier.name}</span> para o evento <span className="font-semibold text-gray-300">{eventName}</span></p>
         </header>
 
-        {/* Busca e Lista */}
-        <div className="space-y-8">
-            <div className="flex justify-between items-center px-4">
-                <h2 className="text-xl font-black uppercase tracking-tighter">Guest List <span className="text-neutral-600 ml-2">({filteredAttendees.length})</span></h2>
-                <div className="relative">
-                    <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-600" />
-                    <input 
-                        type="text" 
-                        placeholder="Buscar por nome..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="bg-neutral-900 border border-white/5 rounded-xl py-3 pl-12 pr-6 text-sm focus:outline-none focus:ring-1 focus:ring-rose-500/30 w-64 md:w-80"
-                    />
-                </div>
+        {/* Filters Section */}
+        <div className="bg-gray-800/50 backdrop-blur-sm p-4 rounded-xl shadow-lg border border-gray-700 mb-8 flex flex-col md:flex-row gap-4">
+            <div className="relative flex-grow">
+                <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <input
+                    type="text"
+                    placeholder={t('supplierAdmin.filter.searchPlaceholder')}
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 pl-10 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
             </div>
+            {uniqueCompanies.length > 0 && (
+                 <select
+                    value={companyFilter}
+                    onChange={(e) => setCompanyFilter(e.target.value)}
+                    className="w-full md:w-1/3 bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                    <option value="ALL">{t('supplierAdmin.filter.allCompanies')}</option>
+                    {uniqueCompanies.map(company => (
+                        <option key={company} value={company}>{company}</option>
+                    ))}
+                </select>
+            )}
+             <button
+                onClick={() => setIsRegisterModalOpen(true)}
+                className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
+            >
+                <UsersIcon className="w-5 h-5" />
+                {t('supplierAdmin.registerButton')}
+            </button>
+        </div>
+        
+        {successMessage && (
+          <div className="mb-4 bg-green-500/20 text-green-300 border border-green-500 text-center p-3 rounded-lg">
+              {successMessage}
+          </div>
+        )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-8">
-                {filteredAttendees.map(attendee => (
-                    <div key={attendee.id} className="group bg-neutral-900/40 rounded-[2.5rem] overflow-hidden border border-white/5 hover:border-white/20 transition-all hover:shadow-[0_30px_60px_rgba(0,0,0,0.6)]">
-                        <div className="aspect-square relative overflow-hidden bg-neutral-950">
-                            <img src={attendee.photo} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700 scale-105 group-hover:scale-100" />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-60"></div>
-                            <div className="absolute bottom-4 left-0 right-0 text-center">
-                                <h3 className="font-black text-lg uppercase tracking-tighter leading-none group-hover:text-rose-500 transition-colors">{attendee.name}</h3>
-                                <p className="text-[10px] text-neutral-500 font-bold tracking-widest mt-1 italic">{attendee.subCompany || 'Individual'}</p>
+        <main>
+            {attendees.length > 0 ? (
+                filteredAttendees.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
+                        {filteredAttendees.map((attendee) => {
+                          const isPending = attendee.status === CheckinStatus.PENDING;
+                          const isEditRequested = submittedEdits.has(attendee.id) || attendee.status === CheckinStatus.SUBSTITUTION_REQUEST;
+                          
+                          return (
+                            <div key={attendee.id} className="bg-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-700 flex flex-col">
+                                <img 
+                                    src={attendee.photo} 
+                                    alt={attendee.name} 
+                                    className="w-full aspect-square object-contain bg-black" 
+                                />
+                                <div className="p-3 text-center flex-grow flex flex-col justify-between">
+                                    <div>
+                                        <h3 className="font-semibold text-base text-white truncate" title={attendee.name}>{attendee.name}</h3>
+                                        {attendee.subCompany && <p className="text-xs text-gray-400 truncate" title={attendee.subCompany}>{attendee.subCompany}</p>}
+                                    </div>
+                                    <div className='space-y-1 mt-2'>
+                                      {isPending && (
+                                        <>
+                                          <button
+                                            onClick={() => setEditingAttendee(attendee)}
+                                            disabled={isEditRequested}
+                                            className="w-full text-sm font-semibold py-2 px-2 rounded-md transition-colors flex items-center justify-center gap-1.5 disabled:bg-gray-600 disabled:cursor-not-allowed bg-indigo-600 hover:bg-indigo-700 text-white whitespace-nowrap"
+                                          >
+                                            <PencilIcon className="w-4 h-4" />
+                                            {isEditRequested ? t('supplierAdmin.editRequested') : t('supplierAdmin.requestEdit')}
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                        <div className="p-6 bg-black/20 flex flex-col items-center">
-                            <div className={`px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest mb-4 ${attendee.status === CheckinStatus.CHECKED_IN ? 'bg-rose-600 text-white' : 'bg-neutral-800 text-neutral-500'}`}>
-                                {attendee.status === CheckinStatus.CHECKED_IN ? 'Presente no Evento' : 'Vaga Confirmada'}
-                            </div>
-                            <button 
-                                onClick={() => setEditingAttendee(attendee)}
-                                className="text-[10px] font-black uppercase tracking-widest text-neutral-600 hover:text-white transition-colors py-2"
-                            >
-                                Solicitar Alteração
-                            </button>
-                        </div>
+                          )
+                        })}
                     </div>
-                ))}
-            </div>
-            
-            {filteredAttendees.length === 0 && (
-                <div className="text-center py-40 border-2 border-dashed border-white/5 rounded-[4rem]">
-                    <UsersIcon className="w-16 h-16 mx-auto mb-4 text-neutral-800" />
-                    <p className="text-neutral-600 font-bold uppercase tracking-widest text-sm">Nenhum convidado encontrado na sua lista VIP.</p>
+                ) : (
+                    <div className="text-center text-gray-500 py-16">
+                        <p>{t('checkin.search.noResultsForFilter')}</p>
+                    </div>
+                )
+            ) : (
+                <div className="text-center text-gray-500 py-16">
+                    <p>{t('supplierAdmin.noAttendees')}</p>
                 </div>
             )}
-        </div>
-
+        </main>
       </div>
-
-      {isRegisterModalOpen && (
-        <SupplierRegistrationModal
-          eventId={eventId}
-          supplier={supplier}
-          allowedSectors={sectors}
-          onClose={() => setIsRegisterModalOpen(false)}
-          onSuccess={() => {}}
-        />
-      )}
       {editingAttendee && (
         <SubstitutionRequestModal 
             attendee={editingAttendee}
             eventId={eventId}
             onClose={() => setEditingAttendee(null)}
-            onSuccess={() => {}}
-            allowedSectors={sectors}
+            onSuccess={handleEditSuccess}
+            allowedSectors={allowedSectorsForSupplier}
+        />
+      )}
+      {isRegisterModalOpen && (
+        <SupplierRegistrationModal
+          eventId={eventId}
+          supplier={supplier}
+          allowedSectors={allowedSectorsForSupplier}
+          onClose={() => setIsRegisterModalOpen(false)}
+          onSuccess={handleRegisterSuccess}
         />
       )}
     </div>

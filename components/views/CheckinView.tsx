@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Attendee, CheckinStatus, Supplier, Sector, User } from '../../types.ts';
 import AttendeeCard from '../AttendeeCard.tsx';
@@ -43,8 +42,8 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
     return {
       searchTerm: '',
       searchBy: 'ALL',
-      // MUDANÇA SOLICITADA: Iniciar filtros como Pendentes e Todas as Divulgadoras
-      statusFilter: CheckinStatus.PENDING,
+      // FIX: Em modo VIP, o padrão é "ALL" para que cadastros PENDING_APPROVAL apareçam imediatamente
+      statusFilter: isVip ? 'ALL' : CheckinStatus.PENDING,
       supplierFilter: 'ALL',
     };
   });
@@ -144,17 +143,17 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
 
   const stats = useMemo(() => ({
       checkedIn: filteredAttendees.filter(a => a.status === CheckinStatus.CHECKED_IN).length,
-      pending: filteredAttendees.filter(a => a.status === CheckinStatus.PENDING).length,
+      pending: filteredAttendees.filter(a => a.status === CheckinStatus.PENDING || a.status === CheckinStatus.PENDING_APPROVAL).length,
       total: filteredAttendees.length,
   }), [filteredAttendees]);
 
-  // CLASSES DE ESTILO VIP vs PADRÃO
+  // --- VIP STYLES ---
   const containerClass = isVip 
-    ? "bg-neutral-900/50 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-white/10" 
+    ? "bg-neutral-900/40 backdrop-blur-2xl p-8 rounded-[2.5rem] shadow-[0_40px_100px_rgba(0,0,0,0.6)] border border-white/5" 
     : "bg-gray-800/50 backdrop-blur-sm p-6 rounded-2xl shadow-2xl border border-gray-700";
 
   const inputClass = isVip
-    ? "w-full bg-black/50 border border-neutral-700 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-rose-500/50 transition-all"
+    ? "w-full bg-black/40 border border-neutral-800 rounded-2xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 transition-all placeholder:text-neutral-700 font-medium"
     : "w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500";
 
   return (
@@ -163,10 +162,10 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
         <div className="flex flex-col xl:flex-row justify-between items-center gap-8">
           <div className="flex-grow w-full flex flex-col md:flex-row gap-4">
             <div className="relative flex-grow">
-              <SearchIcon className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 ${isVip ? 'text-rose-400' : 'text-gray-400'}`} />
+              <SearchIcon className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 ${isVip ? 'text-rose-500' : 'text-gray-400'}`} />
               <input
                 type="text"
-                placeholder={isVip ? "Procurar convidado..." : t('checkin.searchPlaceholder')}
+                placeholder={isVip ? "Buscar convidado ou grupo..." : t('checkin.searchPlaceholder')}
                 value={searchTerm}
                 onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
                 className={`${inputClass} pl-12`}
@@ -184,7 +183,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
             </select>
           </div>
           
-          <div className="flex items-center gap-8 text-white flex-shrink-0">
+          <div className="flex items-center gap-10 text-white flex-shrink-0">
             <div className="text-center group">
               <p className={`text-3xl font-black ${isVip ? 'text-rose-400' : 'text-green-400'} flex items-center justify-center gap-2`}>
                 <CheckCircleIcon className="w-7 h-7" /> {stats.checkedIn}
@@ -193,7 +192,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
             </div>
             <div className="text-center">
               <p className={`text-3xl font-black ${isVip ? 'text-amber-300' : 'text-yellow-400'}`}>{stats.pending}</p>
-              <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest mt-1">Aguardando</p>
+              <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest mt-1">Lista de Espera</p>
             </div>
             <div className="text-center">
               <p className="text-3xl font-black flex items-center justify-center gap-2">
@@ -240,7 +239,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6 animate-in fade-in duration-700">
         {filteredAttendees.map((attendee) => {
             const attendeeSectors = Array.isArray(attendee.sectors) ? attendee.sectors : [];
             const sectorsList = attendeeSectors.map(id => {
@@ -266,7 +265,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
           <div className="text-center col-span-full py-32 opacity-40">
               {isVip && <FaceSmileIcon className="w-16 h-16 mx-auto mb-4 text-neutral-600" />}
               <p className="text-gray-500 font-bold uppercase tracking-widest text-sm">
-                {searchTerm.trim() ? `Nenhum registro para "${searchTerm}"` : "Nenhum convidado na lista"}
+                {searchTerm.trim() ? `Nenhum convidado encontrado para "${searchTerm}"` : "A lista VIP está vazia no momento"}
               </p>
           </div>
       )}
