@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Attendee, Sector, Supplier, SubCompany, EventType } from '../../types.ts';
 import WebcamCapture from '../WebcamCapture.tsx';
@@ -35,6 +34,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
   // Form State
   const [name, setName] = useState('');
   const [cpf, setCpf] = useState('');
+  const [email, setEmail] = useState('');
   const [sector, setSector] = useState('');
   const [selectedSupplierId, setSelectedSupplierId] = useState('');
   const [subCompany, setSubCompany] = useState('');
@@ -91,6 +91,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
     setCpfCheckMessage(isVip ? 'Autenticando bio-identidade...' : t('register.checkingCpf'));
     setPhoto(null);
     setName('');
+    setEmail('');
     setExistingAttendeeFound(false);
     setIsPhotoLocked(false);
     setBlockedWarning(null);
@@ -109,6 +110,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
         
         if (existingAttendee) {
             setName(existingAttendee.name);
+            setEmail(existingAttendee.email || '');
             setPhoto(existingAttendee.photo);
             
             const isRegisteredInCurrentEvent = activeEventId && existingAttendee.eventId === activeEventId;
@@ -148,6 +150,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
       const attendeeData: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'> = { 
           name, 
           cpf: rawCpf, 
+          email: email.trim(),
           photo, 
           sectors: [sector],
           ...(subCompany && { subCompany })
@@ -160,7 +163,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
       await onRegister(attendeeData, isAdminView ? selectedSupplierId : undefined);
       
       // Clear form
-      setName(''); setCpf(''); setPhoto(null);
+      setName(''); setCpf(''); setEmail(''); setPhoto(null);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 5000);
     } catch (error: any) {
@@ -234,6 +237,17 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
                                 <label className="absolute -top-4 left-0 text-[10px] font-black uppercase tracking-widest text-neutral-600 group-focus-within:text-rose-500 transition-colors">Nome do Convidado</label>
                             </div>
 
+                            <div className="relative group">
+                                <input
+                                    type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                                    className="w-full bg-transparent border-b border-neutral-800 py-3 text-white focus:outline-none focus:border-rose-500 transition-all font-bold placeholder:text-neutral-800 text-lg"
+                                    placeholder="EXEMPLO@EMAIL.COM"
+                                    required
+                                    disabled={isSubmitting || existingAttendeeFound}
+                                />
+                                <label className="absolute -top-4 left-0 text-[10px] font-black uppercase tracking-widest text-neutral-600 group-focus-within:text-rose-500 transition-colors">E-mail Exclusive</label>
+                            </div>
+
                             {isAdminView && (
                                 <div className="relative group">
                                     <select
@@ -303,7 +317,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
                 <label className="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-2">{t('register.form.nameLabel')}</label>
                 <input
                   type="text" value={name} onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+                  className="w-full bg-gray-900 border border-gray-600 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
                   placeholder={t('register.form.namePlaceholder')}
                   disabled={isSubmitting || existingAttendeeFound}
                 />
@@ -314,7 +328,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
                 <input
                   type="text" value={cpf} onChange={(e) => setCpf(formatCPF(e.target.value))}
                   onBlur={handleCpfBlur}
-                  className="w-full bg-gray-900 border border-gray-700 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+                  className="w-full bg-gray-900 border border-gray-600 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
                   placeholder={t('register.form.cpfPlaceholder')}
                   disabled={isSubmitting}
                 />
@@ -326,7 +340,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
                   <label className="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-2">{t('register.form.supplierLabel')}</label>
                   <select
                     value={selectedSupplierId} onChange={(e) => setSelectedSupplierId(e.target.value)}
-                    className="w-full bg-gray-900 border border-gray-700 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all cursor-pointer"
+                    className="w-full bg-gray-900 border border-gray-600 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all cursor-pointer"
                     disabled={isSubmitting || existingAttendeeFound}
                   >
                     <option value="">{t('register.form.supplierPlaceholder')}</option>
@@ -340,7 +354,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
                   <label className="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-2">{t('register.form.sectorLabel')}</label>
                   <select
                     value={sector} onChange={(e) => setSector(e.target.value)}
-                    className="w-full bg-gray-900 border border-gray-700 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
+                    className="w-full bg-gray-900 border border-gray-600 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all"
                     disabled={isSubmitting || existingAttendeeFound}
                   >
                     <option value="" disabled>{t('register.form.sectorPlaceholder')}</option>

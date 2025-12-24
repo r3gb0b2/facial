@@ -150,7 +150,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
 
         setIsSubmitting(true);
         try {
-            await onAddSupplier(supplierName, finalSectors, registrationLimit, subCompanies, supplierEmail);
+            await onAddSupplier(supplierName, finalSectors, registrationLimit, subCompanies, supplierEmail.trim());
             setSupplierName('');
             setSupplierEmail('');
             setSelectedSectors([]);
@@ -342,18 +342,19 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label htmlFor="supplierName" className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">{isVip ? "Nome da Divulgadora" : t('suppliers.nameLabel')}</label>
+                            <label htmlFor="supplierName" className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">{isVip ? t('suppliers.nameLabel') : t('suppliers.nameLabel')}</label>
                             <input
                                 type="text" id="supplierName" value={supplierName} onChange={(e) => setSupplierName(e.target.value)}
-                                className="w-full bg-gray-900/50 border border-gray-700/50 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-pink-500/30"
+                                className="w-full bg-gray-900/50 border border-gray-700/50 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-pink-500/30 font-bold"
                                 placeholder={isVip ? "Ex: Divulgadora Maria" : t('suppliers.namePlaceholder')}
+                                required
                             />
                         </div>
                         <div>
-                            <label htmlFor="supplierEmail" className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">E-mail da Divulgadora</label>
+                            <label htmlFor="supplierEmail" className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">E-mail de Contato da Promoter</label>
                             <input
                                 type="email" id="supplierEmail" value={supplierEmail} onChange={(e) => setSupplierEmail(e.target.value)}
-                                className="w-full bg-gray-900/50 border border-gray-700/50 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-pink-500/30"
+                                className="w-full bg-gray-900/50 border border-gray-700/50 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-pink-500/30 font-bold"
                                 placeholder="exemplo@email.com"
                                 required
                             />
@@ -362,11 +363,12 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label htmlFor="limit" className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">{isVip ? "Limite de Convidados" : t('suppliers.limitLabel')}</label>
+                            <label htmlFor="limit" className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">{isVip ? t('suppliers.limitLabel') : t('suppliers.limitLabel')}</label>
                             <input
                                 type="number" id="limit" value={limit} onChange={(e) => setLimit(e.target.value)}
-                                className="w-full bg-gray-900/50 border border-gray-700/50 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-pink-500/30"
+                                className="w-full bg-gray-900/50 border border-gray-700/50 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-pink-500/30 font-bold"
                                 placeholder="Ex: 100" min="1"
+                                required
                             />
                         </div>
                         {!isVip && (
@@ -379,8 +381,8 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
 
                     {renderSubCompanyManager(false)}
 
-                    <button type="submit" disabled={isSubmitting} className={`w-full text-white font-black uppercase tracking-widest py-4 rounded-xl transition-all ${isVip ? 'bg-gradient-to-r from-pink-600 to-rose-700 hover:scale-[1.01]' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
-                        {isVip ? "Cadastrar Divulgadora" : t('suppliers.generateButton')}
+                    <button type="submit" disabled={isSubmitting} className={`w-full text-white font-black uppercase tracking-widest py-4 rounded-xl transition-all shadow-xl hover:scale-[1.01] active:scale-95 ${isVip ? 'bg-gradient-to-r from-pink-600 to-rose-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
+                        {isVip ? "Gerar Link de Divulgadora VIP" : t('suppliers.generateButton')}
                     </button>
                 </form>
             </div>
@@ -395,7 +397,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                         
                         return (
                             <div key={supplier.id} className="bg-gray-900/40 rounded-2xl overflow-hidden border border-gray-700/50">
-                                <div onClick={() => handleToggleSupplier(supplier.id)} className="p-5 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 cursor-pointer hover:bg-white/5">
+                                <div onClick={() => handleToggleSupplier(supplier.id)} className="p-5 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 cursor-pointer hover:bg-white/5 transition-all">
                                     <div className="flex-grow">
                                         <div className="flex items-center gap-3">
                                             <h4 className="font-black text-xl text-white tracking-tight">{supplier.name}</h4>
@@ -403,16 +405,16 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                                 {supplier.active ? "Ativa" : "Inativa"}
                                             </span>
                                         </div>
-                                        <p className="text-gray-500 text-xs mt-0.5 font-medium">{supplier.email || 'Sem e-mail'}</p>
+                                        <p className="text-gray-500 text-xs mt-0.5 font-bold italic tracking-wider">{supplier.email || 'E-mail não informado'}</p>
                                         <div className="flex items-center gap-4 text-[10px] text-gray-500 mt-3 font-bold uppercase tracking-widest">
                                             <span className="flex items-center gap-1.5"><UsersIcon className="w-3 h-3"/> {isVip ? 'Convidados' : t('suppliers.registrations')}: <span className="text-white">{currentCount} / {supplier.registrationLimit}</span></span>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
-                                        <button onClick={() => onSupplierStatusUpdate(supplier.id, !supplier.active)} className="p-2 text-gray-500 hover:text-white rounded-xl hover:bg-gray-800">{supplier.active ? <NoSymbolIcon className="w-5 h-5"/> : <CheckCircleIcon className="w-5 h-5"/>}</button>
-                                        <button onClick={(e) => handleCopyLink(supplier.id, e)} className="p-2 text-gray-500 hover:text-pink-400 rounded-xl hover:bg-gray-800">{copiedLink === supplier.id ? <CheckCircleIcon className="w-5 h-5 text-green-400"/> : <LinkIcon className="w-5 h-5"/>}</button>
-                                        <button onClick={(e) => handleEditClick(supplier, e)} className="p-2 text-gray-500 hover:text-yellow-400 rounded-xl hover:bg-gray-800"><PencilIcon className="w-5 h-5"/></button>
-                                        <button onClick={(e) => handleDelete(supplier, e)} className="p-2 text-gray-500 hover:text-red-500 rounded-xl hover:bg-gray-800"><TrashIcon className="w-5 h-5"/></button>
+                                        <button onClick={() => onSupplierStatusUpdate(supplier.id, !supplier.active)} className="p-2 text-gray-500 hover:text-white rounded-xl hover:bg-gray-800 transition-colors" title={supplier.active ? "Desativar" : "Ativar"}>{supplier.active ? <NoSymbolIcon className="w-5 h-5"/> : <CheckCircleIcon className="w-5 h-5"/>}</button>
+                                        <button onClick={(e) => handleCopyLink(supplier.id, e)} className="p-2 text-gray-500 hover:text-pink-400 rounded-xl hover:bg-gray-800 transition-colors" title="Copiar Link de Registro">{copiedLink === supplier.id ? <CheckCircleIcon className="w-5 h-5 text-green-400"/> : <LinkIcon className="w-5 h-5"/>}</button>
+                                        <button onClick={(e) => handleEditClick(supplier, e)} className="p-2 text-gray-500 hover:text-yellow-400 rounded-xl hover:bg-gray-800 transition-colors" title="Editar"><PencilIcon className="w-5 h-5"/></button>
+                                        <button onClick={(e) => handleDelete(supplier, e)} className="p-2 text-gray-500 hover:text-red-500 rounded-xl hover:bg-gray-800 transition-colors" title="Remover"><TrashIcon className="w-5 h-5"/></button>
                                     </div>
                                 </div>
                                 {isExpanded && (
@@ -427,10 +429,11 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                                         <td className="px-4 py-3"><div className="flex items-center gap-3"><UserAvatar src={attendee.photo} alt={attendee.name} className="w-10 h-10 rounded-full bg-black border border-white/10"/><p className="font-bold text-gray-200">{attendee.name}</p></div></td>
                                                         <td className="px-4 py-3">{t(`status.${attendee.status.toLowerCase()}`)}</td>
                                                         <td className="px-4 py-3 text-center">
-                                                            {attendee.status === CheckinStatus.BLOCKED ? <button onClick={() => handleUnblockUser(attendee.id)} className="text-green-500">Desbloquear</button> : <button onClick={() => handleBlockUser(attendee.id)} className="text-red-500">Bloquear</button>}
+                                                            {attendee.status === CheckinStatus.BLOCKED ? <button onClick={() => handleUnblockUser(attendee.id)} className="text-green-500 font-bold">Desbloquear</button> : <button onClick={() => handleBlockUser(attendee.id)} className="text-red-500 font-bold">Bloquear</button>}
                                                         </td>
                                                     </tr>
                                                 ))}
+                                                {supplierAttendees.length === 0 && <tr><td colSpan={3} className="text-center py-4 italic text-neutral-600 uppercase tracking-widest text-[9px] font-black">Nenhum convidado nesta lista ainda</td></tr>}
                                             </tbody>
                                         </table>
                                     </div>
