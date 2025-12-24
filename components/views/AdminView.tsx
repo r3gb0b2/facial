@@ -59,13 +59,8 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
 
     const availableTabs = useMemo(() => {
         return TABS.filter(tab => {
-            // 1. Role Check
             if (!tab.roles.includes(user.role)) return false;
-            
-            // 2. VIP Mode exclusion: No sector management in VIP list
             if (isVip && tab.id === 'sectors') return false;
-
-            // 3. Module Configuration Check
             if (currentEvent && currentEvent.modules) {
                 if (tab.id === 'scanner' && currentEvent.modules.scanner === false) return false;
                 if (tab.id === 'logs' && currentEvent.modules.logs === false) return false;
@@ -74,7 +69,6 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                 if (tab.id === 'spreadsheet' && currentEvent.modules.spreadsheet === false) return false;
                 if (tab.id === 'reports' && currentEvent.modules.reports === false) return false;
             }
-
             return true;
         });
     }, [user.role, currentEvent, isVip]);
@@ -105,8 +99,9 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
         onRejectSectorChange: props.onRejectSectorChange,
         onApproveNewRegistration: props.onApproveNewRegistration,
         onRejectNewRegistration: props.onRejectNewRegistration,
-        setError: setError
-    }), [user, eventData, currentEventId, currentEventName, props.onUpdateAttendeeDetails, props.onDeleteAttendee, props.onApproveSubstitution, props.onRejectSubstitution, props.onApproveSectorChange, props.onRejectSectorChange, props.onApproveNewRegistration, props.onRejectNewRegistration, setError]);
+        setError: setError,
+        isVip: isVip
+    }), [user, eventData, currentEventId, currentEventName, props.onUpdateAttendeeDetails, props.onDeleteAttendee, props.onApproveSubstitution, props.onRejectSubstitution, props.onApproveSectorChange, props.onRejectSectorChange, props.onApproveNewRegistration, props.onRejectNewRegistration, setError, isVip]);
 
     const handleAddSupplier = (name: string, sectors: string[], registrationLimit: number, subCompanies: any[], email?: string) => api.addSupplier(currentEventId, name, sectors, registrationLimit, subCompanies, email);
     const handleUpdateSupplier = (supplierId: string, data: Partial<Supplier>) => api.updateSupplier(currentEventId, supplierId, data);
@@ -131,27 +126,15 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                 const foundSupplier = eventData.suppliers.find(s => s.name.toLowerCase() === supplierName.toLowerCase());
                 if (foundSupplier) supplierId = foundSupplier.id;
             }
-
             const subCompany = row.empresa || '';
-
             if (!name || !cpf) continue; 
-
             const sectorId = eventData.sectors.find(s => s.label.toLowerCase() === sectorLabel?.toLowerCase())?.id || (eventData.sectors.length > 0 ? eventData.sectors[0].id : undefined);
             if (!sectorId && !isVip) continue; 
-
             try {
                 const exists = eventData.attendees.some(a => a.cpf.replace(/\D/g,'') === cpf);
                 if (exists) continue;
-
                 const photo = row.photo || '';
-
-                await onRegister({
-                    name,
-                    cpf,
-                    photo,
-                    sectors: sectorId ? [sectorId] : [],
-                    subCompany
-                }, supplierId);
+                await onRegister({ name, cpf, photo, sectors: sectorId ? [sectorId] : [], subCompany }, supplierId);
             } catch (e) {
                 console.error(`Failed to import ${name}`, e);
             }
