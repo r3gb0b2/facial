@@ -73,6 +73,7 @@ export interface SubCompany {
 export interface Supplier {
   id: string;
   name: string;
+  email?: string; // Added email for promoters/divulgadoras
   sectors: string[];
   active: boolean;
   registrationLimit: number;

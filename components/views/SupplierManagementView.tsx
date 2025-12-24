@@ -14,7 +14,7 @@ interface SupplierManagementViewProps {
     suppliers: Supplier[];
     attendees: Attendee[];
     sectors: Sector[];
-    onAddSupplier: (name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[]) => Promise<void>;
+    onAddSupplier: (name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[], email?: string) => Promise<void>;
     onUpdateSupplier: (supplierId: string, data: Partial<Supplier>) => Promise<void>;
     onDeleteSupplier: (supplier: Supplier) => Promise<void>;
     onSupplierStatusUpdate: (supplierId: string, active: boolean) => Promise<void>;
@@ -31,6 +31,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
     
     // State for the creation form
     const [supplierName, setSupplierName] = useState('');
+    const [supplierEmail, setSupplierEmail] = useState('');
     const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
     const [limit, setLimit] = useState('');
     const [subCompanies, setSubCompanies] = useState<SubCompany[]>([]);
@@ -137,10 +138,10 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!supplierName.trim()) {
-            setError(isVip ? "O nome do promoter é obrigatório." : t('suppliers.noNameError'));
+            setError(isVip ? "O nome da divulgadora é obrigatório." : t('suppliers.noNameError'));
             return;
         }
-        if (selectedSectors.length === 0) {
+        if (selectedSectors.length === 0 && !isVip) {
             setError(t('suppliers.noSectorsError'));
             return;
         }
@@ -150,10 +151,17 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
             return;
         }
 
+        // For VIP, if no sectors selected, auto-select first one
+        let finalSectors = selectedSectors;
+        if (isVip && selectedSectors.length === 0 && sectors.length > 0) {
+            finalSectors = [sectors[0].id];
+        }
+
         setIsSubmitting(true);
         try {
-            await onAddSupplier(supplierName, selectedSectors, registrationLimit, subCompanies);
+            await onAddSupplier(supplierName, finalSectors, registrationLimit, subCompanies, supplierEmail);
             setSupplierName('');
+            setSupplierEmail('');
             setSelectedSectors([]);
             setLimit('');
             setSubCompanies([]);
@@ -178,15 +186,11 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
         if (!editingSupplier) return;
 
         if (!editingSupplier.name.trim()) {
-            setError(isVip ? "O nome do promoter é obrigatório." : t('suppliers.noNameError'));
+            setError(isVip ? "O nome da divulgadora é obrigatório." : t('suppliers.noNameError'));
             return;
         }
-        if (editingSupplier.sectors.length === 0) {
+        if (editingSupplier.sectors.length === 0 && !isVip) {
             setError(t('suppliers.noSectorsError'));
-            return;
-        }
-        if (isNaN(editingSupplier.registrationLimit) || editingSupplier.registrationLimit <= 0) {
-            setError(t('suppliers.noLimitError'));
             return;
         }
         
@@ -213,7 +217,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
 
     const handleRegenerateToken = async (supplier: Supplier, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (window.confirm(`Tem certeza que deseja gerar um novo link de organizador para "${supplier.name}"? O link antigo deixará de funcionar.`)) {
+        if (window.confirm(`Deseja gerar um novo link de organizador para "${supplier.name}"? O link antigo deixará de funcionar.`)) {
             const newToken = await onRegenerateAdminToken(supplier.id);
             handleCopyAdminLink(newToken, supplier.id, e);
         }
@@ -222,7 +226,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
     const handleDelete = async (supplier: Supplier, e: React.MouseEvent) => {
         e.stopPropagation();
         const confirmMsg = isVip 
-            ? `Tem certeza que deseja deletar o promoter "${supplier.name}"? Esta ação não pode ser desfeita.`
+            ? `Tem certeza que deseja deletar a divulgadora "${supplier.name}"? Esta ação não pode ser desfeita.`
             : t('suppliers.deleteConfirm', supplier.name);
 
         if (window.confirm(confirmMsg)) {
@@ -230,7 +234,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                 await onDeleteSupplier(supplier);
             } catch (err: any) {
                  if (err.message.includes("cannot be deleted")) {
-                    setError(isVip ? `O promoter "${supplier.name}" possui convidados e não pode ser excluído.` : t('suppliers.deleteErrorInUse', supplier.name));
+                    setError(isVip ? `A divulgadora "${supplier.name}" possui convidados e não pode ser excluída.` : t('suppliers.deleteErrorInUse', supplier.name));
                 } else {
                     setError(err.message || 'Falha ao deletar o organizador.');
                 }
@@ -260,7 +264,6 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
 
         setSelectedAttendeeIds(prev => {
             const newSet = new Set(prev);
-            // FIX: Replaced 'allSelectedInCompany' with 'allSelectedInSupplier' to resolve the reference error.
             if (allSelectedInSupplier) {
                 supplierAttendeeIds.forEach(id => newSet.delete(id));
             } else {
@@ -304,7 +307,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                     id={`sector-${sector.id}-${isEditing}`}
                     checked={currentSectors.includes(sector.id)}
                     onChange={() => handleSectorChange(sector.id, isEditing)}
-                    className={`h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500`}
+                    className={`h-4 w-4 rounded border-gray-500 bg-gray-700 text-pink-600 focus:ring-pink-500`}
                     disabled={isSubmitting && !isEditing}
                 />
                 <label htmlFor={`sector-${sector.id}-${isEditing}`} className="text-white cursor-pointer">{sector.label}</label>
@@ -321,34 +324,34 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
         
         return (
             <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                    {isVip ? "Grupos / Organizações Vinculadas (Opcional)" : t('suppliers.subCompaniesLabel')}
+                <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">
+                    {isVip ? "Grupos / Organizações Vinculadas" : t('suppliers.subCompaniesLabel')}
                 </label>
                 <div className="flex flex-col sm:flex-row gap-2">
                     <input
                         type="text"
                         value={nameValue}
                         onChange={(e) => setNameValue(e.target.value)}
-                        className="flex-grow bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="flex-grow bg-gray-900/50 border border-gray-700/50 rounded-lg py-2 px-4 text-white focus:outline-none focus:ring-1 focus:ring-pink-500/50 transition-all"
                         placeholder={isVip ? "Nome do Grupo/Empresa" : t('suppliers.subCompaniesPlaceholder')}
                     />
                     <select
                         value={sectorValue}
                         onChange={(e) => setSectorValue(e.target.value)}
-                        className="bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="bg-gray-900/50 border border-gray-700/50 rounded-lg py-2 px-4 text-white focus:outline-none focus:ring-1 focus:ring-pink-500/50"
                     >
                         <option value="" disabled>{isVip ? "Tipo" : t('suppliers.subCompanySectorPlaceholder')}</option>
                         {sectors.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
                     </select>
-                    <button type="button" onClick={() => handleAddSubCompany(isEditing)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex-shrink-0">{t('suppliers.addSubCompanyButton')}</button>
+                    <button type="button" onClick={() => handleAddSubCompany(isEditing)} className="bg-white/10 hover:bg-white/20 text-white font-bold py-2 px-4 rounded-lg flex-shrink-0 transition-all">Adicionar</button>
                 </div>
                 <div className="flex flex-wrap gap-2 mt-3">
                     {currentList.map(company => {
                         const sectorInfo = sectorMap.get(company.sector);
                         return (
-                            <div key={company.name} className="text-sm font-medium px-3 py-1 rounded-full flex items-center gap-2" style={{ backgroundColor: sectorInfo?.color ? `${sectorInfo.color}33` : '#4B556333' }}>
+                            <div key={company.name} className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full flex items-center gap-2 border border-white/10 bg-white/5 shadow-sm">
                                 <span style={{ color: sectorInfo?.color || '#E5E7EB' }}>{company.name}</span>
-                                <button type="button" onClick={() => handleRemoveSubCompany(company.name, isEditing)} className="text-gray-400 hover:text-white">
+                                <button type="button" onClick={() => handleRemoveSubCompany(company.name, isEditing)} className="text-gray-400 hover:text-white transition-colors">
                                     <XMarkIcon className="w-3 h-3"/>
                                 </button>
                             </div>
@@ -363,234 +366,225 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
         switch (status) {
             case CheckinStatus.PENDING:
             case CheckinStatus.PENDING_APPROVAL:
-                return <span className="bg-yellow-500/20 text-yellow-300 px-2 py-0.5 rounded-full text-xs font-bold border border-yellow-500/50">{t('status.pending')}</span>;
+                return <span className="bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded-full text-[10px] font-bold border border-yellow-500/20">{t('status.pending')}</span>;
             case CheckinStatus.CHECKED_IN:
-                return <span className="bg-green-500/20 text-green-300 px-2 py-0.5 rounded-full text-xs font-bold border border-green-500/50">{t('status.checked_in')}</span>;
+                return <span className="bg-green-500/10 text-green-500 px-2 py-0.5 rounded-full text-[10px] font-bold border border-green-500/20">{t('status.checked_in')}</span>;
             case CheckinStatus.CHECKED_OUT:
-                return <span className="bg-slate-500/20 text-slate-300 px-2 py-0.5 rounded-full text-xs font-bold border border-slate-500/50">{t('status.checked_out')}</span>;
+                return <span className="bg-slate-500/10 text-slate-400 px-2 py-0.5 rounded-full text-[10px] font-bold border border-slate-500/20">{t('status.checked_out')}</span>;
             case CheckinStatus.BLOCKED:
-                return <span className="bg-red-600 text-white px-2 py-0.5 rounded-full text-xs font-bold border border-red-700">{t('status.blocked')}</span>;
+                return <span className="bg-red-600 text-white px-2 py-0.5 rounded-full text-[10px] font-bold border border-red-700 shadow-lg">BLOQUEADO</span>;
             case CheckinStatus.REJECTED:
-                return <span className="bg-red-500/20 text-red-300 px-2 py-0.5 rounded-full text-xs font-bold border border-red-500/50">{t('status.rejected')}</span>;
+                return <span className="bg-red-500/10 text-red-500 px-2 py-0.5 rounded-full text-[10px] font-bold border border-red-500/20">{t('status.rejected')}</span>;
             default:
-                return <span className="bg-gray-600 text-gray-300 px-2 py-0.5 rounded-full text-xs font-bold">{status}</span>;
+                return <span className="bg-gray-600/10 text-gray-300 px-2 py-0.5 rounded-full text-[10px] font-bold">{status}</span>;
         }
     };
 
     return (
         <div className="w-full max-w-7xl mx-auto space-y-6">
-            <div className={`bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border ${isVip ? 'border-pink-500/30' : 'border-gray-700'}`}>
-                <h2 className="text-3xl font-bold text-white text-center mb-6">{isVip ? "Gestão de Promoters / Organizadores" : t('suppliers.generateTitle')}</h2>
+            <div className={`bg-gray-800/30 backdrop-blur-xl p-8 rounded-2xl shadow-2xl border ${isVip ? 'border-pink-500/20 shadow-pink-500/5' : 'border-gray-700/50'}`}>
+                <h2 className="text-3xl font-extrabold text-white text-center mb-2 tracking-tight">{isVip ? "Gestão de Divulgadoras" : t('suppliers.generateTitle')}</h2>
+                <p className="text-center text-gray-500 text-sm mb-8">{isVip ? "Crie links exclusivos para suas promoters gerenciarem seus convidados." : "Crie links de cadastro para seus fornecedores."}</p>
+                
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
-                            <label htmlFor="supplierName" className="block text-sm font-medium text-gray-300 mb-1">{isVip ? "Nome do Promoter / Responsável" : t('suppliers.nameLabel')}</label>
+                            <label htmlFor="supplierName" className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">{isVip ? "Nome da Divulgadora" : t('suppliers.nameLabel')}</label>
                             <input
                                 type="text" id="supplierName" value={supplierName} onChange={(e) => setSupplierName(e.target.value)}
-                                className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                placeholder={isVip ? "Ex: Promoter João Silva" : t('suppliers.namePlaceholder')}
+                                className="w-full bg-gray-900/50 border border-gray-700/50 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-pink-500/30 transition-all placeholder:text-gray-700"
+                                placeholder={isVip ? "Ex: Divulgadora Maria" : t('suppliers.namePlaceholder')}
                             />
                         </div>
                         <div>
-                            <label htmlFor="limit" className="block text-sm font-medium text-gray-300 mb-1">{isVip ? "Limite de Convidados" : t('suppliers.limitLabel')}</label>
+                            <label htmlFor="supplierEmail" className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">E-mail de Contato</label>
+                            <input
+                                type="email" id="supplierEmail" value={supplierEmail} onChange={(e) => setSupplierEmail(e.target.value)}
+                                className="w-full bg-gray-900/50 border border-gray-700/50 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-pink-500/30 transition-all placeholder:text-gray-700"
+                                placeholder="exemplo@email.com"
+                            />
+                        </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label htmlFor="limit" className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">{isVip ? "Limite de Convidados" : t('suppliers.limitLabel')}</label>
                             <input
                                 type="number" id="limit" value={limit} onChange={(e) => setLimit(e.target.value)}
-                                className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                className="w-full bg-gray-900/50 border border-gray-700/50 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-pink-500/30 transition-all placeholder:text-gray-700"
                                 placeholder="Ex: 100"
                                 min="1"
                             />
                         </div>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-300 mb-2">{isVip ? "Tipos de Convidados Permitidos" : t('suppliers.sectorsLabel')}</label>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 p-4 bg-gray-900/50 rounded-lg">
-                            {renderSectorCheckboxes(false)}
-                        </div>
+                        {!isVip && (
+                            <div>
+                                <label className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">{t('suppliers.sectorsLabel')}</label>
+                                <div className="grid grid-cols-2 gap-2 p-3 bg-gray-900/30 rounded-xl border border-gray-700/50">
+                                    {renderSectorCheckboxes(false)}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {renderSubCompanyManager(false)}
 
-                    <button type="submit" disabled={isSubmitting} className={`w-full text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 disabled:bg-gray-500 ${isVip ? 'bg-pink-600 hover:bg-pink-700' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
-                        {isVip ? "Criar Link de Promoter" : t('suppliers.generateButton')}
+                    <button type="submit" disabled={isSubmitting} className={`w-full text-white font-black uppercase tracking-widest py-4 px-4 rounded-xl shadow-lg transition-all duration-300 disabled:bg-gray-800 disabled:text-gray-600 ${isVip ? 'bg-gradient-to-r from-pink-600 to-rose-700 hover:shadow-pink-500/20 hover:scale-[1.01]' : 'bg-indigo-600 hover:bg-indigo-700'}`}>
+                        {isVip ? "Cadastrar Divulgadora" : t('suppliers.generateButton')}
                     </button>
                 </form>
             </div>
 
-            <div className={`bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border ${isVip ? 'border-pink-500/30' : 'border-gray-700'}`}>
-                <h3 className="text-2xl font-bold text-white text-center mb-6">{isVip ? "Promoters e Links de Convite" : t('suppliers.existingLinks')}</h3>
+            <div className={`bg-gray-800/30 backdrop-blur-xl p-8 rounded-2xl shadow-2xl border ${isVip ? 'border-pink-500/20 shadow-pink-500/5' : 'border-gray-700/50'}`}>
+                <h3 className="text-2xl font-bold text-white text-center mb-8 tracking-tight">{isVip ? "Divulgadoras e Links Ativos" : t('suppliers.existingLinks')}</h3>
                 {sortedSuppliers.length > 0 ? (
-                    <div className="space-y-4">
+                    <div className="grid grid-cols-1 gap-4">
                         {sortedSuppliers.map(supplier => {
                             const isEditing = editingSupplier?.id === supplier.id;
                             const isExpanded = expandedSupplierId === supplier.id;
                             const currentCount = registrationCounts.get(supplier.id) || 0;
                             const supplierAttendees = attendees
                                 .filter(a => a.supplierId === supplier.id)
-                                .sort((a, b) => {
-                                    if (a.status === CheckinStatus.BLOCKED && b.status !== CheckinStatus.BLOCKED) return -1;
-                                    if (b.status === CheckinStatus.BLOCKED && a.status !== CheckinStatus.BLOCKED) return 1;
-                                    return b.createdAt.seconds - a.createdAt.seconds; 
-                                });
+                                .sort((a, b) => b.createdAt.seconds - a.createdAt.seconds);
                             const allInSupplierSelected = supplierAttendees.length > 0 && supplierAttendees.every(a => selectedAttendeeIds.has(a.id));
 
                             return (
-                                <div key={supplier.id} className="bg-gray-900/70 rounded-lg overflow-hidden transition-all">
+                                <div key={supplier.id} className="bg-gray-900/40 rounded-2xl overflow-hidden border border-gray-700/50 hover:border-gray-600/50 transition-all shadow-sm">
                                     {isEditing && editingSupplier ? (
-                                        <div className="p-4 space-y-4">
-                                            <input type="text" value={editingSupplier.name} onChange={(e) => setEditingSupplier({ ...editingSupplier, name: e.target.value })} className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-white"/>
-                                            <input type="number" value={editingSupplier.registrationLimit} onChange={(e) => setEditingSupplier({ ...editingSupplier, registrationLimit: parseInt(e.target.value, 10) || 0 })} className="w-full bg-gray-800 border border-gray-600 rounded-md py-2 px-3 text-white"/>
-                                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2 bg-gray-800/50 rounded-lg">{renderSectorCheckboxes(true)}</div>
+                                        <div className="p-6 space-y-4">
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <input type="text" value={editingSupplier.name} onChange={(e) => setEditingSupplier({ ...editingSupplier, name: e.target.value })} className="bg-gray-800 border border-gray-700 rounded-lg py-2 px-4 text-white"/>
+                                                <input type="email" value={editingSupplier.email || ''} onChange={(e) => setEditingSupplier({ ...editingSupplier, email: e.target.value })} className="bg-gray-800 border border-gray-700 rounded-lg py-2 px-4 text-white" placeholder="Email"/>
+                                            </div>
+                                            <input type="number" value={editingSupplier.registrationLimit} onChange={(e) => setEditingSupplier({ ...editingSupplier, registrationLimit: parseInt(e.target.value, 10) || 0 })} className="w-full bg-gray-800 border border-gray-700 rounded-lg py-2 px-4 text-white"/>
+                                            {!isVip && <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2 bg-gray-800/50 rounded-lg">{renderSectorCheckboxes(true)}</div>}
                                             {renderSubCompanyManager(true)}
-                                            <div className="flex justify-end gap-2">
-                                                <button onClick={handleCancelEdit} className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg">{t('suppliers.cancelButton')}</button>
-                                                <button onClick={handleSaveEdit} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg">{t('suppliers.saveButton')}</button>
+                                            <div className="flex justify-end gap-2 pt-4">
+                                                <button onClick={handleCancelEdit} className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg text-xs uppercase tracking-widest">{t('suppliers.cancelButton')}</button>
+                                                <button onClick={handleSaveEdit} className="bg-pink-600 hover:bg-pink-700 text-white font-bold py-2 px-4 rounded-lg text-xs uppercase tracking-widest">{t('suppliers.saveButton')}</button>
                                             </div>
                                         </div>
                                     ) : (
                                         <>
-                                        <div onClick={() => handleToggleSupplier(supplier.id)} className={`p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 cursor-pointer hover:bg-gray-800/50 border-l-4 ${supplier.active ? (isVip ? 'border-pink-500' : 'border-green-500') : 'border-gray-600'}`}>
+                                        <div onClick={() => handleToggleSupplier(supplier.id)} className={`p-5 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 cursor-pointer hover:bg-white/5 group relative`}>
                                             <div className="flex-grow">
-                                                <h4 className="font-bold text-lg text-white">{supplier.name}</h4>
-                                                <div className="flex items-center gap-2 text-sm text-gray-400 mt-1">
-                                                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${supplier.active ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'}`}>
-                                                        {supplier.active ? t('suppliers.active') : t('suppliers.inactive')}
+                                                <div className="flex items-center gap-3">
+                                                    <h4 className="font-black text-xl text-white tracking-tight">{supplier.name}</h4>
+                                                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-tighter ${supplier.active ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
+                                                        {supplier.active ? "Ativa" : "Inativa"}
                                                     </span>
-                                                    <span>&bull;</span>
-                                                    <span>{isVip ? 'Convidados' : t('suppliers.registrations')}: {currentCount} / {supplier.registrationLimit}</span>
                                                 </div>
-                                                 <div className="flex flex-wrap gap-1 mt-2">
-                                                    {(supplier.sectors || []).map(id => {
-                                                        const sector = sectorMap.get(id);
-                                                        return sector ? <span key={id} className="text-xs font-medium px-2 py-1 rounded-full" style={{ backgroundColor: `${sector.color}33`, color: sector.color }}>{sector.label}</span> : null
-                                                    })}
+                                                <p className="text-gray-500 text-xs mt-0.5 font-medium">{supplier.email || 'Sem e-mail cadastrado'}</p>
+                                                <div className="flex items-center gap-4 text-[10px] text-gray-500 mt-3 font-bold uppercase tracking-widest">
+                                                    <span className="flex items-center gap-1.5"><UsersIcon className="w-3 h-3"/> {isVip ? 'Convidados' : t('suppliers.registrations')}: <span className="text-white">{currentCount} / {supplier.registrationLimit}</span></span>
+                                                    {!isVip && (
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {(supplier.sectors || []).map(id => {
+                                                                const sector = sectorMap.get(id);
+                                                                return sector ? <span key={id} className="text-gray-400">&bull; {sector.label}</span> : null
+                                                            })}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-2 flex-wrap" onClick={e => e.stopPropagation()}>
-                                                <button onClick={(e) => onSupplierStatusUpdate(supplier.id, !supplier.active)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700" title={supplier.active ? t('suppliers.disableButton') : t('suppliers.enableButton')}>
+                                                <button onClick={(e) => onSupplierStatusUpdate(supplier.id, !supplier.active)} className="p-2 text-gray-500 hover:text-white transition-all rounded-xl hover:bg-gray-800" title={supplier.active ? t('suppliers.disableButton') : t('suppliers.enableButton')}>
                                                     {supplier.active ? <NoSymbolIcon className="w-5 h-5"/> : <CheckCircleIcon className="w-5 h-5"/>}
                                                 </button>
-                                                <button onClick={(e) => handleCopyLink(supplier.id, e)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700" title={isVip ? "Copiar link de convite" : t('suppliers.copyButton')}>
+                                                <button onClick={(e) => handleCopyLink(supplier.id, e)} className="p-2 text-gray-500 hover:text-pink-400 transition-all rounded-xl hover:bg-gray-800" title={isVip ? "Copiar link de convite" : t('suppliers.copyButton')}>
                                                     {copiedLink === supplier.id ? <CheckCircleIcon className="w-5 h-5 text-green-400"/> : <LinkIcon className="w-5 h-5"/>}
                                                 </button>
                                                 {supplier.adminToken && (
-                                                    <>
-                                                        <button onClick={(e) => handleCopyAdminLink(supplier.adminToken!, supplier.id, e)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700" title={isVip ? "Copiar link de controle do promoter" : t('suppliers.adminLink.copyTooltip')}>
-                                                          {copiedAdminLink === supplier.id ? <CheckCircleIcon className="w-5 h-5 text-green-400"/> : <EyeIcon className="w-5 h-5"/>}
+                                                    <div className="flex items-center bg-black/20 rounded-xl border border-white/5 p-1">
+                                                        <button onClick={(e) => handleCopyAdminLink(supplier.adminToken!, supplier.id, e)} className="p-1.5 text-gray-500 hover:text-white transition-all" title={isVip ? "Link de controle" : t('suppliers.adminLink.copyTooltip')}>
+                                                          {copiedAdminLink === supplier.id ? <CheckCircleIcon className="w-4 h-4 text-green-400"/> : <EyeIcon className="w-4 h-4"/>}
                                                         </button>
-                                                        <button onClick={(e) => handleRegenerateToken(supplier, e)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700" title={t('suppliers.adminLink.regenerateTooltip')}>
-                                                          <KeyIcon className="w-5 h-5"/>
+                                                        <button onClick={(e) => handleRegenerateToken(supplier, e)} className="p-1.5 text-gray-500 hover:text-white transition-all" title="Gerar novo link">
+                                                          <KeyIcon className="w-4 h-4"/>
                                                         </button>
-                                                    </>
+                                                    </div>
                                                 )}
-                                                <button onClick={(e) => handleEditClick(supplier, e)} className="p-2 text-gray-400 hover:text-yellow-400 transition-colors rounded-full hover:bg-gray-700" title={t('suppliers.editButton')}>
+                                                <button onClick={(e) => handleEditClick(supplier, e)} className="p-2 text-gray-500 hover:text-yellow-400 transition-all rounded-xl hover:bg-gray-800" title={t('suppliers.editButton')}>
                                                     <PencilIcon className="w-5 h-5"/>
                                                 </button>
-                                                <button onClick={(e) => handleDelete(supplier, e)} className="p-2 text-gray-400 hover:text-red-400 transition-colors rounded-full hover:bg-gray-700" title={t('suppliers.deleteButton')}>
+                                                <button onClick={(e) => handleDelete(supplier, e)} className="p-2 text-gray-500 hover:text-red-500 transition-all rounded-xl hover:bg-gray-800" title={t('suppliers.deleteButton')}>
                                                     <TrashIcon className="w-5 h-5"/>
                                                 </button>
-                                                 <svg className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                                 <svg className={`w-5 h-5 text-gray-700 transition-transform duration-500 ${isExpanded ? 'rotate-180' : ''}`} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
                                                 </svg>
                                             </div>
                                         </div>
                                          {isExpanded && (
-                                            <div className="p-4 border-t border-gray-700 bg-black/20 overflow-x-auto">
+                                            <div className="p-6 border-t border-white/5 bg-black/40 overflow-x-auto animate-in fade-in slide-in-from-top-2 duration-300">
                                                 {supplierAttendees.length > 0 ? (
                                                     <>
-                                                    <div className="flex items-center mb-4 p-2 bg-gray-800/40 rounded-md w-fit">
+                                                    <div className="flex items-center mb-6 p-2 bg-gray-800/40 rounded-lg w-fit border border-white/5">
                                                         <input
                                                             type="checkbox"
                                                             id={`select-all-${supplier.id}`}
                                                             checked={allInSupplierSelected}
                                                             onChange={() => handleSelectAllInSupplier(supplierAttendees)}
-                                                            className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
+                                                            className="h-4 w-4 rounded border-gray-600 bg-gray-900 text-pink-600 focus:ring-pink-500 cursor-pointer"
                                                         />
-                                                        <label htmlFor={`select-all-${supplier.id}`} className="ml-3 text-sm font-medium text-gray-300 cursor-pointer">{t('companies.selectAll')}</label>
+                                                        <label htmlFor={`select-all-${supplier.id}`} className="ml-3 text-[10px] font-black uppercase tracking-widest text-gray-400 cursor-pointer">Selecionar Todos</label>
                                                     </div>
                                                     
-                                                    <table className="w-full text-sm text-left text-gray-300">
-                                                        <thead className="text-xs text-gray-400 uppercase bg-gray-800/60">
+                                                    <table className="w-full text-xs text-left text-gray-400">
+                                                        <thead className="text-[10px] text-gray-500 font-black uppercase tracking-tighter bg-gray-900/50">
                                                             <tr>
                                                                 <th className="px-4 py-3 w-8"></th>
-                                                                <th className="px-4 py-3">{isVip ? "Convidado" : t('suppliers.table.colaborador')}</th>
-                                                                <th className="px-4 py-3">{t('suppliers.table.status')}</th>
-                                                                <th className="px-4 py-3">Origem</th>
-                                                                <th className="px-4 py-3">{t('suppliers.table.access')}</th>
-                                                                <th className="px-4 py-3 text-center">{t('suppliers.table.actions')}</th>
+                                                                <th className="px-4 py-3">{isVip ? "Convidado" : "Colaborador"}</th>
+                                                                <th className="px-4 py-3">Status</th>
+                                                                <th className="px-4 py-3">Grupo</th>
+                                                                <th className="px-4 py-3 text-center">Ações</th>
                                                             </tr>
                                                         </thead>
-                                                        <tbody>
+                                                        <tbody className="divide-y divide-white/5">
                                                             {supplierAttendees.map(attendee => {
                                                                 const isBlocked = attendee.status === CheckinStatus.BLOCKED || attendee.status === CheckinStatus.REJECTED;
-                                                                const rowClass = isBlocked ? 'bg-red-900/20 border-red-900/30' : 'bg-gray-800/40 border-gray-700';
                                                                 
                                                                 return (
-                                                                    <tr key={attendee.id} className={`border-b ${rowClass} hover:bg-gray-700/50`}>
+                                                                    <tr key={attendee.id} className={`hover:bg-white/5 transition-colors ${isBlocked ? 'bg-red-500/5' : ''}`}>
                                                                         <td className="px-4 py-3">
                                                                              <input
                                                                                 type="checkbox"
                                                                                 checked={selectedAttendeeIds.has(attendee.id)}
                                                                                 onChange={() => handleToggleAttendee(attendee.id)}
-                                                                                className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
+                                                                                className="h-3 w-3 rounded border-gray-600 bg-gray-900 text-pink-600 focus:ring-pink-500 cursor-pointer"
                                                                             />
                                                                         </td>
                                                                         <td className="px-4 py-3">
                                                                             <div className="flex items-center gap-3">
-                                                                                <div className="w-10 h-10 flex-shrink-0">
-                                                                                    <UserAvatar 
-                                                                                        src={attendee.photo} 
-                                                                                        alt={attendee.name} 
-                                                                                        className="w-full h-full rounded-full object-cover bg-black border border-gray-600"
-                                                                                    />
-                                                                                </div>
+                                                                                <UserAvatar 
+                                                                                    src={attendee.photo} 
+                                                                                    alt={attendee.name} 
+                                                                                    className="w-10 h-10 rounded-full object-cover bg-black border border-white/10 ring-2 ring-transparent group-hover:ring-pink-500/20 transition-all"
+                                                                                />
                                                                                 <div>
-                                                                                    <p className="font-medium text-white">{attendee.name}</p>
-                                                                                    <p className="text-xs text-gray-400">{formatCPF(attendee.cpf)}</p>
-                                                                                    {attendee.subCompany && <p className="text-xs text-indigo-300">{attendee.subCompany}</p>}
+                                                                                    <p className="font-bold text-gray-200">{attendee.name}</p>
+                                                                                    <p className="text-[10px] text-gray-500 font-mono">{formatCPF(attendee.cpf)}</p>
                                                                                 </div>
                                                                             </div>
                                                                         </td>
                                                                         <td className="px-4 py-3">
                                                                             {getStatusBadge(attendee.status)}
-                                                                            {attendee.sectors && attendee.sectors.length > 0 && (
-                                                                                 <div className="flex flex-wrap gap-1 mt-1">
-                                                                                    {attendee.sectors.map(sid => {
-                                                                                        const s = sectorMap.get(sid);
-                                                                                        return s ? <span key={sid} className="text-[10px] px-1.5 rounded-sm" style={{ backgroundColor: s.color, color: '#fff' }}>{s.label}</span> : null
-                                                                                    })}
-                                                                                </div>
-                                                                            )}
                                                                         </td>
                                                                         <td className="px-4 py-3">
-                                                                            <div className="text-xs">
-                                                                                <p className="font-medium text-gray-300">{supplier.name}</p>
-                                                                                <p className="text-gray-500">{formatTimestamp(attendee.createdAt)}</p>
-                                                                            </div>
-                                                                        </td>
-                                                                        <td className="px-4 py-3">
-                                                                             {attendee.checkinTime ? (
-                                                                                <div className="text-xs">
-                                                                                    <p className="text-green-400">{formatTimestamp(attendee.checkinTime)}</p>
-                                                                                    <p className="text-gray-500">por {attendee.checkedInBy}</p>
-                                                                                </div>
-                                                                            ) : (
-                                                                                <span className="text-xs text-gray-600">-</span>
-                                                                            )}
+                                                                            <span className="text-gray-500 font-medium italic">{attendee.subCompany || '-'}</span>
                                                                         </td>
                                                                         <td className="px-4 py-3 text-center">
                                                                             {attendee.status === CheckinStatus.BLOCKED ? (
                                                                                 <button 
                                                                                     onClick={() => handleUnblockUser(attendee.id)}
-                                                                                    className="text-xs bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded"
+                                                                                    className="text-[10px] font-black uppercase tracking-widest bg-green-500/10 text-green-500 px-3 py-1.5 rounded-lg border border-green-500/20 hover:bg-green-500/20 transition-all"
                                                                                 >
                                                                                     Desbloquear
                                                                                 </button>
                                                                             ) : (
                                                                                  <button 
                                                                                     onClick={() => handleBlockUser(attendee.id)}
-                                                                                    className="text-xs bg-red-600/80 hover:bg-red-700 text-white px-2 py-1 rounded flex items-center gap-1 mx-auto"
+                                                                                    className="text-[10px] font-black uppercase tracking-widest bg-red-500/10 text-red-500 px-3 py-1.5 rounded-lg border border-red-500/20 hover:bg-red-500/20 transition-all"
                                                                                 >
-                                                                                    <NoSymbolIcon className="w-3 h-3" />
                                                                                     Bloquear
                                                                                 </button>
                                                                             )}
@@ -602,7 +596,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                                     </table>
                                                     </>
                                                 ) : (
-                                                    <p className="text-sm text-gray-500 text-center py-4">Nenhum registro para este organizador.</p>
+                                                    <p className="text-xs font-bold uppercase tracking-widest text-gray-600 text-center py-8">Nenhum registro para esta divulgadora.</p>
                                                 )}
                                             </div>
                                          )}
@@ -613,18 +607,21 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                         })}
                     </div>
                 ) : (
-                     <p className="text-center text-gray-500">{isVip ? "Nenhum promoter cadastrado." : t('suppliers.noLinks')}</p>
+                     <p className="text-center text-gray-500 font-medium">{isVip ? "Nenhuma divulgadora cadastrada ainda." : t('suppliers.noLinks')}</p>
                 )}
             </div>
              {selectedAttendeeIds.size > 0 && (
-                <div className="fixed bottom-5 right-5 z-20 bg-gray-800 border border-gray-600 shadow-2xl rounded-lg p-3 flex items-center gap-4 animate-fade-in-up">
-                    <p className="text-white font-semibold">{t('companies.selectedCount', selectedAttendeeIds.size)}</p>
+                <div className="fixed bottom-8 right-8 z-40 bg-gray-900 border border-white/10 shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-2xl p-4 flex items-center gap-6 animate-in slide-in-from-right-10 duration-500">
+                    <div>
+                        <p className="text-white font-black text-sm uppercase tracking-tighter">{selectedAttendeeIds.size} Selecionados</p>
+                        <p className="text-gray-500 text-[10px] uppercase font-bold tracking-widest">Ações em massa</p>
+                    </div>
                     <button 
                         onClick={() => setIsModalOpen(true)}
-                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center gap-2"
+                        className="bg-white text-black font-black uppercase tracking-widest text-xs py-3 px-6 rounded-xl flex items-center gap-2 hover:bg-gray-200 transition-all shadow-lg active:scale-95"
                     >
                        <PencilIcon className="w-4 h-4" />
-                       {t('companies.editSelectedButton')}
+                       Editar Setores
                     </button>
                 </div>
             )}

@@ -60,10 +60,13 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
       } else if (isSupplierWithMultipleSectors) {
         const availableSectors = sectors.filter(s => (predefinedSector as string[]).includes(s.id));
         initialSector = availableSectors.length > 0 ? availableSectors[0].id : '';
+      } else if (isVip && sectors.length > 0) {
+        // Default sector for VIP events if not defined
+        initialSector = sectors[0].id;
       }
       setSector(initialSector);
     }
-  }, [predefinedSector, isSupplierWithSingleSector, isSupplierWithMultipleSectors, sectors, hasSubCompanies]);
+  }, [predefinedSector, isSupplierWithSingleSector, isSupplierWithMultipleSectors, sectors, hasSubCompanies, isVip]);
 
   useEffect(() => {
     if (subCompany) {
@@ -87,9 +90,9 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
   useEffect(() => {
     if (isAdminView) {
       setSubCompany('');
-      setSector('');
+      setSector(isVip && sectors.length > 0 ? sectors[0].id : '');
     }
-  }, [selectedSupplierId, isAdminView]);
+  }, [selectedSupplierId, isAdminView, isVip, sectors]);
 
 
   const clearForm = () => {
@@ -106,7 +109,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
       setSector('');
     }
     else if (!predefinedSector) { // Admin View
-      setSector('');
+      setSector(isVip && sectors.length > 0 ? sectors[0].id : '');
       setSubCompany('');
     } else if (isSupplierWithMultipleSectors) {
       const availableSectors = sectors.filter(s => (predefinedSector as string[]).includes(s.id));
@@ -187,7 +190,13 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
     e.preventDefault();
     const rawCpf = cpf.replace(/\D/g, '');
 
-    if (!name || !rawCpf || !photo || !sector) {
+    // For VIP, if sector isn't explicitly chosen, use first available
+    let finalSector = sector;
+    if (isVip && !sector && sectors.length > 0) {
+        finalSector = sectors[0].id;
+    }
+
+    if (!name || !rawCpf || !photo || (!finalSector && !hasSubCompanies && !isAdminView)) {
       setError(t('register.errors.allFields'));
       return;
     }
@@ -196,7 +205,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
       return;
     }
     if (isAdminView && !selectedSupplierId) {
-        setError(isVip ? "Selecione um promoter/organizador." : "Selecione um fornecedor para continuar.");
+        setError(isVip ? "Selecione a divulgadora / responsável." : "Selecione um fornecedor para continuar.");
         return;
     }
 
@@ -212,7 +221,7 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
           name, 
           cpf: rawCpf, 
           photo, 
-          sectors: [sector],
+          sectors: [finalSector],
           ...(subCompany && { subCompany })
       };
 
@@ -233,6 +242,9 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
   };
   
   const renderSectorInput = () => {
+    // Hidden in VIP List unless multiple manual sectors are strictly needed (we simplify for elegance)
+    if (isVip) return null;
+
     const adminHasSubCompanies = isAdminView && selectedSupplier?.subCompanies && selectedSupplier.subCompanies.length > 0;
     
     if (hasSubCompanies || adminHasSubCompanies) return null;
@@ -248,15 +260,15 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
 
     return (
         <div>
-          <label htmlFor="sector" className="block text-sm font-medium text-gray-300 mb-1">
-            {isVip ? "Tipo de Convidado" : t('register.form.sectorLabel')}
+          <label htmlFor="sector" className="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-2">
+            Tipo de Acesso
           </label>
           <select
             id="sector" value={sector} onChange={(e) => setSector(e.target.value)}
-            className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+            className="w-full bg-gray-900 border border-gray-700/50 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 disabled:opacity-50 transition-all"
             disabled={isSubmitting || isCheckingCpf || existingAttendeeFound}
           >
-            {isSupplierWithMultipleSectors ? null : <option value="" disabled>{t('register.form.sectorPlaceholder')}</option>}
+            {isSupplierWithMultipleSectors ? null : <option value="" disabled>Selecione o setor</option>}
             {sectorOptions.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
         </div>
@@ -267,16 +279,16 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
     if (hasSubCompanies) {
       return (
           <div>
-            <label htmlFor="subCompany" className="block text-sm font-medium text-gray-300 mb-1">
-                {isVip ? "Organização / Grupo" : t('register.form.subCompanyLabel')}
+            <label htmlFor="subCompany" className="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-2">
+                {isVip ? "Grupo / Organização" : "Empresa / Unidade"}
             </label>
             <select
               id="subCompany" value={subCompany} onChange={(e) => setSubCompany(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+              className="w-full bg-gray-900 border border-gray-700/50 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-pink-500/30 disabled:opacity-50 transition-all"
               disabled={isSubmitting || isCheckingCpf || existingAttendeeFound}
               required
             >
-              <option value="" disabled>{t('register.form.subCompanyPlaceholder')}</option>
+              <option value="" disabled>{isVip ? "Selecione o grupo" : "Selecione a empresa"}</option>
               {supplierInfo?.data.subCompanies?.map(sc => 
                   <option key={sc.name} value={sc.name}>
                       {sc.name}
@@ -293,16 +305,16 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
       if (adminHasSubCompanies) {
         return (
           <div>
-            <label htmlFor="subCompany-admin" className="block text-sm font-medium text-gray-300 mb-1">
-                {isVip ? "Organização / Grupo" : t('register.form.subCompanyLabel')}
+            <label htmlFor="subCompany-admin" className="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-2">
+                {isVip ? "Grupo / Organização" : "Empresa / Unidade"}
             </label>
             <select
               id="subCompany-admin" value={subCompany} onChange={(e) => setSubCompany(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+              className="w-full bg-gray-900 border border-gray-700/50 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-pink-500/30 disabled:opacity-50 transition-all"
               disabled={isSubmitting || isCheckingCpf || existingAttendeeFound}
               required
             >
-              <option value="">{t('register.form.subCompanyPlaceholder')}</option>
+              <option value="">{isVip ? "Selecione o grupo" : "Selecione a empresa"}</option>
               {selectedSupplier?.subCompanies?.map(sc => 
                   <option key={sc.name} value={sc.name}>
                       {sc.name}
@@ -314,16 +326,16 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
       } else {
         return (
           <div>
-            <label htmlFor="subCompany-admin-input" className="block text-sm font-medium text-gray-300 mb-1">
-                {isVip ? "Empresa / Grupo (Opcional)" : t('register.form.subCompanyLabelOptional')}
+            <label htmlFor="subCompany-admin-input" className="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-2">
+                {isVip ? "Grupo (Opcional)" : "Empresa (Opcional)"}
             </label>
             <input
               type="text"
               id="subCompany-admin-input"
               value={subCompany}
               onChange={(e) => setSubCompany(e.target.value)}
-              className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
-              placeholder={isVip ? "Digite o nome do grupo" : t('register.form.subCompanyInputPlaceholder')}
+              className="w-full bg-gray-900 border border-gray-700/50 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-pink-500/30 disabled:opacity-50 transition-all"
+              placeholder={isVip ? "Nome do grupo ou empresa" : "Digite o nome da empresa"}
               disabled={isSubmitting || isCheckingCpf || existingAttendeeFound}
             />
           </div>
@@ -337,66 +349,67 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-10">
-      <div className={`bg-gray-800/50 backdrop-blur-sm p-8 rounded-2xl shadow-2xl border ${isVip ? 'border-pink-500/30' : 'border-gray-700'}`}>
-        <div className="text-center mb-6">
-            <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${isVip ? 'bg-pink-600/20 text-pink-500' : 'bg-indigo-600/20 text-indigo-500'}`}>
-                {isVip ? <FaceSmileIcon className="w-8 h-8" /> : <UsersIcon className="w-8 h-8" />}
+      <div className={`bg-gray-800/40 backdrop-blur-2xl p-10 rounded-[2rem] shadow-2xl border ${isVip ? 'border-pink-500/30 shadow-pink-500/10' : 'border-gray-700/50'}`}>
+        <div className="text-center mb-10">
+            <div className={`w-20 h-20 mx-auto mb-6 rounded-3xl flex items-center justify-center rotate-3 group-hover:rotate-0 transition-transform duration-500 ${isVip ? 'bg-gradient-to-br from-pink-500 to-rose-600 shadow-pink-500/20 shadow-2xl' : 'bg-indigo-600/20 text-indigo-500'}`}>
+                {isVip ? <FaceSmileIcon className="w-10 h-10 text-white" /> : <UsersIcon className="w-10 h-10" />}
             </div>
-            <h2 className="text-3xl font-bold text-white">
-              {isVip ? "Cadastro na Lista VIP" : t('register.title')}
+            <h2 className="text-4xl font-black text-white tracking-tight leading-none mb-4">
+              {isVip ? "Solicitar Convite VIP" : "Cadastro de Colaborador"}
             </h2>
-            {eventName && <p className={`text-lg font-medium mt-1 ${isVip ? 'text-pink-400' : 'text-indigo-400'}`}>{eventName}</p>}
-            {supplierName && <p className="text-md font-medium text-gray-400">Convite de: {supplierName}</p>}
+            {eventName && <p className={`text-sm font-black uppercase tracking-[0.3em] ${isVip ? 'text-pink-400/80' : 'text-indigo-400/80'}`}>{eventName}</p>}
+            {supplierName && <p className="text-gray-500 text-xs mt-3 font-bold uppercase tracking-widest italic">A convite de: {supplierName}</p>}
         </div>
 
-        <form onSubmit={handleRegisterSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-          <div className="space-y-6">
-            <div>
-              <label htmlFor="cpf" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.cpfLabel')}</label>
+        <form onSubmit={handleRegisterSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
+          <div className="space-y-8">
+            <div className="group">
+              <label htmlFor="cpf" className="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-2 group-focus-within:text-pink-400 transition-colors">CPF do Convidado</label>
               <input
                 type="text" id="cpf" value={cpf} onChange={(e) => setCpf(formatCPF(e.target.value))}
                 onBlur={handleCpfBlur}
-                className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
-                placeholder={t('register.form.cpfPlaceholder')}
+                className="w-full bg-gray-900 border border-gray-700/50 rounded-xl py-4 px-5 text-white focus:outline-none focus:ring-2 focus:ring-pink-500/20 transition-all placeholder:text-gray-800 text-lg font-medium"
+                placeholder="000.000.000-00"
                 disabled={isSubmitting || isCheckingCpf}
               />
               {cpfCheckMessage && (
-                  <p className={`text-sm mt-1 flex items-center gap-2 ${existingAttendeeFound ? 'text-yellow-400' : 'text-green-400'}`}>
-                      {isCheckingCpf && <SpinnerIcon className="w-4 h-4" />}
+                  <p className={`text-xs mt-2 font-bold uppercase tracking-widest flex items-center gap-2 ${existingAttendeeFound ? 'text-yellow-500' : 'text-green-500'}`}>
+                      {isCheckingCpf && <SpinnerIcon className="w-3 h-3" />}
                       {cpfCheckMessage}
                   </p>
               )}
                {blockedWarning && (
-                  <div className="mt-2 p-3 bg-red-900/50 border border-red-500 rounded-md flex items-start gap-2 text-red-200 text-sm">
+                  <div className="mt-4 p-4 bg-red-950/50 border border-red-500/50 rounded-xl flex items-start gap-3 text-red-200 text-xs shadow-lg animate-in fade-in zoom-in duration-300">
                       <NoSymbolIcon className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-500" />
-                      <span>{blockedWarning}</span>
+                      <span className="font-bold leading-relaxed">{blockedWarning}</span>
                   </div>
               )}
             </div>
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.nameLabel')}</label>
+            
+            <div className="group">
+              <label htmlFor="name" className="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-2 group-focus-within:text-pink-400 transition-colors">Nome Completo</label>
               <input
                 type="text" id="name" value={name} onChange={(e) => setName(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
-                placeholder={t('register.form.namePlaceholder')}
+                className="w-full bg-gray-900 border border-gray-700/50 rounded-xl py-4 px-5 text-white focus:outline-none focus:ring-2 focus:ring-pink-500/20 transition-all placeholder:text-gray-800 text-lg font-medium"
+                placeholder="Digite seu nome"
                 disabled={isSubmitting || isCheckingCpf || existingAttendeeFound}
               />
             </div>
 
             {isAdminView && (
               <div>
-                <label htmlFor="supplier" className="block text-sm font-medium text-gray-300 mb-1">
-                    {isVip ? "Promoter / Responsável" : t('register.form.supplierLabel')} <span className="text-red-500">*</span>
+                <label htmlFor="supplier" className="block text-xs font-bold uppercase tracking-widest text-gray-500 mb-2">
+                    {isVip ? "Divulgadora Responsável" : "Fornecedor"}
                 </label>
                 <select
                   id="supplier"
                   value={selectedSupplierId}
                   onChange={(e) => setSelectedSupplierId(e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                  className="w-full bg-gray-900 border border-gray-700/50 rounded-xl py-4 px-5 text-white focus:outline-none focus:ring-2 focus:ring-pink-500/20 transition-all"
                   disabled={isSubmitting || isCheckingCpf || existingAttendeeFound}
                   required
                 >
-                  <option value="">{isVip ? "Selecione o promoter" : t('register.form.supplierPlaceholder')}</option>
+                  <option value="">{isVip ? "Selecione a divulgadora" : "Selecione o fornecedor"}</option>
                   {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
@@ -405,42 +418,48 @@ const RegisterView: React.FC<RegisterViewProps> = ({ onRegister, setError, secto
             {renderSubCompanyInput()}
             {renderSectorInput()}
 
-            <div className="space-y-4">
+            <div className="pt-4">
                 <button 
                   type="submit" 
-                  className={`w-full text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed ${isVip ? 'bg-pink-600 hover:bg-pink-700' : 'bg-indigo-600 hover:bg-indigo-700'}`} 
-                  disabled={!name || !cpf || !photo || (!sector && !subCompany && !isAdminView) || isSubmitting || isCheckingCpf || existingAttendeeFound}
+                  className={`w-full text-white font-black uppercase tracking-widest py-5 px-6 rounded-2xl transition-all duration-500 flex items-center justify-center gap-3 disabled:bg-gray-800 disabled:text-gray-600 shadow-xl ${isVip ? 'bg-gradient-to-r from-pink-600 to-rose-700 hover:shadow-pink-500/20 hover:scale-[1.02] active:scale-95' : 'bg-indigo-600 hover:bg-indigo-700'}`} 
+                  disabled={!name || !cpf || !photo || (!sector && !subCompany && !isAdminView && !isVip) || isSubmitting || isCheckingCpf || existingAttendeeFound}
                 >
                   {isSubmitting ? (
                     <>
                       <SpinnerIcon className="w-5 h-5" />
-                      Processando...
+                      ENVIANDO...
                     </>
                   ) : (
                     <>
                       <CheckCircleIcon className="w-5 h-5"/>
-                      {isVip ? "Confirmar Presença" : t('register.form.button')}
+                      {isVip ? "CONFIRMAR PRESENÇA" : "REGISTRAR"}
                     </>
                   )}
                 </button>
                  {showSuccess && (
-                    <div className="text-center p-3 rounded-lg bg-green-500/20 text-green-300 border border-green-500 flex items-center justify-center gap-2">
-                        <CheckCircleIcon className="w-5 h-5" />
-                        <p className="text-sm font-medium">{isVip ? "Você foi adicionado à lista VIP!" : t('register.successMessage')}</p>
+                    <div className="mt-6 text-center p-4 rounded-xl bg-green-500/10 text-green-500 border border-green-500/30 flex items-center justify-center gap-2 animate-in fade-in slide-in-from-top-4 duration-500 shadow-lg">
+                        <CheckCircleIcon className="w-6 h-6" />
+                        <p className="text-sm font-black uppercase tracking-widest">{isVip ? "VIP confirmada com sucesso!" : "Cadastrado com sucesso!"}</p>
                     </div>
                 )}
             </div>
           </div>
+          
           <div className="flex flex-col items-center">
-              <WebcamCapture 
-                onCapture={setPhoto} 
-                capturedImage={photo} 
-                disabled={isSubmitting || isCheckingCpf || isPhotoLocked} 
-                allowUpload={isAdminView || allowGuestUploads} 
-              />
+              <div className="w-full relative group">
+                  <div className={`absolute -inset-1 rounded-[2.5rem] bg-gradient-to-tr ${isVip ? 'from-pink-600 to-rose-400' : 'from-indigo-600 to-blue-400'} opacity-30 blur-xl group-hover:opacity-50 transition-opacity duration-500`}></div>
+                  <div className="relative">
+                      <WebcamCapture 
+                        onCapture={setPhoto} 
+                        capturedImage={photo} 
+                        disabled={isSubmitting || isCheckingCpf || isPhotoLocked} 
+                        allowUpload={isAdminView || allowGuestUploads} 
+                      />
+                  </div>
+              </div>
               {isPhotoLocked && (
-                <p className="text-sm mt-2 text-yellow-400 text-center px-4">
-                  {existingAttendeeFound ? t('register.photoLocked') : t('register.photoLockedPolicy')}
+                <p className="text-[10px] font-black uppercase tracking-widest mt-6 text-yellow-500/80 text-center px-4 leading-relaxed">
+                  {existingAttendeeFound ? "Sua foto já está protegida para este evento." : "Foto histórica restaurada. Mudanças desativadas."}
                 </p>
               )}
           </div>

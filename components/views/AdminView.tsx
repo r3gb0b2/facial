@@ -62,36 +62,34 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
             // 1. Role Check
             if (!tab.roles.includes(user.role)) return false;
             
-            // 2. Module Configuration Check (If modules are configured for the event)
+            // 2. VIP Mode exclusion: No sector management in VIP list
+            if (isVip && tab.id === 'sectors') return false;
+
+            // 3. Module Configuration Check
             if (currentEvent && currentEvent.modules) {
-                // Check specific modules requested by the user
                 if (tab.id === 'scanner' && currentEvent.modules.scanner === false) return false;
                 if (tab.id === 'logs' && currentEvent.modules.logs === false) return false;
                 if (tab.id === 'register' && currentEvent.modules.register === false) return false;
                 if (tab.id === 'companies' && currentEvent.modules.companies === false) return false;
                 if (tab.id === 'spreadsheet' && currentEvent.modules.spreadsheet === false) return false;
                 if (tab.id === 'reports' && currentEvent.modules.reports === false) return false;
-                // 'checkin', 'suppliers', 'sectors', 'users' are essentially core/always on unless specified otherwise in future
             }
 
             return true;
         });
-    }, [user.role, currentEvent]);
+    }, [user.role, currentEvent, isVip]);
 
     const [activeTab, setActiveTab] = useState<AdminTab>('checkin');
 
-    // Reset active tab if it becomes unavailable due to permission change
     useEffect(() => {
         if (!availableTabs.some(t => t.id === activeTab) && availableTabs.length > 0) {
             setActiveTab(availableTabs[0].id);
         }
     }, [availableTabs, activeTab]);
     
-    // Additional state for user management
     const [users, setUsers] = useState<User[]>([]);
     const [eventsForUserManagement, setEventsForUserManagement] = useState<Event[]>([]);
 
-    // Memoize the props for CheckinView to prevent re-renders on tab change
     const checkinViewProps = useMemo(() => ({
         user: user,
         attendees: eventData.attendees,
@@ -110,7 +108,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
         setError: setError
     }), [user, eventData, currentEventId, currentEventName, props.onUpdateAttendeeDetails, props.onDeleteAttendee, props.onApproveSubstitution, props.onRejectSubstitution, props.onApproveSectorChange, props.onRejectSectorChange, props.onApproveNewRegistration, props.onRejectNewRegistration, setError]);
 
-    const handleAddSupplier = (name: string, sectors: string[], registrationLimit: number, subCompanies: any[]) => api.addSupplier(currentEventId, name, sectors, registrationLimit, subCompanies);
+    const handleAddSupplier = (name: string, sectors: string[], registrationLimit: number, subCompanies: any[], email?: string) => api.addSupplier(currentEventId, name, sectors, registrationLimit, subCompanies, email);
     const handleUpdateSupplier = (supplierId: string, data: Partial<Supplier>) => api.updateSupplier(currentEventId, supplierId, data);
     const handleDeleteSupplier = (supplier: Supplier) => api.deleteSupplier(currentEventId, supplier.id);
     const handleSupplierStatusUpdate = (supplierId: string, active: boolean) => api.updateSupplierStatus(currentEventId, supplierId, active);
@@ -127,8 +125,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
             const name = row.name;
             const cpf = row.cpf ? String(row.cpf).replace(/\D/g, '') : '';
             const sectorLabel = row.sector;
-            // Try to map supplier name to ID if provided
-            const supplierName = row.fornecedor || row.promoter; 
+            const supplierName = row.fornecedor || row.promoter || row.divulgadora; 
             let supplierId = undefined;
             if (supplierName) {
                 const foundSupplier = eventData.suppliers.find(s => s.name.toLowerCase() === supplierName.toLowerCase());
@@ -137,14 +134,12 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
 
             const subCompany = row.empresa || '';
 
-            if (!name || !cpf || !sectorLabel) continue; // Skip invalid rows
+            if (!name || !cpf) continue; 
 
-            // Find sector ID by label
-            const sectorId = eventData.sectors.find(s => s.label.toLowerCase() === sectorLabel.toLowerCase())?.id;
-            if (!sectorId) continue; // Skip if sector doesn't exist
+            const sectorId = eventData.sectors.find(s => s.label.toLowerCase() === sectorLabel?.toLowerCase())?.id || (eventData.sectors.length > 0 ? eventData.sectors[0].id : undefined);
+            if (!sectorId && !isVip) continue; 
 
             try {
-                // Simple duplicate check to avoid errors during bulk import
                 const exists = eventData.attendees.some(a => a.cpf.replace(/\D/g,'') === cpf);
                 if (exists) continue;
 
@@ -154,7 +149,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
                     name,
                     cpf,
                     photo,
-                    sectors: [sectorId],
+                    sectors: sectorId ? [sectorId] : [],
                     subCompany
                 }, supplierId);
             } catch (e) {
@@ -165,7 +160,6 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
 
     const handleUpdateStatusForScanner = (attendeeId: string, status: any) => api.updateAttendeeStatus(currentEventId, attendeeId, status, user.username);
     
-     // User management handlers
     const fetchUsersAndEvents = async () => {
         const [fetchedUsers, fetchedEvents] = await Promise.all([api.getUsers(), api.getEvents()]);
         setUsers(fetchedUsers);
@@ -184,46 +178,48 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
 
     return (
         <div className="w-full h-screen flex flex-col p-4 md:p-6 space-y-4">
-            <header className="flex-shrink-0 bg-gray-800/50 backdrop-blur-sm p-4 rounded-xl shadow-lg border border-gray-700">
+            <header className="flex-shrink-0 bg-gray-800/40 backdrop-blur-md p-4 rounded-xl shadow-lg border border-gray-700/50">
                 <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-3">
-                        <div className={`w-3 h-10 rounded-full ${isVip ? 'bg-pink-500' : 'bg-indigo-500'}`}></div>
+                    <div className="flex items-center gap-4">
+                        <div className={`w-3 h-10 rounded-full ${isVip ? 'bg-gradient-to-b from-pink-500 to-rose-600 shadow-[0_0_10px_rgba(236,72,153,0.5)]' : 'bg-indigo-500'}`}></div>
                         <div>
-                            <h1 className="text-2xl font-bold text-white">{currentEventName}</h1>
+                            <h1 className="text-2xl font-bold text-white tracking-tight">{currentEventName}</h1>
                             <div className="flex items-center gap-3">
-                                <button onClick={onBackToEvents} className="text-sm text-indigo-400 hover:underline">&larr; Trocar de evento</button>
-                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-700 text-gray-300 font-bold uppercase tracking-wider">
+                                <button onClick={onBackToEvents} className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors uppercase font-bold tracking-widest">&larr; Trocar de evento</button>
+                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-widest ${isVip ? 'bg-pink-600/20 text-pink-400 border border-pink-500/30' : 'bg-gray-700 text-gray-300'}`}>
                                     {isVip ? 'Lista VIP' : 'Credenciamento'}
                                 </span>
                             </div>
                         </div>
                     </div>
                      <div className="flex items-center gap-4">
-                        <span className="text-gray-400 text-sm hidden md:block">Logado como: {user.username} ({user.role})</span>
-                        <button onClick={onLogout} className="text-gray-400 hover:text-white transition-colors flex items-center gap-2 p-2 rounded-md hover:bg-gray-700">
+                        <span className="text-gray-400 text-xs hidden md:block">Usuário: <span className="text-white font-medium">{user.username}</span></span>
+                        <button onClick={onLogout} className="text-gray-400 hover:text-white transition-colors flex items-center gap-2 p-2 rounded-md hover:bg-gray-700/50">
                             <ArrowLeftOnRectangleIcon className="w-5 h-5"/>
-                            <span className="hidden md:inline">Sair</span>
+                            <span className="hidden md:inline text-xs font-bold uppercase tracking-wider">Sair</span>
                         </button>
                     </div>
                 </div>
-                 <nav className="mt-4 -mb-4 -mx-4 px-4 overflow-x-auto">
-                    <div className="flex border-b border-gray-700">
+                 <nav className="mt-4 -mb-4 -mx-4 px-4 overflow-x-auto scrollbar-hide">
+                    <div className="flex gap-2">
                         {availableTabs.map(tab => {
                             let label = t(tab.labelKey);
-                            // Override labels for VIP list mode
                             if (isVip) {
-                                if (tab.id === 'register') label = "Cadastrar Convidado";
-                                if (tab.id === 'suppliers') label = "Promoters / Organizadores";
-                                if (tab.id === 'companies') label = "Empresas/Grupos";
+                                if (tab.id === 'register') label = "Novo Convidado";
+                                if (tab.id === 'suppliers') label = "Divulgadoras / Promoters";
+                                if (tab.id === 'companies') label = "Empresas / Grupos";
                             }
 
                             return (
                                 <button
                                     key={tab.id}
                                     onClick={() => setActiveTab(tab.id)}
-                                    className={`px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${activeTab === tab.id ? `border-b-2 ${isVip ? 'border-pink-500 text-pink-400' : 'border-indigo-500 text-white'}` : 'text-gray-400 hover:text-white'}`}
+                                    className={`px-4 py-3 text-xs font-bold uppercase tracking-widest transition-all relative ${activeTab === tab.id ? `text-white` : 'text-gray-500 hover:text-gray-300'}`}
                                 >
                                     {label}
+                                    {activeTab === tab.id && (
+                                        <div className={`absolute bottom-0 left-0 right-0 h-0.5 ${isVip ? 'bg-pink-500' : 'bg-indigo-500'} animate-in fade-in slide-in-from-bottom-1`}></div>
+                                    )}
                                 </button>
                             );
                         })}

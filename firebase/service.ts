@@ -404,10 +404,11 @@ export const updateSectorsForAttendees = async (eventId: string, attendeeIds: st
 
 
 // Supplier Management
-export const addSupplier = (eventId: string, name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[]) => {
+export const addSupplier = (eventId: string, name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[], email?: string) => {
     const adminToken = uuidv4();
     return db.collection('events').doc(eventId).collection('suppliers').add({ 
         name, 
+        email: email || '',
         sectors, 
         registrationLimit,
         subCompanies,
