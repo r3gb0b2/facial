@@ -165,20 +165,8 @@ const App: React.FC = () => {
 
     const handleCreateEvent = async (name: string, type: EventType, modules?: EventModules, allowPhotoChange?: boolean, allowGuestUploads?: boolean) => {
         try {
-            const eventRef = await api.createEvent(name, type, modules, allowPhotoChange, allowGuestUploads);
-            const newEventId = eventRef.id;
-
-            if (user && user.role === 'admin') {
-                const updatedLinkedIds = [...(user.linkedEventIds || []), newEventId];
-                await api.updateUser(user.id, { linkedEventIds: updatedLinkedIds });
-                
-                const updatedUser = { ...user, linkedEventIds: updatedLinkedIds };
-                setUser(updatedUser);
-                sessionStorage.setItem('currentUser', JSON.stringify(updatedUser));
-                refreshAndFilterEvents(updatedUser);
-            } else if (user) {
-                refreshAndFilterEvents(user);
-            }
+            await api.createEvent(name, type, modules, allowPhotoChange, allowGuestUploads);
+            if (user) refreshAndFilterEvents(user);
         } catch (err: any) {
             setError(err.message);
         }

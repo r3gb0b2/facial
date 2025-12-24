@@ -36,7 +36,6 @@ export interface Attendee {
   subCompany?: string; // The attendee's specific company under a supplier
   wristbands?: { [sectorId: string]: string }; // Maps sectorId to wristband number
   blockReason?: string; // Reason why the user was blocked
-  age?: number; // FIX: Added age property for filtering support
   substitutionData?: {
     name: string;
     cpf: string;
