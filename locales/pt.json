@@ -49,7 +49,7 @@
     "register.form.cpfPlaceholder": "000.000.000-00",
     "register.form.nameLabel": "Nome Completo",
     "register.form.namePlaceholder": "Digite o nome completo",
-    "register.form.emailLabel": "E-mail",
+    "register.form.emailLabel": "E-mail de Contato",
     "register.form.emailPlaceholder": "seu@email.com",
     "register.form.supplierLabel": "Fornecedor",
     "register.form.supplierPlaceholder": "Selecione um fornecedor",
