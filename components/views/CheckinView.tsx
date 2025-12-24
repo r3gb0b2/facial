@@ -1,10 +1,11 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Attendee, CheckinStatus, Supplier, Sector, User } from '../../types.ts';
 import AttendeeCard from '../AttendeeCard.tsx';
 import { AttendeeDetailModal } from '../AttendeeDetailModal.tsx';
 import * as api from '../../firebase/service.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { SearchIcon, CheckCircleIcon, UsersIcon, ArrowDownTrayIcon, FaceSmileIcon, SparklesIcon } from '../icons.tsx';
+import { SearchIcon, CheckCircleIcon, UsersIcon, ArrowDownTrayIcon, FaceSmileIcon } from '../icons.tsx';
 import * as XLSX from 'xlsx';
 
 interface CheckinViewProps {
@@ -42,8 +43,8 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
     return {
       searchTerm: '',
       searchBy: 'ALL',
-      // Para VIP, o padrão é ALL para garantir que novos cadastros (Approval) apareçam
-      statusFilter: isVip ? 'ALL' : CheckinStatus.PENDING,
+      // MUDANÇA SOLICITADA: Iniciar filtros como Pendentes e Todas as Divulgadoras
+      statusFilter: CheckinStatus.PENDING,
       supplierFilter: 'ALL',
     };
   });
@@ -91,26 +92,28 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
     const dataToExport = attendees.map(attendee => {
         const sectorLabels = (attendee.sectors || []).map(id => sectorMap.get(id)?.label).filter(Boolean).join(', ');
         const supplierName = attendee.supplierId ? supplierMap.get(attendee.supplierId)?.name : '';
+        const wristbandNumbers = attendee.wristbands ? Object.values(attendee.wristbands).filter(Boolean).join(', ') : '';
         const statusLabel = t(`status.${attendee.status.toLowerCase()}`);
 
         return {
-            [isVip ? 'Convidado' : 'Nome']: attendee.name,
+            [isVip ? 'Nome do Convidado' : 'Nome']: attendee.name,
             'CPF': formatCPF(attendee.cpf),
-            'E-mail': attendee.email || '',
             'Status': statusLabel,
-            'Host/Promoter': supplierName,
-            'Empresa/Grupo': attendee.subCompany || '',
+            'Setor(es)': sectorLabels,
+            [isVip ? 'Divulgadora / Host' : 'Fornecedor']: supplierName,
+            [isVip ? 'Grupo / Empresa' : 'Empresa']: attendee.subCompany || '',
+            'Pulseira(s)': wristbandNumbers,
         };
     });
 
     const ws = XLSX.utils.json_to_sheet(dataToExport);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, isVip ? 'Guest List' : 'Check-in');
+    XLSX.utils.book_append_sheet(wb, ws, isVip ? 'Convidados' : 'Colaboradores');
     const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
     const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.download = `${currentEventName.replace(/\s/g, '_')}_convidados.xlsx`;
+    link.download = `${currentEventName.replace(/\s/g, '_')}_lista.xlsx`;
     link.click();
   };
 
@@ -118,167 +121,126 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
     const normalizedTerm = normalizeString(searchTerm);
 
     return attendees.filter((attendee) => {
-      // AJUSTE CRÍTICO: Se o filtro for PENDING, mostrar também PENDING_APPROVAL
-      if (statusFilter === CheckinStatus.PENDING) {
-          if (attendee.status !== CheckinStatus.PENDING && attendee.status !== CheckinStatus.PENDING_APPROVAL) return false;
-      } else if (statusFilter !== 'ALL' && attendee.status !== statusFilter) {
-          return false;
-      }
-
+      if (statusFilter !== 'ALL' && attendee.status !== statusFilter) return false;
       if (supplierFilter !== 'ALL') {
         if (supplierFilter === '') { if (attendee.supplierId) return false; } 
         else { if (attendee.supplierId !== supplierFilter) return false; }
       }
-
       if (normalizedTerm) {
         let match = false;
         if (searchBy === 'ALL') {
           match = normalizeString(attendee.name).includes(normalizedTerm) ||
                   attendee.cpf.replace(/\D/g, '').includes(normalizedTerm) ||
+                  (attendee.wristbands ? Object.values(attendee.wristbands).some(num => normalizeString(String(num)).includes(normalizedTerm)) : false) ||
                   (attendee.subCompany ? normalizeString(attendee.subCompany).includes(normalizedTerm) : false);
         } else if (searchBy === 'NAME') { match = normalizeString(attendee.name).includes(normalizedTerm); }
         else if (searchBy === 'CPF') { match = attendee.cpf.replace(/\D/g, '').includes(normalizedTerm); }
+        else if (searchBy === 'WRISTBAND') { match = attendee.wristbands ? Object.values(attendee.wristbands).some(num => normalizeString(String(num)).includes(normalizedTerm)) : false; }
         if (!match) return false;
       }
       return true;
     }).sort((a, b) => a.name.localeCompare(b.name));
   }, [attendees, searchTerm, searchBy, statusFilter, supplierFilter]);
 
-  const stats = useMemo(() => {
-      const awaiting = attendees.filter(a => a.status === CheckinStatus.PENDING_APPROVAL).length;
-      return {
-          checkedIn: attendees.filter(a => a.status === CheckinStatus.CHECKED_IN).length,
-          pending: attendees.filter(a => a.status === CheckinStatus.PENDING).length,
-          awaitingApproval: awaiting,
-          total: attendees.length,
-      };
-  }, [attendees]);
+  const stats = useMemo(() => ({
+      checkedIn: filteredAttendees.filter(a => a.status === CheckinStatus.CHECKED_IN).length,
+      pending: filteredAttendees.filter(a => a.status === CheckinStatus.PENDING).length,
+      total: filteredAttendees.length,
+  }), [filteredAttendees]);
 
-  // --- VIP STYLES ---
+  // CLASSES DE ESTILO VIP vs PADRÃO
   const containerClass = isVip 
-    ? "bg-[#0a0a0a]/80 backdrop-blur-3xl p-8 md:p-10 rounded-[3rem] shadow-[0_50px_150px_rgba(0,0,0,0.9)] border border-white/5" 
+    ? "bg-neutral-900/50 backdrop-blur-xl p-8 rounded-3xl shadow-2xl border border-white/10" 
     : "bg-gray-800/50 backdrop-blur-sm p-6 rounded-2xl shadow-2xl border border-gray-700";
 
   const inputClass = isVip
-    ? "w-full bg-black/60 border border-neutral-800 rounded-2xl py-4 px-6 text-white focus:outline-none focus:ring-2 focus:ring-rose-500/20 transition-all placeholder:text-neutral-700 font-bold uppercase tracking-widest text-xs"
+    ? "w-full bg-black/50 border border-neutral-700 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-rose-500/50 transition-all"
     : "w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500";
 
   return (
-    <div className="w-full max-w-7xl mx-auto pb-20">
-      
-      {/* VIP Badge for pending approvals */}
-      {isVip && stats.awaitingApproval > 0 && (
-          <div className="mb-6 animate-pulse">
-            <div className="bg-gradient-to-r from-amber-600 to-rose-600 p-[1px] rounded-2xl">
-                <div className="bg-black rounded-[calc(1rem-1px)] px-6 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <SparklesIcon className="w-5 h-5 text-amber-500" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-white">Solicitações de Acesso Pendentes</span>
-                    </div>
-                    <span className="bg-white text-black px-3 py-1 rounded-full text-[10px] font-black">{stats.awaitingApproval}</span>
-                </div>
-            </div>
-          </div>
-      )}
-
-      <div className={`${containerClass} mb-12 space-y-8`}>
-        <header className="flex flex-col md:flex-row justify-between items-end md:items-center gap-6 border-b border-white/5 pb-8">
-            <div className="flex flex-col gap-1">
-                <span className={`text-[10px] font-black uppercase tracking-[0.5em] ${isVip ? 'text-rose-500' : 'text-indigo-400'}`}>
-                    {isVip ? 'Exclusividade & Controle' : 'Gerenciamento de Acesso'}
-                </span>
-                <h2 className="text-3xl md:text-4xl font-black text-white tracking-tighter uppercase leading-none">
-                    {isVip ? 'Guest List' : 'Check-in'} <span className="text-transparent bg-clip-text bg-gradient-to-r from-neutral-200 to-neutral-500">Live</span>
-                </h2>
-            </div>
-            
-            <div className="flex items-center gap-8 text-white">
-                <div className="text-center group">
-                    <p className={`text-4xl font-black ${isVip ? 'text-rose-500' : 'text-green-400'} tracking-tighter leading-none`}>
-                        {stats.checkedIn}
-                    </p>
-                    <p className="text-[9px] text-neutral-500 uppercase font-black tracking-[0.2em] mt-2">Presentes</p>
-                </div>
-                <div className="w-[1px] h-10 bg-white/5"></div>
-                <div className="text-center">
-                    <p className={`text-4xl font-black ${isVip ? 'text-amber-500' : 'text-yellow-400'} tracking-tighter leading-none`}>
-                        {stats.pending + stats.awaitingApproval}
-                    </p>
-                    <p className="text-[9px] text-neutral-500 uppercase font-black tracking-[0.2em] mt-2">Na Fila</p>
-                </div>
-                <div className="w-[1px] h-10 bg-white/5"></div>
-                <div className="text-center">
-                    <p className="text-4xl font-black text-neutral-200 tracking-tighter leading-none">
-                        {stats.total}
-                    </p>
-                    <p className="text-[9px] text-neutral-500 uppercase font-black tracking-[0.2em] mt-2">Total</p>
-                </div>
-            </div>
-        </header>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          <div className="lg:col-span-8 flex flex-col md:flex-row gap-4">
+    <div className="w-full max-w-7xl mx-auto">
+      <div className={`${containerClass} mb-8 space-y-6`}>
+        <div className="flex flex-col xl:flex-row justify-between items-center gap-8">
+          <div className="flex-grow w-full flex flex-col md:flex-row gap-4">
             <div className="relative flex-grow">
-              <SearchIcon className={`absolute left-5 top-1/2 -translate-y-1/2 w-4 h-4 ${isVip ? 'text-rose-500/50' : 'text-gray-400'}`} />
+              <SearchIcon className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 ${isVip ? 'text-rose-400' : 'text-gray-400'}`} />
               <input
                 type="text"
-                placeholder={isVip ? "BUSCAR CONVIDADO OU GRUPO..." : t('checkin.searchPlaceholder')}
+                placeholder={isVip ? "Procurar convidado..." : t('checkin.searchPlaceholder')}
                 value={searchTerm}
                 onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
-                className={`${inputClass} pl-14`}
+                className={`${inputClass} pl-12`}
               />
             </div>
             <select
               value={searchBy}
               onChange={(e) => handleFilterChange('searchBy', e.target.value)}
-              className={`${inputClass} md:w-56 cursor-pointer text-center`}
+              className={`${inputClass} md:w-60 cursor-pointer`}
             >
-              <option value="ALL">TODOS OS CAMPOS</option>
-              <option value="NAME">POR NOME</option>
-              <option value="CPF">POR CPF</option>
+              <option value="ALL">{t('checkin.filter.searchBy.all')}</option>
+              <option value="NAME">{t('checkin.filter.searchBy.name')}</option>
+              <option value="CPF">{t('checkin.filter.searchBy.cpf')}</option>
+              <option value="WRISTBAND">{t('checkin.filter.searchBy.wristband')}</option>
             </select>
           </div>
           
-          <div className="lg:col-span-4 flex flex-col md:flex-row gap-4">
-            <select
-              value={statusFilter}
-              onChange={(e) => handleFilterChange('statusFilter', e.target.value as CheckinStatus | 'ALL')}
-              className={`${inputClass} text-center`}
-            >
-              <option value="ALL">TODOS OS STATUS</option>
-              {Object.values(CheckinStatus).map(status => (
-                <option key={status} value={status}>{t(`status.${status.toLowerCase()}`).toUpperCase()}</option>
-              ))}
-            </select>
-            <select
-              value={supplierFilter}
-              onChange={(e) => handleFilterChange('supplierFilter', e.target.value)}
-              className={`${inputClass} text-center`}
-            >
-              <option value="ALL">{isVip ? "TODAS AS HOSTS" : "TODOS OS FORNECEDORES"}</option>
-              {suppliers.map(supplier => (
-                <option key={supplier.id} value={supplier.id}>{supplier.name.toUpperCase()}</option>
-              ))}
-              <option value="">AVULSOS</option>
-            </select>
+          <div className="flex items-center gap-8 text-white flex-shrink-0">
+            <div className="text-center group">
+              <p className={`text-3xl font-black ${isVip ? 'text-rose-400' : 'text-green-400'} flex items-center justify-center gap-2`}>
+                <CheckCircleIcon className="w-7 h-7" /> {stats.checkedIn}
+              </p>
+              <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest mt-1">Presentes</p>
+            </div>
+            <div className="text-center">
+              <p className={`text-3xl font-black ${isVip ? 'text-amber-300' : 'text-yellow-400'}`}>{stats.pending}</p>
+              <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest mt-1">Aguardando</p>
+            </div>
+            <div className="text-center">
+              <p className="text-3xl font-black flex items-center justify-center gap-2">
+                {isVip ? <FaceSmileIcon className="w-7 h-7 text-neutral-400" /> : <UsersIcon className="w-7 h-7 text-neutral-400" />} 
+                {stats.total}
+              </p>
+              <p className="text-[10px] text-gray-500 uppercase font-black tracking-widest mt-1">Capacidade</p>
+            </div>
           </div>
         </div>
 
-        <div className="flex justify-between items-center pt-4">
-            <p className="text-[10px] font-bold text-neutral-600 uppercase tracking-widest">
-                Exibindo {filteredAttendees.length} resultados para sua busca
-            </p>
-            <button
-                onClick={handleExportToExcel}
-                className={`${isVip ? 'bg-white text-black hover:bg-neutral-200' : 'bg-green-700 hover:bg-green-600 text-white'} font-black text-[10px] uppercase tracking-[0.3em] py-4 px-8 rounded-2xl transition-all flex items-center gap-3 shadow-2xl active:scale-95`}
-            >
-                <ArrowDownTrayIcon className="w-4 h-4" />
-                Exportar Guest List
-            </button>
+        <div className="flex flex-col md:flex-row gap-4">
+          <select
+            value={statusFilter}
+            onChange={(e) => handleFilterChange('statusFilter', e.target.value as CheckinStatus | 'ALL')}
+            className={inputClass}
+          >
+            <option value="ALL">{t('checkin.filter.allStatuses')}</option>
+            {Object.values(CheckinStatus).map(status => (
+              <option key={status} value={status}>{t(`status.${status.toLowerCase()}`)}</option>
+            ))}
+          </select>
+          <select
+            value={supplierFilter}
+            onChange={(e) => handleFilterChange('supplierFilter', e.target.value)}
+            className={inputClass}
+          >
+            <option value="ALL">{isVip ? "Todas as Divulgadoras" : t('checkin.filter.allSuppliers')}</option>
+            {suppliers.map(supplier => (
+              <option key={supplier.id} value={supplier.id}>{supplier.name}</option>
+            ))}
+             <option value="">Sem Host Vinculada</option>
+          </select>
+        </div>
+
+        <div className="pt-6 border-t border-white/5 flex justify-end">
+          <button
+            onClick={handleExportToExcel}
+            className={`${isVip ? 'bg-white text-black hover:bg-neutral-200' : 'bg-green-700 hover:bg-green-600 text-white'} font-black text-[10px] uppercase tracking-widest py-3 px-6 rounded-2xl transition-all flex items-center gap-3 shadow-xl`}
+          >
+            <ArrowDownTrayIcon className="w-4 h-4" />
+            Exportar Lista
+          </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8 animate-in fade-in duration-1000">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
         {filteredAttendees.map((attendee) => {
             const attendeeSectors = Array.isArray(attendee.sectors) ? attendee.sectors : [];
             const sectorsList = attendeeSectors.map(id => {
@@ -288,13 +250,12 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
             const supplier = attendee.supplierId ? supplierMap.get(attendee.supplierId) : undefined;
             
             return (
-              <div key={attendee.id} className={isVip ? "group/card" : ""}>
+              <div key={attendee.id} className={isVip ? "transform transition-all hover:scale-[1.03]" : ""}>
                 <AttendeeCard 
                   attendee={attendee} 
                   onSelect={handleSelectAttendee}
                   sectors={sectorsList}
                   supplierName={supplier?.name}
-                  isVipMode={isVip}
                 />
               </div>
             );
@@ -302,13 +263,10 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
       </div>
       
       {filteredAttendees.length === 0 && (
-          <div className="text-center py-40">
-              <div className="relative inline-block">
-                <div className={`absolute -inset-1 rounded-full blur-xl opacity-20 ${isVip ? 'bg-rose-500' : 'bg-indigo-500'}`}></div>
-                <FaceSmileIcon className={`relative w-20 h-20 mx-auto mb-6 ${isVip ? 'text-neutral-800' : 'text-gray-700'}`} />
-              </div>
-              <p className="text-neutral-500 font-black uppercase tracking-[0.4em] text-xs">
-                {searchTerm.trim() ? `Nenhum convidado encontrado` : "A lista de presença está vazia"}
+          <div className="text-center col-span-full py-32 opacity-40">
+              {isVip && <FaceSmileIcon className="w-16 h-16 mx-auto mb-4 text-neutral-600" />}
+              <p className="text-gray-500 font-bold uppercase tracking-widest text-sm">
+                {searchTerm.trim() ? `Nenhum registro para "${searchTerm}"` : "Nenhum convidado na lista"}
               </p>
           </div>
       )}
