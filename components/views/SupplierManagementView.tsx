@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { Supplier, Sector, Attendee, SubCompany, CheckinStatus, EventType } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
@@ -38,11 +39,9 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
     const [currentSubCompanySector, setCurrentSubCompanySector] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     
-    // State for inline editing
-    const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
-
     // State for UI feedback
     const [copiedLink, setCopiedLink] = useState<string | null>(null);
+    const [copiedAdminLink, setCopiedAdminLink] = useState<string | null>(null);
     const [expandedSupplierId, setExpandedSupplierId] = useState<string | null>(null);
 
     
@@ -61,7 +60,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!supplierName.trim()) {
-            setError(t('suppliers.noNameError'));
+            setError("O nome da host/promoter é obrigatório.");
             return;
         }
         if (!supplierEmail.trim()) {
@@ -70,14 +69,14 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
         }
         const registrationLimit = parseInt(limit, 10);
         if (isNaN(registrationLimit) || registrationLimit <= 0) {
-            setError(t('suppliers.noLimitError'));
+            setError("Informe um limite válido de convidados.");
             return;
         }
 
         setIsSubmitting(true);
         try {
             await onAddSupplier(supplierName, isVip && sectors.length > 0 ? [sectors[0].id] : selectedSectors, registrationLimit, subCompanies, supplierEmail.trim());
-            setSupplierName(''); setSupplierEmail(''); setSelectedSectors([]); setLimit(''); setSubCompanies([]);
+            setSupplierName(''); setSupplierEmail(''); setLimit('');
         } finally {
             setIsSubmitting(false);
         }
@@ -91,9 +90,18 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
         setTimeout(() => setCopiedLink(null), 2000);
     };
 
+    const handleCopyAdminLink = (supplier: Supplier, e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!supplier.adminToken) return;
+        const url = `${window.location.origin}?verify=${supplier.adminToken}`;
+        navigator.clipboard.writeText(url);
+        setCopiedAdminLink(supplier.id);
+        setTimeout(() => setCopiedAdminLink(null), 2000);
+    };
+
     const handleDelete = async (supplier: Supplier, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (window.confirm(t('suppliers.deleteConfirm', { 0: supplier.name }))) {
+        if (window.confirm(`Tem certeza que deseja remover ${supplier.name}?`)) {
             try {
                 await onDeleteSupplier(supplier);
             } catch (err: any) {
@@ -156,10 +164,18 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3" onClick={e => e.stopPropagation()}>
-                                    <button onClick={() => onSupplierStatusUpdate(supplier.id, !supplier.active)} className="p-4 bg-white/5 text-neutral-400 hover:text-white rounded-2xl transition-colors">{supplier.active ? <NoSymbolIcon className="w-5 h-5"/> : <CheckCircleIcon className="w-5 h-5"/>}</button>
-                                    <button onClick={(e) => handleCopyLink(supplier.id, e)} className="p-4 bg-rose-600 text-white rounded-2xl transition-all hover:scale-105 active:scale-95 shadow-lg">
+                                    <button onClick={() => onSupplierStatusUpdate(supplier.id, !supplier.active)} title="Toggle Status" className="p-4 bg-white/5 text-neutral-400 hover:text-white rounded-2xl transition-colors">{supplier.active ? <NoSymbolIcon className="w-5 h-5"/> : <CheckCircleIcon className="w-5 h-5"/>}</button>
+                                    
+                                    {/* Link do Painel do Produtor (Management Link) */}
+                                    <button onClick={(e) => handleCopyAdminLink(supplier, e)} title={t('suppliers.copyAdminLink')} className="p-4 bg-amber-600/20 text-amber-500 hover:bg-amber-600 hover:text-white rounded-2xl transition-all hover:scale-105 active:scale-95 shadow-lg border border-amber-500/30">
+                                        {copiedAdminLink === supplier.id ? <CheckCircleIcon className="w-5 h-5"/> : <KeyIcon className="w-5 h-5"/>}
+                                    </button>
+
+                                    {/* Link de Cadastro Público */}
+                                    <button onClick={(e) => handleCopyLink(supplier.id, e)} title="Copiar Link de Cadastro" className="p-4 bg-rose-600 text-white rounded-2xl transition-all hover:scale-105 active:scale-95 shadow-lg">
                                         {copiedLink === supplier.id ? <CheckCircleIcon className="w-5 h-5"/> : <LinkIcon className="w-5 h-5"/>}
                                     </button>
+                                    
                                     <button onClick={(e) => handleDelete(supplier, e)} className="p-4 bg-neutral-800 text-neutral-500 hover:text-red-500 rounded-2xl transition-colors"><TrashIcon className="w-5 h-5"/></button>
                                 </div>
                             </div>

@@ -87,7 +87,8 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
   
   const handleBulkStatusUpdate = async (status: CheckinStatus) => {
       try {
-          await Promise.all(Array.from(selectedAttendeeIds).map(id => 
+          // FIX: Explicitly typed id as string to avoid "unknown" type error during bulk update
+          await Promise.all(Array.from(selectedAttendeeIds).map((id: string) => 
             api.updateAttendeeStatus(currentEventId, id, status, user.username)
           ));
           setSelectedAttendeeIds(new Set<string>());
@@ -215,7 +216,8 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
                 className={inputClass}
              >
                 <option value="ALL">{t('checkin.filter.allStatuses')}</option>
-                {Object.values(CheckinStatus).map(s => <option key={s} value={s}>{t(`status.${s.toLowerCase()}`)}</option>)}
+                {/* FIX: Cast enum value s to string to ensure type safety in dynamic keys and toLowerCase calls */}
+                {Object.values(CheckinStatus).map(s => <option key={s as string} value={s as string}>{t(`status.${(s as string).toLowerCase()}`)}</option>)}
              </select>
              <select
                 value={supplierFilter} onChange={(e) => handleFilterChange('supplierFilter', e.target.value)}
