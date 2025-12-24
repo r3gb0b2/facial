@@ -1,4 +1,3 @@
-
 // FIX: Replaced Timestamp value with FirebaseTimestamp type to resolve conflict between value and type.
 import type { FirebaseTimestamp } from './firebase/config.ts';
 
@@ -39,7 +38,6 @@ export interface Attendee {
   substitutionData?: {
     name: string;
     cpf: string;
-    email?: string; // Added email field for substitutions
     photo?: string; // Base64 data URL
     newSectorIds?: string[];
   };

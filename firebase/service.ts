@@ -1,4 +1,3 @@
-
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
 import { db, storage, FieldValue, Timestamp } from './config.ts';
@@ -285,8 +284,7 @@ export const approveSubstitution = async (eventId: string, attendeeId: string) =
         throw new Error("Substitution data not found for this attendee.");
     }
 
-    // FIX: Destructure email from substitutionData to ensure it is handled during approval
-    const { name, cpf, email, photo: photoDataUrl, newSectorIds } = attendee.substitutionData;
+    const { name, cpf, photo: photoDataUrl, newSectorIds } = attendee.substitutionData;
 
     if (typeof name !== 'string' || name.trim() === '') {
         throw new Error("Invalid substitution data: name is missing or invalid.");
@@ -301,11 +299,6 @@ export const approveSubstitution = async (eventId: string, attendeeId: string) =
         status: CheckinStatus.PENDING,
         substitutionData: FieldValue.delete(),
     };
-
-    // FIX: Update the attendee's email if it was provided in the substitution request
-    if (email) {
-        dataToUpdate.email = email.trim();
-    }
 
     if (photoDataUrl && photoDataUrl.startsWith('data:image')) {
         const photoUrl = await uploadPhoto(photoDataUrl, cpf);

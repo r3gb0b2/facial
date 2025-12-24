@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo } from 'react';
 import { Attendee, CheckinStatus, Sector, Supplier } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { EyeIcon, PencilIcon, SearchIcon, UsersIcon, SparklesIcon, TrashIcon } from '../icons.tsx';
+import { EyeIcon, PencilIcon, SearchIcon, UsersIcon, SparklesIcon } from '../icons.tsx';
 import SubstitutionRequestModal from '../SubstitutionRequestModal.tsx';
 import SupplierRegistrationModal from '../SupplierRegistrationModal.tsx';
 
@@ -26,8 +27,10 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
 
   const stats = useMemo(() => {
     const total = attendees.length;
+    const checkedIn = attendees.filter(a => a.status === CheckinStatus.CHECKED_IN).length;
     const limit = supplier.registrationLimit || 0;
-    return { total, limit, available: limit - total };
+    const percentage = limit > 0 ? Math.min((total / limit) * 100, 100) : 0;
+    return { total, checkedIn, limit, percentage };
   }, [attendees, supplier]);
 
   const filteredAttendees = useMemo(() => {
@@ -40,16 +43,16 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
     <div className="min-h-screen bg-[#050505] text-white p-4 md:p-10 font-sans selection:bg-rose-500/30">
       <div className="max-w-7xl mx-auto space-y-12">
         
-        {/* Header Premium */}
+        {/* Header Elegante */}
         <header className="flex flex-col lg:flex-row justify-between items-end lg:items-center gap-8 bg-neutral-900/40 p-8 md:p-12 rounded-[3rem] border border-white/5 relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-rose-600 via-amber-400 to-rose-600"></div>
             <div>
                 <div className="flex items-center gap-3 mb-4">
                     <SparklesIcon className="w-5 h-5 text-rose-500" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.5em] text-neutral-500">Concierge Dashboard</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.5em] text-neutral-500">Privé Management Portal</span>
                 </div>
                 <h1 className="text-4xl md:text-5xl font-black tracking-tighter uppercase leading-none mb-3">
-                    {supplier.name}
+                    {supplier.name} <span className="text-transparent bg-clip-text bg-gradient-to-r from-neutral-200 to-neutral-500">Dashboard</span>
                 </h1>
                 <p className="text-neutral-500 font-bold text-sm tracking-widest uppercase">{eventName}</p>
             </div>
@@ -57,14 +60,12 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
             <div className="flex items-center gap-10">
                 <div className="text-center">
                     <p className="text-4xl font-black tracking-tighter leading-none">{stats.total}</p>
-                    <p className="text-[9px] text-neutral-600 uppercase font-black tracking-widest mt-2">Ativos</p>
+                    <p className="text-[9px] text-neutral-600 uppercase font-black tracking-widest mt-2">Reservas</p>
                 </div>
                 <div className="w-[1px] h-12 bg-white/5"></div>
                 <div className="text-center">
-                    <p className={`text-4xl font-black tracking-tighter leading-none ${stats.available > 0 ? 'text-amber-500' : 'text-red-500'}`}>
-                        {stats.available}
-                    </p>
-                    <p className="text-[9px] text-neutral-600 uppercase font-black tracking-widest mt-2">Vagas</p>
+                    <p className="text-4xl font-black tracking-tighter leading-none text-rose-500">{stats.limit - stats.total}</p>
+                    <p className="text-[9px] text-neutral-600 uppercase font-black tracking-widest mt-2">Disponíveis</p>
                 </div>
                 <button 
                     onClick={() => setIsRegisterModalOpen(true)}
@@ -76,49 +77,42 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
             </div>
         </header>
 
-        {/* Guest Gallery */}
+        {/* Busca e Lista */}
         <div className="space-y-8">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4 px-4">
-                <h2 className="text-2xl font-black uppercase tracking-tighter">Minha Guest List <span className="text-neutral-700 ml-2">/ {filteredAttendees.length}</span></h2>
-                <div className="relative w-full md:w-80">
+            <div className="flex justify-between items-center px-4">
+                <h2 className="text-xl font-black uppercase tracking-tighter">Guest List <span className="text-neutral-600 ml-2">({filteredAttendees.length})</span></h2>
+                <div className="relative">
                     <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-neutral-600" />
                     <input 
                         type="text" 
-                        placeholder="Buscar convidado..."
+                        placeholder="Buscar por nome..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="bg-neutral-900 border border-white/5 rounded-xl py-3 pl-12 pr-6 text-sm focus:outline-none focus:ring-1 focus:ring-rose-500/30 w-full"
+                        className="bg-neutral-900 border border-white/5 rounded-xl py-3 pl-12 pr-6 text-sm focus:outline-none focus:ring-1 focus:ring-rose-500/30 w-64 md:w-80"
                     />
                 </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-8">
                 {filteredAttendees.map(attendee => (
-                    <div key={attendee.id} className="group bg-neutral-900/40 rounded-[2.5rem] overflow-hidden border border-white/5 hover:border-white/20 transition-all hover:shadow-[0_40px_80px_rgba(0,0,0,0.8)] flex flex-col">
-                        <div className="aspect-[4/5] relative overflow-hidden bg-neutral-950">
-                            <img src={attendee.photo} className="w-full h-full object-cover transition-all duration-1000 group-hover:scale-110" />
-                            <div className="absolute inset-0 bg-gradient-to-t from-black via-transparent to-transparent opacity-90"></div>
-                            
-                            {/* Status Badge */}
-                            <div className="absolute top-4 left-4">
-                                <div className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest ${attendee.status === CheckinStatus.CHECKED_IN ? 'bg-rose-600 text-white' : 'bg-neutral-800 text-neutral-400'}`}>
-                                    {t(`status.${attendee.status.toLowerCase()}`)}
-                                </div>
-                            </div>
-
-                            <div className="absolute bottom-6 left-0 right-0 px-6 text-center">
-                                <h3 className="font-black text-lg uppercase tracking-tighter leading-none mb-1">{attendee.name}</h3>
-                                <p className="text-[9px] text-rose-500/80 font-black uppercase tracking-widest">{attendee.subCompany || 'Individual'}</p>
+                    <div key={attendee.id} className="group bg-neutral-900/40 rounded-[2.5rem] overflow-hidden border border-white/5 hover:border-white/20 transition-all hover:shadow-[0_30px_60px_rgba(0,0,0,0.6)]">
+                        <div className="aspect-square relative overflow-hidden bg-neutral-950">
+                            <img src={attendee.photo} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700 scale-105 group-hover:scale-100" />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-60"></div>
+                            <div className="absolute bottom-4 left-0 right-0 text-center">
+                                <h3 className="font-black text-lg uppercase tracking-tighter leading-none group-hover:text-rose-500 transition-colors">{attendee.name}</h3>
+                                <p className="text-[10px] text-neutral-500 font-bold tracking-widest mt-1 italic">{attendee.subCompany || 'Individual'}</p>
                             </div>
                         </div>
-                        
-                        <div className="p-4 bg-black/40 flex items-center justify-center gap-2 border-t border-white/5">
+                        <div className="p-6 bg-black/20 flex flex-col items-center">
+                            <div className={`px-4 py-1.5 rounded-full text-[8px] font-black uppercase tracking-widest mb-4 ${attendee.status === CheckinStatus.CHECKED_IN ? 'bg-rose-600 text-white' : 'bg-neutral-800 text-neutral-500'}`}>
+                                {attendee.status === CheckinStatus.CHECKED_IN ? 'Presente no Evento' : 'Vaga Confirmada'}
+                            </div>
                             <button 
                                 onClick={() => setEditingAttendee(attendee)}
-                                className="flex-grow flex items-center justify-center gap-2 py-3 rounded-xl bg-white/5 hover:bg-white/10 transition-all text-[10px] font-black uppercase tracking-widest"
+                                className="text-[10px] font-black uppercase tracking-widest text-neutral-600 hover:text-white transition-colors py-2"
                             >
-                                <PencilIcon className="w-3 h-3 text-neutral-400" />
-                                Ajustar
+                                Solicitar Alteração
                             </button>
                         </div>
                     </div>
@@ -126,9 +120,9 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
             </div>
             
             {filteredAttendees.length === 0 && (
-                <div className="text-center py-40 border-2 border-dashed border-white/5 rounded-[4rem] bg-neutral-900/10">
+                <div className="text-center py-40 border-2 border-dashed border-white/5 rounded-[4rem]">
                     <UsersIcon className="w-16 h-16 mx-auto mb-4 text-neutral-800" />
-                    <p className="text-neutral-600 font-bold uppercase tracking-widest text-xs">Nenhum convidado localizado na lista vip.</p>
+                    <p className="text-neutral-600 font-bold uppercase tracking-widest text-sm">Nenhum convidado encontrado na sua lista VIP.</p>
                 </div>
             )}
         </div>
@@ -144,7 +138,6 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
           onSuccess={() => {}}
         />
       )}
-      
       {editingAttendee && (
         <SubstitutionRequestModal 
             attendee={editingAttendee}
