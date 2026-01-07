@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Attendee, CheckinStatus, Sector, Supplier, User } from '../types.ts';
 import { useTranslation } from '../hooks/useTranslation.tsx';
@@ -41,7 +42,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   const [editData, setEditData] = useState({
     name: attendee.name,
     cpf: attendee.cpf,
-    sectors: attendee.sectors,
+    sectors: attendee.sectors || [],
     subCompany: attendee.subCompany || '',
     supplierId: attendee.supplierId || '',
     photo: attendee.photo,
@@ -128,6 +129,16 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     }
   };
 
+  const toggleEditSector = (sectorId: string) => {
+    setEditData(prev => {
+        const current = prev.sectors;
+        const next = current.includes(sectorId) 
+            ? current.filter(id => id !== sectorId)
+            : [...current, sectorId];
+        return { ...prev, sectors: next };
+    });
+  };
+
   const handleSave = async () => {
     setIsSubmitting(true);
     try {
@@ -137,6 +148,12 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
         setIsSubmitting(false);
         return;
       }
+      if (editData.sectors.length === 0) {
+        setError("Selecione ao menos um setor.");
+        setIsSubmitting(false);
+        return;
+      }
+
       await onUpdateDetails(attendee.id, {
         name: editData.name,
         cpf: rawCpf,
@@ -187,7 +204,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                 ))}
              </div>
           </div>
-          <button onClick={handleUpdateWristbands} className={`mt-6 w-full ${isVip ? 'bg-rose-600 hover:bg-rose-500' : 'bg-green-600 hover:bg-green-500'} text-white font-black uppercase tracking-widest text-xs py-5 rounded-2xl transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3`}>
+          <button onClick={handleUpdateWristbands} className={`mt-6 w-full ${isVip ? 'bg-rose-600 hover:bg-rose-500' : 'bg-green-600 hover:bg-green-700'} text-white font-black uppercase tracking-widest text-xs py-5 rounded-2xl transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3`}>
             <CheckCircleIcon className="w-6 h-6"/>
             Efetuar Check-in
           </button>
@@ -258,9 +275,9 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                             <div>
                                 <span className="text-[10px] font-black text-neutral-600 uppercase tracking-widest block mb-3">Setor de Acesso</span>
                                 <div className="flex flex-wrap gap-2">
-                                    {attendeeSectors.map(s => (
+                                    {attendeeSectors.length > 0 ? attendeeSectors.map(s => (
                                         <span key={s.id} className="text-[11px] font-black px-4 py-1.5 rounded-xl bg-white/5 border border-white/10" style={{ color: s.color }}>{s.label}</span>
-                                    ))}
+                                    )) : <span className="text-xs text-gray-500 italic">Sem setor</span>}
                                 </div>
                             </div>
                             <div>
@@ -313,22 +330,42 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                     <button onClick={() => setIsEditing(false)} className="text-gray-600 p-3 hover:bg-white/5 rounded-full transition-all"><XMarkIcon className="w-8 h-8"/></button>
                 </div>
                 <div className="flex-grow overflow-y-auto pr-6 custom-scrollbar">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
-                         <div className="space-y-10">
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
+                         <div className="space-y-8">
                             <div>
                                 <label className="text-[11px] font-black text-neutral-600 uppercase tracking-widest block mb-4">Nome Completo</label>
                                 <input type="text" value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl py-5 px-6 text-white text-xl font-black focus:outline-none focus:border-rose-500 transition-all" />
                             </div>
+                            
                             <div>
-                                <label className="text-[11px] font-black text-neutral-600 uppercase tracking-widest block mb-4">Documento CPF</label>
-                                <input type="text" value={editData.cpf} onChange={e => setEditData({ ...editData, cpf: formatCPF(e.target.value) })} className="w-full bg-white/5 border border-white/10 rounded-2xl py-5 px-6 text-white text-xl font-black focus:outline-none focus:border-rose-500 transition-all" />
+                                <label className="text-[11px] font-black text-neutral-600 uppercase tracking-widest block mb-4">Setores de Acesso (Múltiplo)</label>
+                                <div className="grid grid-cols-2 gap-3 p-4 bg-white/5 rounded-2xl border border-white/5">
+                                    {sectors.map(sector => (
+                                        <button 
+                                            key={sector.id} 
+                                            type="button"
+                                            onClick={() => toggleEditSector(sector.id)}
+                                            className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${editData.sectors.includes(sector.id) ? 'bg-indigo-600 border-indigo-500 text-white shadow-lg' : 'bg-black/20 border-white/5 text-gray-500 hover:bg-white/5'}`}
+                                        >
+                                            <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: sector.color || '#4f46e5' }}></div>
+                                            <span className="text-[10px] font-black uppercase tracking-widest truncate">{sector.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                            <div>
-                                <label className="text-[11px] font-black text-neutral-600 uppercase tracking-widest block mb-4">Localização / Empresa</label>
-                                <input type="text" value={editData.subCompany} onChange={e => setEditData({ ...editData, subCompany: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl py-5 px-6 text-white text-xl font-black focus:outline-none focus:border-rose-500 transition-all" />
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                <div>
+                                    <label className="text-[11px] font-black text-neutral-600 uppercase tracking-widest block mb-4">Documento CPF</label>
+                                    <input type="text" value={editData.cpf} onChange={e => setEditData({ ...editData, cpf: formatCPF(e.target.value) })} className="w-full bg-white/5 border border-white/10 rounded-2xl py-5 px-6 text-white text-lg font-black focus:outline-none focus:border-rose-500 transition-all" />
+                                </div>
+                                <div>
+                                    <label className="text-[11px] font-black text-neutral-600 uppercase tracking-widest block mb-4">Empresa / Unidade</label>
+                                    <input type="text" value={editData.subCompany} onChange={e => setEditData({ ...editData, subCompany: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl py-5 px-6 text-white text-lg font-black focus:outline-none focus:border-rose-500 transition-all" />
+                                </div>
                             </div>
                          </div>
-                         <div className="flex flex-col items-center">
+                         <div className="flex flex-col items-center justify-center">
                              <span className="text-[11px] font-black text-neutral-600 uppercase tracking-widest block mb-6">Bio-Scan Identidade</span>
                              <div className="w-full max-w-sm">
                                 <WebcamCapture onCapture={(img) => setEditData(prev => ({ ...prev, photo: img }))} capturedImage={editData.photo} allowUpload={true} />
@@ -338,7 +375,9 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                 </div>
                 <div className="pt-10 mt-6 border-t border-white/5 flex gap-6">
                     <button onClick={() => setIsEditing(false)} className="flex-grow py-6 bg-neutral-900 text-neutral-500 font-black uppercase tracking-widest text-xs rounded-3xl border border-white/5 hover:bg-neutral-800 transition-all">Cancelar Edição</button>
-                    <button onClick={handleSave} className="flex-grow py-6 bg-white text-black font-black uppercase tracking-widest text-xs rounded-3xl shadow-2xl hover:bg-neutral-200 transition-all">Salvar Ficha</button>
+                    <button onClick={handleSave} disabled={isSubmitting} className="flex-grow py-6 bg-white text-black font-black uppercase tracking-widest text-xs rounded-3xl shadow-2xl hover:bg-neutral-200 transition-all disabled:opacity-50">
+                        {isSubmitting ? "Gravando..." : "Salvar Alterações"}
+                    </button>
                 </div>
             </div>
         )}
