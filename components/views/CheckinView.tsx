@@ -38,13 +38,8 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
   const [filters, setFilters] = useState(() => {
     const savedFilters = sessionStorage.getItem(sessionKey);
     if (savedFilters) {
-        const parsed = JSON.parse(savedFilters);
-        // Remove age keys if they were saved in session
-        delete parsed.ageMin;
-        delete parsed.ageMax;
-        return parsed;
+        return JSON.parse(savedFilters);
     }
-    
     return {
       searchTerm: '',
       searchBy: 'ALL',
@@ -65,7 +60,6 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
   const sectorMap = useMemo(() => new Map(sectors.map(s => [s.id, s])), [sectors]);
   const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s])), [suppliers]);
 
-  // CALCULAR OPÇÕES DE FILTRO BASEADO NOS DADOS EXISTENTES
   const availableStatusOptions = useMemo(() => {
     const usedStatuses = new Set<string>();
     attendees.forEach(a => usedStatuses.add(a.status));
@@ -76,12 +70,11 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
     const usedSupplierIds = new Set<string>();
     attendees.forEach(a => {
         if (a.supplierId) usedSupplierIds.add(a.supplierId);
-        else usedSupplierIds.add('manual'); // Para registros sem fornecedor
     });
     return suppliers.filter(s => usedSupplierIds.has(s.id));
   }, [attendees, suppliers]);
 
-  const handleFilterChange = (key: keyof typeof filters, value: any) => {
+  const handleFilterChange = (key: string, value: any) => {
     setFilters((prev: any) => ({ ...prev, [key]: value }));
   };
 
@@ -127,18 +120,15 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
             .filter((l): l is string => typeof l === 'string')
             .join(', ');
         const supplierName = attendee.supplierId ? supplierMap.get(attendee.supplierId)?.name : '';
-        const statusLabel = t(`status.${attendee.status.toLowerCase()}`);
-
         return {
             [isVip ? 'Nome do Convidado' : 'Nome']: attendee.name,
             'CPF': formatCPF(attendee.cpf),
-            'Status': statusLabel,
+            'Status': t(`status.${attendee.status.toLowerCase()}`),
             'Setor(es)': sectorLabels,
             [isVip ? 'Promoter' : 'Fornecedor']: supplierName,
             [isVip ? 'Local/Mesa' : 'Empresa']: attendee.subCompany || '',
         };
     });
-
     const ws = XLSX.utils.json_to_sheet(dataToExport);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Lista');
@@ -149,20 +139,28 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
     const normalizedTerm = normalizeString(searchTerm);
 
     return attendees.filter((attendee) => {
+      // 1. Filtro de Status (Correção Aqui)
       if (statusFilter !== 'ALL' && attendee.status !== statusFilter) return false;
+      
+      // 2. Filtro de Fornecedor
       if (supplierFilter !== 'ALL') {
         if (supplierFilter === '') { if (attendee.supplierId) return false; } 
         else { if (attendee.supplierId !== supplierFilter) return false; }
       }
 
+      // 3. Busca de Termo
       if (normalizedTerm) {
         let match = false;
+        const wristbandsStr = attendee.wristbands ? Object.values(attendee.wristbands).join(' ') : '';
+        
         if (searchBy === 'ALL') {
           match = normalizeString(attendee.name).includes(normalizedTerm) ||
                   attendee.cpf.replace(/\D/g, '').includes(normalizedTerm) ||
+                  normalizeString(wristbandsStr).includes(normalizedTerm) ||
                   (attendee.subCompany ? normalizeString(attendee.subCompany).includes(normalizedTerm) : false);
         } else if (searchBy === 'NAME') { match = normalizeString(attendee.name).includes(normalizedTerm); }
         else if (searchBy === 'CPF') { match = attendee.cpf.replace(/\D/g, '').includes(normalizedTerm); }
+        
         if (!match) return false;
       }
       return true;
@@ -175,35 +173,23 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
       total: attendees.length,
   }), [attendees]);
 
-  // UI CONFIGS DIFERENCIADAS
-  const containerClass = isVip 
-    ? "bg-neutral-900/50 backdrop-blur-xl p-6 md:p-8 rounded-3xl shadow-2xl border border-white/10" 
-    : "bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg";
-
-  const inputClass = isVip 
-    ? "w-full bg-black/50 border border-neutral-700 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-rose-500/50 transition-all text-sm" 
-    : "w-full bg-gray-900 border border-gray-700 rounded-lg py-2 px-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm";
-
   return (
     <div className="w-full max-w-7xl mx-auto space-y-8 pb-32">
-      
-      {/* Dashboard de Contadores */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-              { label: t('checkin.stats.total'), val: stats.total, color: 'text-white', bg: isVip ? 'bg-neutral-900/80 border-white/5' : 'bg-gray-800 border-gray-700' },
-              { label: t('checkin.stats.pending'), val: stats.pending, color: 'text-amber-400', bg: isVip ? 'bg-neutral-900/80 border-white/5' : 'bg-gray-800 border-gray-700' },
-              { label: t('checkin.stats.checkedIn'), val: stats.checkedIn, color: isVip ? 'text-rose-500' : 'text-green-400', bg: isVip ? 'bg-neutral-900/80 border-white/5' : 'bg-gray-800 border-gray-700' },
-              { label: 'Recusados', val: attendees.filter(a => a.status === CheckinStatus.REJECTED || a.status === CheckinStatus.BLOCKED).length, color: 'text-neutral-500', bg: isVip ? 'bg-neutral-900/80 border-white/5' : 'bg-gray-800 border-gray-700' }
+              { label: t('checkin.stats.total'), val: stats.total, color: 'text-white', bg: isVip ? 'bg-neutral-900/80' : 'bg-gray-800' },
+              { label: t('checkin.stats.pending'), val: stats.pending, color: 'text-amber-400', bg: isVip ? 'bg-neutral-900/80' : 'bg-gray-800' },
+              { label: t('checkin.stats.checkedIn'), val: stats.checkedIn, color: isVip ? 'text-rose-500' : 'text-green-400', bg: isVip ? 'bg-neutral-900/80' : 'bg-gray-800' },
+              { label: 'Recusados', val: attendees.filter(a => a.status === CheckinStatus.REJECTED || a.status === CheckinStatus.BLOCKED).length, color: 'text-neutral-500', bg: isVip ? 'bg-neutral-900/80' : 'bg-gray-800' }
           ].map(s => (
-              <div key={s.label} className={`${s.bg} border p-6 rounded-[2rem] text-center shadow-xl`}>
+              <div key={s.label} className={`${s.bg} border border-white/5 p-6 rounded-[2rem] text-center shadow-xl`}>
                   <p className={`text-4xl font-black tracking-tighter ${s.color}`}>{s.val}</p>
                   <p className="text-[10px] text-neutral-500 uppercase font-black tracking-widest mt-2">{s.label}</p>
               </div>
           ))}
       </div>
 
-      {/* Filtros */}
-      <div className={containerClass}>
+      <div className={isVip ? "bg-neutral-900/50 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl" : "bg-gray-800 p-8 rounded-2xl border border-gray-700 shadow-lg"}>
         <div className="flex flex-col gap-6">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
             <div className="md:col-span-8 relative">
@@ -211,12 +197,12 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
               <input
                 type="text" placeholder={t('checkin.searchPlaceholder')}
                 value={searchTerm} onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
-                className={`${inputClass} pl-12`}
+                className="w-full bg-black/40 border border-white/10 rounded-xl py-4 px-12 text-white focus:outline-none focus:ring-2 focus:ring-rose-500/50 transition-all font-medium"
               />
             </div>
             <select
               value={searchBy} onChange={(e) => handleFilterChange('searchBy', e.target.value)}
-              className={`${inputClass} md:col-span-4 cursor-pointer`}
+              className="md:col-span-4 bg-black/40 border border-white/10 rounded-xl py-4 px-4 text-white focus:outline-none cursor-pointer font-bold uppercase text-[10px] tracking-widest"
             >
               <option value="ALL">{t('checkin.filter.searchBy.all')}</option>
               <option value="NAME">{t('checkin.filter.searchBy.name')}</option>
@@ -227,33 +213,30 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
              <select
                 value={statusFilter} onChange={(e) => handleFilterChange('statusFilter', e.target.value)}
-                className={inputClass}
+                className="bg-black/40 border border-white/10 rounded-xl py-4 px-4 text-white focus:outline-none font-bold uppercase text-[10px] tracking-widest"
              >
-                <option value="ALL">{t('checkin.filter.allStatuses')}</option>
-                {/* FILTRO DINÂMICO DE STATUS */}
+                <option value="ALL">Status: Todos</option>
                 {availableStatusOptions.map(s => (
                     <option key={s} value={s}>{t(`status.${s.toLowerCase()}`)}</option>
                 ))}
              </select>
              <select
                 value={supplierFilter} onChange={(e) => handleFilterChange('supplierFilter', e.target.value)}
-                className={inputClass}
+                className="bg-black/40 border border-white/10 rounded-xl py-4 px-4 text-white focus:outline-none font-bold uppercase text-[10px] tracking-widest"
              >
-                <option value="ALL">{t('checkin.filter.allSuppliers')}</option>
-                {/* FILTRO DINÂMICO DE FORNECEDORES */}
+                <option value="ALL">{isVip ? 'Todas as Hosts' : t('checkin.filter.allSuppliers')}</option>
                 {availableSupplierOptions.map(s => (
                     <option key={s.id} value={s.id}>{s.name}</option>
                 ))}
                 {attendees.some(a => !a.supplierId) && <option value="">{isVip ? 'Sem Host Vinculada' : 'Sem Fornecedor'}</option>}
              </select>
-             <button onClick={handleExportToExcel} className={`${isVip ? 'bg-white text-black hover:bg-neutral-200' : 'bg-green-600 hover:bg-green-700 text-white'} font-black text-[10px] uppercase tracking-widest py-3 px-6 rounded-xl transition-all flex items-center justify-center gap-3 shadow-xl`}>
-                <ArrowDownTrayIcon className="w-4 h-4" /> Exportar Lista
+             <button onClick={handleExportToExcel} className={`${isVip ? 'bg-white text-black hover:bg-neutral-200' : 'bg-green-600 hover:bg-green-700 text-white'} font-black text-[10px] uppercase tracking-widest py-4 px-6 rounded-xl transition-all flex items-center justify-center gap-3 shadow-xl`}>
+                <ArrowDownTrayIcon className="w-4 h-4" /> Exportar Planilha
              </button>
           </div>
         </div>
       </div>
 
-      {/* Grid de Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
         {filteredAttendees.map((attendee) => (
           <div key={attendee.id} className="relative group">
@@ -274,12 +257,11 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
         ))}
       </div>
       
-      {/* Botão de Ação em Massa */}
       {selectedAttendeeIds.size > 0 && (
           <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[80] border p-4 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.9)] flex items-center gap-6 animate-in slide-in-from-bottom-10 ${isVip ? 'bg-neutral-900 border-rose-500/30' : 'bg-gray-800 border-indigo-500/30'}`}>
               <p className="text-white font-black uppercase text-[10px] tracking-widest ml-4">{selectedAttendeeIds.size} selecionados</p>
               <div className="h-6 w-[1px] bg-white/10"></div>
-              <button onClick={() => handleBulkStatusUpdate(CheckinStatus.CHECKED_IN)} className={`${isVip ? 'bg-rose-600 hover:bg-rose-500' : 'bg-indigo-600 hover:bg-indigo-500'} text-white font-black uppercase tracking-widest text-[9px] py-3 px-6 rounded-xl`}>Aprovar Todos</button>
+              <button onClick={() => handleBulkStatusUpdate(CheckinStatus.CHECKED_IN)} className={`${isVip ? 'bg-rose-600 hover:bg-rose-500' : 'bg-indigo-600 hover:bg-indigo-500'} text-white font-black uppercase tracking-widest text-[9px] py-3 px-6 rounded-xl`}>Aprovar Entrada</button>
               <button onClick={() => setSelectedAttendeeIds(new Set<string>())} className="text-neutral-500 hover:text-white transition-colors p-2"><XMarkIcon className="w-6 h-6"/></button>
           </div>
       )}

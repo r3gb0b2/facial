@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Attendee, CheckinStatus, Sector, Supplier, User } from '../types.ts';
 import { useTranslation } from '../hooks/useTranslation.tsx';
@@ -138,7 +137,6 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
         setIsSubmitting(false);
         return;
       }
-
       await onUpdateDetails(attendee.id, {
         name: editData.name,
         cpf: rawCpf,
@@ -149,27 +147,26 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
       });
       setIsEditing(false);
     } catch (err: any) {
-      setError(err.message || "Falha ao atualizar cadastro.");
+      setError(err.message || "Falha ao atualizar.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleBlock = async () => {
-    const reason = window.prompt("Por favor, informe o motivo do bloqueio (opcional):");
+    const reason = window.prompt("Motivo do bloqueio (opcional):");
     if(reason !== null){ 
         await api.blockAttendee(currentEventId, attendee.id, reason);
         onClose();
     }
   }
 
-  // Layout logic for actions (Primary)
   const renderQuickActions = () => {
-    if (isEditing || attendee.status === CheckinStatus.SUBSTITUTION_REQUEST || attendee.status === CheckinStatus.SECTOR_CHANGE_REQUEST || attendee.status === CheckinStatus.PENDING_APPROVAL) return null;
+    if (isEditing) return null;
 
     if (attendee.status === CheckinStatus.PENDING) {
       return (
-        <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-5 h-full flex flex-col justify-between">
+        <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-6 h-full flex flex-col justify-between">
           <div className="space-y-4">
              <div className="flex items-center gap-2 mb-1">
                  <TagIcon className="w-5 h-5 text-green-400" />
@@ -182,7 +179,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                             type="text"
                             value={wristbands[sector.id] || ''}
                             onChange={(e) => handleWristbandChange(sector.id, e.target.value)}
-                            className={`w-full bg-black/50 border-2 rounded-xl py-3 px-4 text-white text-base font-bold focus:outline-none transition-all ${wristbandErrorSectors.has(sector.id) ? 'border-red-500 ring-red-500/20' : 'border-white/10 focus:border-green-500'}`}
+                            className={`w-full bg-black/60 border-2 rounded-xl py-4 px-5 text-white text-lg font-black focus:outline-none transition-all ${wristbandErrorSectors.has(sector.id) ? 'border-red-500 ring-red-500/20' : 'border-white/10 focus:border-green-500'}`}
                             placeholder={`${sector.label}...`}
                             autoFocus
                         />
@@ -192,22 +189,27 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
           </div>
           <button onClick={handleUpdateWristbands} className={`mt-6 w-full ${isVip ? 'bg-rose-600 hover:bg-rose-500' : 'bg-green-600 hover:bg-green-500'} text-white font-black uppercase tracking-widest text-xs py-5 rounded-2xl transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3`}>
             <CheckCircleIcon className="w-6 h-6"/>
-            Confirmar Check-in
+            Efetuar Check-in
           </button>
         </div>
       );
     }
     
     if (attendee.status === CheckinStatus.CHECKED_IN) {
+      const wristbandNumbers = attendee.wristbands ? Object.values(attendee.wristbands).filter(Boolean).join(', ') : '';
       return (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-5 h-full flex flex-col justify-between">
-            <div className="text-center">
-                 <span className="text-[10px] font-black uppercase tracking-widest text-red-400 block mb-4">Ação Reversível</span>
-                 <p className="text-gray-400 text-xs leading-relaxed">Deseja anular este check-in? A pulseira vinculada e o horário de entrada serão removidos.</p>
+        <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 h-full flex flex-col justify-between">
+            <div className="text-center space-y-4">
+                 <span className="text-[10px] font-black uppercase tracking-widest text-red-400 block">Check-in Concluído</span>
+                 <div className="py-4 bg-black/40 rounded-xl border border-white/5">
+                    <p className="text-[9px] text-gray-500 uppercase font-black tracking-widest mb-1">Pulseira(s) Ativa(s)</p>
+                    <p className="text-xl font-black text-indigo-400 tracking-tighter">#{wristbandNumbers || 'N/A'}</p>
+                 </div>
+                 <p className="text-gray-400 text-[11px] leading-relaxed">Deseja anular este registro? O acesso e a pulseira serão invalidados.</p>
             </div>
             <button onClick={() => onUpdateStatus(CheckinStatus.PENDING)} className="w-full bg-red-600/20 hover:bg-red-600 text-red-500 hover:text-white border border-red-500/30 font-black uppercase tracking-widest text-[11px] py-5 rounded-2xl transition-all flex items-center justify-center gap-3">
                 <ArrowPathIcon className="w-5 h-5"/>
-                Cancelar Check-in
+                Anular Check-in
             </button>
         </div>
       );
@@ -217,10 +219,10 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-xl flex items-center justify-center z-[100] p-4" onClick={onClose}>
-      <div className="bg-neutral-900 rounded-[2.5rem] shadow-[0_50px_100px_rgba(0,0,0,1)] w-full max-w-5xl border border-white/10 overflow-hidden flex flex-col animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-neutral-900 rounded-[2.5rem] shadow-[0_50px_100px_rgba(0,0,0,1)] w-full max-w-6xl border border-white/10 overflow-hidden flex flex-col animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
         
         {/* Header Ultra Compacto */}
-        <div className="px-8 py-5 border-b border-white/5 flex justify-between items-center bg-black/40">
+        <div className="px-8 py-4 border-b border-white/5 flex justify-between items-center bg-black/40">
            <div className="flex items-center gap-4">
               <div className={`w-3 h-3 rounded-full ${statusInfo.bg} shadow-[0_0_15px_rgba(0,0,0,0.5)]`}></div>
               <span className="text-[11px] font-black uppercase tracking-[0.4em] text-gray-400">{statusInfo.label}</span>
@@ -237,43 +239,43 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
            </div>
         </div>
 
-        <div className="p-8">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-stretch">
+        <div className="p-10">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-stretch">
                 
-                {/* Coluna 1: Visual Identity */}
+                {/* Coluna 1: Identidade Visual */}
                 <div className="lg:col-span-3 flex flex-col items-center text-center">
-                    <div className="w-full aspect-square max-w-[220px] rounded-3xl overflow-hidden border-4 border-white/5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] bg-black relative mb-6">
-                         <UserAvatar src={attendee.photo} alt={attendee.name} className="w-full h-full object-cover" />
+                    <div className="w-full aspect-square max-w-[240px] rounded-[2rem] overflow-hidden border-4 border-white/5 shadow-[0_20px_60px_rgba(0,0,0,0.8)] bg-black relative mb-6 group">
+                         <UserAvatar src={attendee.photo} alt={attendee.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                     </div>
-                    <h2 className="text-2xl font-black text-white uppercase tracking-tighter leading-none mb-2">{attendee.name}</h2>
-                    <p className="text-xs font-mono text-neutral-500 tracking-widest">{formatCPF(attendee.cpf)}</p>
+                    <h2 className="text-3xl font-black text-white uppercase tracking-tighter leading-none mb-2">{attendee.name}</h2>
+                    <p className="text-xs font-mono text-neutral-500 tracking-[0.2em]">{formatCPF(attendee.cpf)}</p>
                 </div>
 
-                {/* Coluna 2: Technical Data */}
+                {/* Coluna 2: Grid de Dados Técnicos (Horizontalizada) */}
                 <div className="lg:col-span-5 flex flex-col justify-center">
-                    <div className="bg-white/[0.02] rounded-[2rem] p-8 border border-white/5 space-y-8">
-                        <div className="grid grid-cols-2 gap-8">
+                    <div className="bg-white/[0.02] rounded-[2.5rem] p-10 border border-white/5 space-y-10">
+                        <div className="grid grid-cols-2 gap-10">
                             <div>
-                                <span className="text-[10px] font-black text-neutral-600 uppercase tracking-widest block mb-2">Setor / Acesso</span>
-                                <div className="flex flex-wrap gap-1.5">
+                                <span className="text-[10px] font-black text-neutral-600 uppercase tracking-widest block mb-3">Setor de Acesso</span>
+                                <div className="flex flex-wrap gap-2">
                                     {attendeeSectors.map(s => (
-                                        <span key={s.id} className="text-[11px] font-black px-3 py-1 rounded-lg bg-white/5 border border-white/10" style={{ color: s.color }}>{s.label}</span>
+                                        <span key={s.id} className="text-[11px] font-black px-4 py-1.5 rounded-xl bg-white/5 border border-white/10" style={{ color: s.color }}>{s.label}</span>
                                     ))}
                                 </div>
                             </div>
                             <div>
-                                <span className="text-[10px] font-black text-neutral-600 uppercase tracking-widest block mb-2">{isVip ? 'Local / Mesa' : 'Empresa'}</span>
-                                <p className="text-white font-black text-sm truncate">{attendee.subCompany || 'Individual'}</p>
+                                <span className="text-[10px] font-black text-neutral-600 uppercase tracking-widest block mb-3">{isVip ? 'Local / Mesa' : 'Empresa'}</span>
+                                <p className="text-white font-black text-lg tracking-tight truncate">{attendee.subCompany || 'Individual'}</p>
                             </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-8 pt-4 border-t border-white/5">
+                        <div className="grid grid-cols-2 gap-10 pt-6 border-t border-white/5">
                             <div>
-                                <span className="text-[10px] font-black text-neutral-600 uppercase tracking-widest block mb-2">{isVip ? 'Promoter' : 'Fornecedor'}</span>
-                                <p className="text-neutral-400 font-bold text-xs truncate">{supplier?.name || 'Direto'}</p>
+                                <span className="text-[10px] font-black text-neutral-600 uppercase tracking-widest block mb-3">{isVip ? 'Promoter' : 'Fornecedor'}</span>
+                                <p className="text-neutral-400 font-bold text-sm truncate">{supplier?.name || 'Direto'}</p>
                             </div>
                             <div>
-                                <span className="text-[10px] font-black text-neutral-600 uppercase tracking-widest block mb-2">Última Atividade</span>
-                                <p className={`text-[11px] font-black uppercase ${attendee.status === CheckinStatus.PENDING ? 'text-amber-500' : 'text-rose-500'}`}>
+                                <span className="text-[10px] font-black text-neutral-600 uppercase tracking-widest block mb-3">Horário de Entrada</span>
+                                <p className={`text-[12px] font-black uppercase ${attendee.checkinTime ? 'text-rose-500' : 'text-amber-500'}`}>
                                     {attendee.checkinTime ? formatTimestamp(attendee.checkinTime) : 'Aguardando'}
                                 </p>
                             </div>
@@ -281,7 +283,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                     </div>
                 </div>
 
-                {/* Coluna 3: Core Actions (No Scroll Zone) */}
+                {/* Coluna 3: Ações de Check-in (Onde o foco operacional está) */}
                 <div className="lg:col-span-4">
                     {renderQuickActions()}
                 </div>
@@ -290,51 +292,53 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
 
         {/* Footer Minimalista */}
         <div className="px-8 py-5 bg-black/40 border-t border-white/5 flex items-center justify-between">
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-8">
                  {user.role !== 'checkin' && attendee.status !== CheckinStatus.BLOCKED && (
-                    <button onClick={handleBlock} className="text-[10px] font-black uppercase tracking-widest text-red-500/40 hover:text-red-500 transition-colors">Bloquear Acesso</button>
+                    <button onClick={handleBlock} className="text-[10px] font-black uppercase tracking-widest text-red-500/40 hover:text-red-500 transition-colors">Negativar Registro</button>
                  )}
                  {user.role !== 'checkin' && (
-                    <button onClick={() => { if(confirm('Excluir registro permanentemente?')) onDelete(attendee.id); }} className="text-[10px] font-black uppercase tracking-widest text-neutral-600 hover:text-white transition-colors">Excluir</button>
+                    <button onClick={() => { if(confirm('Excluir permanentemente?')) onDelete(attendee.id); }} className="text-[10px] font-black uppercase tracking-widest text-neutral-600 hover:text-white transition-colors">Remover Sistema</button>
                  )}
             </div>
-            <p className="text-[9px] font-black text-neutral-700 uppercase tracking-[0.2em]">ID: {attendee.id}</p>
+            <div className="flex items-center gap-4">
+                <span className="text-[9px] font-black text-neutral-700 uppercase tracking-[0.3em]">ID Interno: {attendee.id.slice(0, 8)}</span>
+            </div>
         </div>
 
         {/* Overlay de Edição */}
         {isEditing && (
-            <div className="absolute inset-0 bg-neutral-950 z-50 p-10 flex flex-col">
+            <div className="absolute inset-0 bg-neutral-950 z-50 p-12 flex flex-col">
                 <div className="flex justify-between items-center mb-10">
-                    <h3 className="text-3xl font-black text-white uppercase tracking-tighter">Ficha de Cadastro</h3>
-                    <button onClick={() => setIsEditing(false)} className="text-gray-500 p-2 hover:bg-white/5 rounded-full"><XMarkIcon className="w-8 h-8"/></button>
+                    <h3 className="text-4xl font-black text-white uppercase tracking-tighter">Ficha de Edição</h3>
+                    <button onClick={() => setIsEditing(false)} className="text-gray-600 p-3 hover:bg-white/5 rounded-full transition-all"><XMarkIcon className="w-8 h-8"/></button>
                 </div>
                 <div className="flex-grow overflow-y-auto pr-6 custom-scrollbar">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                         <div className="space-y-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-16">
+                         <div className="space-y-10">
                             <div>
-                                <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest block mb-3">Nome Completo</label>
-                                <input type="text" value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-white font-bold focus:outline-none focus:border-rose-500 transition-all" />
+                                <label className="text-[11px] font-black text-neutral-600 uppercase tracking-widest block mb-4">Nome Completo</label>
+                                <input type="text" value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl py-5 px-6 text-white text-xl font-black focus:outline-none focus:border-rose-500 transition-all" />
                             </div>
                             <div>
-                                <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest block mb-3">CPF</label>
-                                <input type="text" value={editData.cpf} onChange={e => setEditData({ ...editData, cpf: formatCPF(e.target.value) })} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-white font-bold focus:outline-none focus:border-rose-500 transition-all" />
+                                <label className="text-[11px] font-black text-neutral-600 uppercase tracking-widest block mb-4">Documento CPF</label>
+                                <input type="text" value={editData.cpf} onChange={e => setEditData({ ...editData, cpf: formatCPF(e.target.value) })} className="w-full bg-white/5 border border-white/10 rounded-2xl py-5 px-6 text-white text-xl font-black focus:outline-none focus:border-rose-500 transition-all" />
                             </div>
                             <div>
-                                <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest block mb-3">Unidade / Empresa</label>
-                                <input type="text" value={editData.subCompany} onChange={e => setEditData({ ...editData, subCompany: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-white font-bold focus:outline-none focus:border-rose-500 transition-all" />
+                                <label className="text-[11px] font-black text-neutral-600 uppercase tracking-widest block mb-4">Localização / Empresa</label>
+                                <input type="text" value={editData.subCompany} onChange={e => setEditData({ ...editData, subCompany: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl py-5 px-6 text-white text-xl font-black focus:outline-none focus:border-rose-500 transition-all" />
                             </div>
                          </div>
                          <div className="flex flex-col items-center">
-                             <span className="text-[11px] font-black text-neutral-500 uppercase tracking-widest block mb-4">Bio-Identidade (Foto)</span>
+                             <span className="text-[11px] font-black text-neutral-600 uppercase tracking-widest block mb-6">Bio-Scan Identidade</span>
                              <div className="w-full max-w-sm">
                                 <WebcamCapture onCapture={(img) => setEditData(prev => ({ ...prev, photo: img }))} capturedImage={editData.photo} allowUpload={true} />
                              </div>
                          </div>
                     </div>
                 </div>
-                <div className="pt-8 mt-4 border-t border-white/5 flex gap-4">
-                    <button onClick={() => setIsEditing(false)} className="flex-grow py-5 bg-neutral-900 text-neutral-400 font-black uppercase tracking-widest text-xs rounded-2xl border border-white/5 hover:bg-neutral-800 transition-all">Descartar</button>
-                    <button onClick={handleSave} className="flex-grow py-5 bg-white text-black font-black uppercase tracking-widest text-xs rounded-2xl shadow-xl hover:bg-neutral-200 transition-all">Atualizar Cadastro</button>
+                <div className="pt-10 mt-6 border-t border-white/5 flex gap-6">
+                    <button onClick={() => setIsEditing(false)} className="flex-grow py-6 bg-neutral-900 text-neutral-500 font-black uppercase tracking-widest text-xs rounded-3xl border border-white/5 hover:bg-neutral-800 transition-all">Cancelar Edição</button>
+                    <button onClick={handleSave} className="flex-grow py-6 bg-white text-black font-black uppercase tracking-widest text-xs rounded-3xl shadow-2xl hover:bg-neutral-200 transition-all">Salvar Ficha</button>
                 </div>
             </div>
         )}
