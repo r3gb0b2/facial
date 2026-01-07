@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Attendee, CheckinStatus, Sector, Supplier, User } from '../types.ts';
 import { useTranslation } from '../hooks/useTranslation.tsx';
-import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon, SpinnerIcon, NoSymbolIcon, TagIcon } from './icons.tsx';
+import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon, NoSymbolIcon, TagIcon, ArrowPathIcon } from './icons.tsx';
 import QRCodeDisplay from './QRCodeDisplay.tsx';
 import UserAvatar from './UserAvatar.tsx';
 import WebcamCapture from './WebcamCapture.tsx';
@@ -27,10 +27,11 @@ interface AttendeeDetailModalProps {
   onRejectNewRegistration: (attendeeId: string) => Promise<void>;
   setError: (message: string) => void;
   supplier?: Supplier;
+  isVip?: boolean;
 }
 
 export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
-  user, attendee, sectors, suppliers, allAttendees, currentEventId, onClose, onUpdateStatus, onUpdateDetails, onDelete, onApproveSubstitution, onRejectSubstitution, onApproveSectorChange, onRejectSectorChange, onApproveNewRegistration, onRejectNewRegistration, setError, supplier,
+  user, attendee, sectors, suppliers, allAttendees, currentEventId, onClose, onUpdateStatus, onUpdateDetails, onDelete, onApproveSubstitution, onRejectSubstitution, onApproveSectorChange, onRejectSectorChange, onApproveNewRegistration, onRejectNewRegistration, setError, supplier, isVip = false
 }) => {
   const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
@@ -71,9 +72,8 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   }, [attendee, sectors]);
 
   const statusInfo = {
-    [CheckinStatus.PENDING]: { bg: 'bg-gray-600', text: 'text-gray-200', label: t('status.pending') },
-    [CheckinStatus.CHECKED_IN]: { bg: 'bg-green-600', text: 'text-white', label: t('status.checked_in') },
-    [CheckinStatus.CHECKED_OUT]: { bg: 'bg-slate-500', text: 'text-white', label: t('status.checked_out') },
+    [CheckinStatus.PENDING]: { bg: isVip ? 'bg-amber-500' : 'bg-gray-600', text: 'text-white', label: t('status.pending') },
+    [CheckinStatus.CHECKED_IN]: { bg: isVip ? 'bg-rose-500' : 'bg-green-600', text: 'text-white', label: t('status.checked_in') },
     [CheckinStatus.CANCELLED]: { bg: 'bg-red-600', text: 'text-white', label: t('status.cancelled') },
     [CheckinStatus.SUBSTITUTION]: { bg: 'bg-yellow-500', text: 'text-black', label: t('status.substitution') },
     [CheckinStatus.SUBSTITUTION_REQUEST]: { bg: 'bg-blue-500', text: 'text-white', label: t('status.substitution_request') },
@@ -115,7 +115,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     }
     await onUpdateStatus(CheckinStatus.CHECKED_IN, wristbands);
     setShowWristbandSuccess(true);
-    setTimeout(() => { setShowWristbandSuccess(false); onClose(); }, 1500);
+    setTimeout(() => { setShowWristbandSuccess(false); onClose(); }, 1000);
   };
 
   const handleWristbandChange = (sectorId: string, value: string) => {
@@ -129,7 +129,6 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     }
   };
 
-  // FIX: Added missing handleSave function to update attendee details from the editing view.
   const handleSave = async () => {
     setIsSubmitting(true);
     try {
@@ -164,28 +163,26 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     }
   }
 
-  const selectedSupplierData = useMemo(() => suppliers.find(s => s.id === editData.supplierId), [editData.supplierId, suppliers]);
-
   // Layout logic for actions (Primary)
   const renderQuickActions = () => {
     if (isEditing || attendee.status === CheckinStatus.SUBSTITUTION_REQUEST || attendee.status === CheckinStatus.SECTOR_CHANGE_REQUEST || attendee.status === CheckinStatus.PENDING_APPROVAL) return null;
 
     if (attendee.status === CheckinStatus.PENDING) {
       return (
-        <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 h-full flex flex-col justify-between">
-          <div className="space-y-3">
+        <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-5 h-full flex flex-col justify-between">
+          <div className="space-y-4">
              <div className="flex items-center gap-2 mb-1">
-                 <TagIcon className="w-4 h-4 text-green-400" />
-                 <span className="text-[10px] font-black uppercase tracking-widest text-green-400">Vincular Pulseira</span>
+                 <TagIcon className="w-5 h-5 text-green-400" />
+                 <span className="text-[11px] font-black uppercase tracking-widest text-green-400">Vincular Pulseira</span>
              </div>
-             <div className="grid grid-cols-1 gap-2">
+             <div className="grid grid-cols-1 gap-3">
                 {attendeeSectors.map(sector => (
                     <div key={sector.id} className="relative">
                         <input
                             type="text"
                             value={wristbands[sector.id] || ''}
                             onChange={(e) => handleWristbandChange(sector.id, e.target.value)}
-                            className={`w-full bg-black/40 border rounded-lg py-2.5 px-3 text-white text-sm focus:outline-none focus:ring-1 ${wristbandErrorSectors.has(sector.id) ? 'border-red-500 ring-red-500' : 'border-white/10 focus:ring-green-500'}`}
+                            className={`w-full bg-black/50 border-2 rounded-xl py-3 px-4 text-white text-base font-bold focus:outline-none transition-all ${wristbandErrorSectors.has(sector.id) ? 'border-red-500 ring-red-500/20' : 'border-white/10 focus:border-green-500'}`}
                             placeholder={`${sector.label}...`}
                             autoFocus
                         />
@@ -193,26 +190,25 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                 ))}
              </div>
           </div>
-          <button onClick={handleUpdateWristbands} className="mt-4 w-full bg-green-600 hover:bg-green-500 text-white font-black uppercase tracking-widest text-xs py-4 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2">
-            <CheckCircleIcon className="w-5 h-5"/>
-            Liberar Entrada
+          <button onClick={handleUpdateWristbands} className={`mt-6 w-full ${isVip ? 'bg-rose-600 hover:bg-rose-500' : 'bg-green-600 hover:bg-green-500'} text-white font-black uppercase tracking-widest text-xs py-5 rounded-2xl transition-all shadow-xl active:scale-95 flex items-center justify-center gap-3`}>
+            <CheckCircleIcon className="w-6 h-6"/>
+            Confirmar Check-in
           </button>
         </div>
       );
     }
     
-    if (attendee.status === CheckinStatus.CHECKED_IN || attendee.status === CheckinStatus.CHECKED_OUT) {
-      const wristbandForQr = attendee.wristbands ? Object.values(attendee.wristbands).find(num => num) : undefined;
+    if (attendee.status === CheckinStatus.CHECKED_IN) {
       return (
-        <div className="bg-gray-900/50 border border-white/5 rounded-xl p-4 h-full flex flex-col items-center justify-center text-center">
-             {wristbandForQr ? (
-                 <div className="w-full">
-                     <QRCodeDisplay data={wristbandForQr} />
-                     <p className="text-[10px] font-bold text-gray-500 uppercase mt-2 tracking-widest">Código Ativo: {wristbandForQr}</p>
-                 </div>
-             ) : (
-                 <p className="text-gray-500 text-xs italic">Sem QR Code gerado.</p>
-             )}
+        <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-5 h-full flex flex-col justify-between">
+            <div className="text-center">
+                 <span className="text-[10px] font-black uppercase tracking-widest text-red-400 block mb-4">Ação Reversível</span>
+                 <p className="text-gray-400 text-xs leading-relaxed">Deseja anular este check-in? A pulseira vinculada e o horário de entrada serão removidos.</p>
+            </div>
+            <button onClick={() => onUpdateStatus(CheckinStatus.PENDING)} className="w-full bg-red-600/20 hover:bg-red-600 text-red-500 hover:text-white border border-red-500/30 font-black uppercase tracking-widest text-[11px] py-5 rounded-2xl transition-all flex items-center justify-center gap-3">
+                <ArrowPathIcon className="w-5 h-5"/>
+                Cancelar Check-in
+            </button>
         </div>
       );
     }
@@ -220,132 +216,139 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[100] p-4" onClick={onClose}>
-      <div className="bg-gray-800 rounded-3xl shadow-[0_50px_100px_rgba(0,0,0,0.5)] w-full max-w-5xl border border-white/10 overflow-hidden flex flex-col animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-xl flex items-center justify-center z-[100] p-4" onClick={onClose}>
+      <div className="bg-neutral-900 rounded-[2.5rem] shadow-[0_50px_100px_rgba(0,0,0,1)] w-full max-w-5xl border border-white/10 overflow-hidden flex flex-col animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
         
-        {/* Header Compacto */}
-        <div className="px-6 py-4 border-b border-white/5 flex justify-between items-center bg-gray-900/40">
-           <div className="flex items-center gap-3">
-              <div className={`w-2 h-2 rounded-full ${statusInfo.bg} animate-pulse`}></div>
-              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500">{statusInfo.label}</span>
+        {/* Header Ultra Compacto */}
+        <div className="px-8 py-5 border-b border-white/5 flex justify-between items-center bg-black/40">
+           <div className="flex items-center gap-4">
+              <div className={`w-3 h-3 rounded-full ${statusInfo.bg} shadow-[0_0_15px_rgba(0,0,0,0.5)]`}></div>
+              <span className="text-[11px] font-black uppercase tracking-[0.4em] text-gray-400">{statusInfo.label}</span>
            </div>
-           <div className="flex items-center gap-2">
-                {user.role !== 'checkin' && !isEditing && attendee.status !== CheckinStatus.PENDING_APPROVAL && (
-                  <button onClick={() => setIsEditing(true)} className="p-2 text-gray-500 hover:text-white transition-colors hover:bg-white/5 rounded-lg">
+           <div className="flex items-center gap-3">
+                {user.role !== 'checkin' && !isEditing && (
+                  <button onClick={() => setIsEditing(true)} className="p-3 text-gray-400 hover:text-white transition-all hover:bg-white/5 rounded-xl">
                     <PencilIcon className="w-5 h-5" />
                   </button>
                 )}
-                <button onClick={onClose} className="p-2 text-gray-500 hover:text-white transition-colors hover:bg-white/5 rounded-lg">
+                <button onClick={onClose} className="p-3 text-gray-400 hover:text-white transition-all hover:bg-white/5 rounded-xl">
                   <XMarkIcon className="w-6 h-6" />
                 </button>
            </div>
         </div>
 
-        <div className="p-6">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+        <div className="p-8">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-stretch">
                 
-                {/* Coluna 1: Avatar e Nome */}
+                {/* Coluna 1: Visual Identity */}
                 <div className="lg:col-span-3 flex flex-col items-center text-center">
-                    <div className="w-full aspect-square max-w-[200px] rounded-2xl overflow-hidden border-2 border-white/5 shadow-2xl bg-black relative mb-4">
+                    <div className="w-full aspect-square max-w-[220px] rounded-3xl overflow-hidden border-4 border-white/5 shadow-[0_20px_50px_rgba(0,0,0,0.5)] bg-black relative mb-6">
                          <UserAvatar src={attendee.photo} alt={attendee.name} className="w-full h-full object-cover" />
                     </div>
-                    <h2 className="text-xl font-black text-white uppercase tracking-tight leading-tight mb-1">{attendee.name}</h2>
-                    <p className="text-xs font-mono text-gray-500">{formatCPF(attendee.cpf)}</p>
+                    <h2 className="text-2xl font-black text-white uppercase tracking-tighter leading-none mb-2">{attendee.name}</h2>
+                    <p className="text-xs font-mono text-neutral-500 tracking-widest">{formatCPF(attendee.cpf)}</p>
                 </div>
 
-                {/* Coluna 2: Dados Técnicos (Grid) */}
+                {/* Coluna 2: Technical Data */}
                 <div className="lg:col-span-5 flex flex-col justify-center">
-                    <div className="bg-black/20 rounded-2xl p-6 border border-white/5 space-y-6">
-                        <div className="grid grid-cols-2 gap-6">
+                    <div className="bg-white/[0.02] rounded-[2rem] p-8 border border-white/5 space-y-8">
+                        <div className="grid grid-cols-2 gap-8">
                             <div>
-                                <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest block mb-1">Setor / Acesso</span>
-                                <div className="flex flex-wrap gap-1">
+                                <span className="text-[10px] font-black text-neutral-600 uppercase tracking-widest block mb-2">Setor / Acesso</span>
+                                <div className="flex flex-wrap gap-1.5">
                                     {attendeeSectors.map(s => (
-                                        <span key={s.id} className="text-[10px] font-bold px-2 py-0.5 rounded bg-white/5 border border-white/10" style={{ color: s.color }}>{s.label}</span>
+                                        <span key={s.id} className="text-[11px] font-black px-3 py-1 rounded-lg bg-white/5 border border-white/10" style={{ color: s.color }}>{s.label}</span>
                                     ))}
                                 </div>
                             </div>
                             <div>
-                                <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest block mb-1">Grupo / Unidade</span>
-                                <p className="text-gray-300 font-bold text-xs truncate">{attendee.subCompany || 'Individual'}</p>
+                                <span className="text-[10px] font-black text-neutral-600 uppercase tracking-widest block mb-2">{isVip ? 'Local / Mesa' : 'Empresa'}</span>
+                                <p className="text-white font-black text-sm truncate">{attendee.subCompany || 'Individual'}</p>
                             </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-6">
+                        <div className="grid grid-cols-2 gap-8 pt-4 border-t border-white/5">
                             <div>
-                                <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest block mb-1">Fornecedor</span>
-                                <p className="text-gray-300 font-medium text-xs truncate">{supplier?.name || 'Direto'}</p>
+                                <span className="text-[10px] font-black text-neutral-600 uppercase tracking-widest block mb-2">{isVip ? 'Promoter' : 'Fornecedor'}</span>
+                                <p className="text-neutral-400 font-bold text-xs truncate">{supplier?.name || 'Direto'}</p>
                             </div>
                             <div>
-                                <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest block mb-1">Status do Registro</span>
-                                <p className={`text-[10px] font-black uppercase ${attendee.status === CheckinStatus.PENDING ? 'text-yellow-500' : 'text-green-500'}`}>{statusInfo.label}</p>
+                                <span className="text-[10px] font-black text-neutral-600 uppercase tracking-widest block mb-2">Última Atividade</span>
+                                <p className={`text-[11px] font-black uppercase ${attendee.status === CheckinStatus.PENDING ? 'text-amber-500' : 'text-rose-500'}`}>
+                                    {attendee.checkinTime ? formatTimestamp(attendee.checkinTime) : 'Aguardando'}
+                                </p>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                {/* Coluna 3: Ações de Check-in (Onde o foco está) */}
+                {/* Coluna 3: Core Actions (No Scroll Zone) */}
                 <div className="lg:col-span-4">
                     {renderQuickActions()}
                 </div>
             </div>
         </div>
 
-        {/* Footer para ações secundárias */}
-        <div className="px-6 py-4 bg-gray-900/40 border-t border-white/5 flex flex-wrap gap-4 items-center justify-between">
-            <div className="flex gap-4">
-                {attendee.status === CheckinStatus.CHECKED_IN && (
-                     <button onClick={() => onUpdateStatus(CheckinStatus.CHECKED_OUT)} className="bg-yellow-600/10 text-yellow-500 border border-yellow-500/20 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-yellow-600/20 transition-all">Registrar Saída</button>
-                )}
-                {attendee.status === CheckinStatus.CHECKED_OUT && (
-                     <button onClick={() => onUpdateStatus(CheckinStatus.CHECKED_IN)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all">Reativar Entrada</button>
-                )}
-            </div>
-            
-            <div className="flex items-center gap-3">
+        {/* Footer Minimalista */}
+        <div className="px-8 py-5 bg-black/40 border-t border-white/5 flex items-center justify-between">
+            <div className="flex items-center gap-6">
                  {user.role !== 'checkin' && attendee.status !== CheckinStatus.BLOCKED && (
-                    <button onClick={handleBlock} className="text-[10px] font-black uppercase tracking-widest text-red-500/50 hover:text-red-500 transition-colors">Bloquear Registro</button>
+                    <button onClick={handleBlock} className="text-[10px] font-black uppercase tracking-widest text-red-500/40 hover:text-red-500 transition-colors">Bloquear Acesso</button>
                  )}
                  {user.role !== 'checkin' && (
-                    <button onClick={() => { if(confirm('Excluir permanentemente?')) onDelete(attendee.id); }} className="text-[10px] font-black uppercase tracking-widest text-gray-600 hover:text-white transition-colors">Excluir</button>
+                    <button onClick={() => { if(confirm('Excluir registro permanentemente?')) onDelete(attendee.id); }} className="text-[10px] font-black uppercase tracking-widest text-neutral-600 hover:text-white transition-colors">Excluir</button>
                  )}
             </div>
+            <p className="text-[9px] font-black text-neutral-700 uppercase tracking-[0.2em]">ID: {attendee.id}</p>
         </div>
 
-        {/* Overlay de Edição (Se ativo) */}
+        {/* Overlay de Edição */}
         {isEditing && (
-            <div className="absolute inset-0 bg-gray-900 z-50 p-8 flex flex-col">
-                <div className="flex justify-between items-center mb-8">
-                    <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Editar Cadastro</h3>
-                    <button onClick={() => setIsEditing(false)} className="text-gray-500"><XMarkIcon className="w-8 h-8"/></button>
+            <div className="absolute inset-0 bg-neutral-950 z-50 p-10 flex flex-col">
+                <div className="flex justify-between items-center mb-10">
+                    <h3 className="text-3xl font-black text-white uppercase tracking-tighter">Ficha de Cadastro</h3>
+                    <button onClick={() => setIsEditing(false)} className="text-gray-500 p-2 hover:bg-white/5 rounded-full"><XMarkIcon className="w-8 h-8"/></button>
                 </div>
-                <div className="flex-grow overflow-y-auto pr-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                         <div className="space-y-6">
+                <div className="flex-grow overflow-y-auto pr-6 custom-scrollbar">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                         <div className="space-y-8">
                             <div>
-                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-2">Nome Completo</label>
-                                <input type="text" value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} className="w-full bg-black/40 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-indigo-500" />
+                                <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest block mb-3">Nome Completo</label>
+                                <input type="text" value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-white font-bold focus:outline-none focus:border-rose-500 transition-all" />
                             </div>
                             <div>
-                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-2">CPF</label>
-                                <input type="text" value={editData.cpf} onChange={e => setEditData({ ...editData, cpf: formatCPF(e.target.value) })} className="w-full bg-black/40 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-indigo-500" />
+                                <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest block mb-3">CPF</label>
+                                <input type="text" value={editData.cpf} onChange={e => setEditData({ ...editData, cpf: formatCPF(e.target.value) })} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-white font-bold focus:outline-none focus:border-rose-500 transition-all" />
                             </div>
                             <div>
-                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-2">Unidade / Empresa</label>
-                                <input type="text" value={editData.subCompany} onChange={e => setEditData({ ...editData, subCompany: e.target.value })} className="w-full bg-black/40 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-indigo-500" />
+                                <label className="text-[11px] font-black text-neutral-500 uppercase tracking-widest block mb-3">Unidade / Empresa</label>
+                                <input type="text" value={editData.subCompany} onChange={e => setEditData({ ...editData, subCompany: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-white font-bold focus:outline-none focus:border-rose-500 transition-all" />
                             </div>
                          </div>
                          <div className="flex flex-col items-center">
-                             <WebcamCapture onCapture={(img) => setEditData(prev => ({ ...prev, photo: img }))} capturedImage={editData.photo} allowUpload={true} />
+                             <span className="text-[11px] font-black text-neutral-500 uppercase tracking-widest block mb-4">Bio-Identidade (Foto)</span>
+                             <div className="w-full max-w-sm">
+                                <WebcamCapture onCapture={(img) => setEditData(prev => ({ ...prev, photo: img }))} capturedImage={editData.photo} allowUpload={true} />
+                             </div>
                          </div>
                     </div>
                 </div>
-                <div className="pt-6 border-t border-white/5 flex gap-4">
-                    <button onClick={() => setIsEditing(false)} className="flex-grow py-4 bg-gray-800 text-white font-black uppercase tracking-widest text-xs rounded-xl">Cancelar</button>
-                    <button onClick={handleSave} className="flex-grow py-4 bg-indigo-600 text-white font-black uppercase tracking-widest text-xs rounded-xl shadow-lg">Salvar Alterações</button>
+                <div className="pt-8 mt-4 border-t border-white/5 flex gap-4">
+                    <button onClick={() => setIsEditing(false)} className="flex-grow py-5 bg-neutral-900 text-neutral-400 font-black uppercase tracking-widest text-xs rounded-2xl border border-white/5 hover:bg-neutral-800 transition-all">Descartar</button>
+                    <button onClick={handleSave} className="flex-grow py-5 bg-white text-black font-black uppercase tracking-widest text-xs rounded-2xl shadow-xl hover:bg-neutral-200 transition-all">Atualizar Cadastro</button>
                 </div>
             </div>
         )}
       </div>
     </div>
   );
+};
+
+const formatTimestamp = (timestamp: any) => {
+    if (!timestamp || !timestamp.seconds) return '-';
+    return new Date(timestamp.seconds * 1000).toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
 };
