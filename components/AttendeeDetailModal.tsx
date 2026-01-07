@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Attendee, CheckinStatus, Sector, Supplier, User } from '../types.ts';
 import { useTranslation } from '../hooks/useTranslation.tsx';
-import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon, SpinnerIcon, NoSymbolIcon } from './icons.tsx';
+import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon, SpinnerIcon, NoSymbolIcon, TagIcon } from './icons.tsx';
 import QRCodeDisplay from './QRCodeDisplay.tsx';
 import UserAvatar from './UserAvatar.tsx';
 import WebcamCapture from './WebcamCapture.tsx';
@@ -29,24 +30,7 @@ interface AttendeeDetailModalProps {
 }
 
 export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
-  user,
-  attendee,
-  sectors,
-  suppliers,
-  allAttendees,
-  currentEventId,
-  onClose,
-  onUpdateStatus,
-  onUpdateDetails,
-  onDelete,
-  onApproveSubstitution,
-  onRejectSubstitution,
-  onApproveSectorChange,
-  onRejectSectorChange,
-  onApproveNewRegistration,
-  onRejectNewRegistration,
-  setError,
-  supplier,
+  user, attendee, sectors, suppliers, allAttendees, currentEventId, onClose, onUpdateStatus, onUpdateDetails, onDelete, onApproveSubstitution, onRejectSubstitution, onApproveSectorChange, onRejectSectorChange, onApproveNewRegistration, onRejectNewRegistration, setError, supplier,
 }) => {
   const { t } = useTranslation();
   const [isEditing, setIsEditing] = useState(false);
@@ -101,58 +85,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   
   const formatCPF = (cpf: string) => {
     if (!cpf) return '';
-    return cpf
-      .replace(/\D/g, '')
-      .slice(0, 11)
-      .replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-  };
-
-  const formatTimestamp = (timestamp: any) => {
-    if (!timestamp || !timestamp.seconds) return 'N/A';
-    return new Date(timestamp.seconds * 1000).toLocaleString('pt-BR', {
-      dateStyle: 'short',
-      timeStyle: 'medium',
-    });
-  };
-
-  const handleSave = async () => {
-    const rawCpf = editData.cpf.replace(/\D/g, '');
-    if (!editData.name.trim() || !rawCpf.trim() || editData.sectors.length === 0 || !editData.photo) {
-      setError(t('attendeeDetail.formError'));
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      await onUpdateDetails(attendee.id, { 
-          name: editData.name,
-          cpf: rawCpf,
-          sectors: editData.sectors,
-          subCompany: editData.subCompany,
-          supplierId: editData.supplierId || undefined,
-          photo: editData.photo
-      });
-      setIsEditing(false);
-    } catch (error: any) {
-      console.error("Update failed:", error);
-      setError("Falha ao atualizar os dados.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-  
-  const handleEditSectorChange = (sectorId: string) => {
-    setEditData(prev => {
-        const newSectors = prev.sectors.includes(sectorId)
-            ? prev.sectors.filter(id => id !== sectorId)
-            : [...prev.sectors, sectorId];
-        return { ...prev, sectors: newSectors };
-    });
-  };
-
-  const handleDelete = () => {
-    if (window.confirm(t('attendeeDetail.deleteConfirm', { name: attendee.name }))) {
-      onDelete(attendee.id);
-    }
+    return cpf.replace(/\D/g, '').slice(0, 11).replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
   };
 
   const handleUpdateWristbands = async () => {
@@ -162,8 +95,6 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     const duplicateNumbers: string[] = [];
 
     const otherAttendees = allAttendees.filter(a => a.id !== attendee.id);
-    
-    // Check for duplicates
     for (const sectorId of attendeeSectors.map(s => s.id)) {
       const number = wristbands[sectorId];
       if (number) {
@@ -182,16 +113,13 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
       setError(t('attendeeDetail.wristbandsDuplicateError', { numbers: duplicateNumbers.join(', ') }));
       return;
     }
-    
-    // If no errors, update status and wristbands
     await onUpdateStatus(CheckinStatus.CHECKED_IN, wristbands);
     setShowWristbandSuccess(true);
-    setTimeout(() => setShowWristbandSuccess(false), 3000);
+    setTimeout(() => { setShowWristbandSuccess(false); onClose(); }, 1500);
   };
 
   const handleWristbandChange = (sectorId: string, value: string) => {
     setWristbands(prev => ({ ...prev, [sectorId]: value }));
-    // Clear error for this field as user types
     if (wristbandErrorSectors.has(sectorId)) {
         setWristbandErrorSectors(prev => {
             const newErrors = new Set(prev);
@@ -200,77 +128,32 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
         });
     }
   };
-  
-  const handleApprove = async () => {
+
+  // FIX: Added missing handleSave function to update attendee details from the editing view.
+  const handleSave = async () => {
     setIsSubmitting(true);
     try {
-        await onApproveSubstitution(attendee.id);
-        onClose();
-    } catch (e) {
-        setError("Falha ao aprovar substituição.");
-    } finally {
+      const rawCpf = editData.cpf.replace(/\D/g, '');
+      if (rawCpf.length !== 11) {
+        setError("CPF inválido.");
         setIsSubmitting(false);
-    }
-  };
-
-  const handleReject = async () => {
-      setIsSubmitting(true);
-      try {
-          await onRejectSubstitution(attendee.id);
-          onClose();
-      } catch (e) {
-          setError("Falha ao rejeitar substituição.");
-      } finally {
-          setIsSubmitting(false);
+        return;
       }
-  };
 
-  const handleApproveSectorChange = async () => {
-    setIsSubmitting(true);
-    try {
-        await onApproveSectorChange(attendee.id);
-        onClose();
-    } catch (e) {
-        setError("Falha ao aprovar troca de setor.");
+      await onUpdateDetails(attendee.id, {
+        name: editData.name,
+        cpf: rawCpf,
+        sectors: editData.sectors,
+        subCompany: editData.subCompany,
+        supplierId: editData.supplierId,
+        photo: editData.photo,
+      });
+      setIsEditing(false);
+    } catch (err: any) {
+      setError(err.message || "Falha ao atualizar cadastro.");
     } finally {
-        setIsSubmitting(false);
+      setIsSubmitting(false);
     }
-  };
-
-  const handleRejectSectorChange = async () => {
-      setIsSubmitting(true);
-      try {
-          await onRejectSectorChange(attendee.id);
-          onClose();
-      } catch (e) {
-          setError("Falha ao rejeitar troca de setor.");
-      } finally {
-          setIsSubmitting(false);
-      }
-  };
-
-  const handleApproveRegistration = async () => {
-    setIsSubmitting(true);
-    try {
-        await onApproveNewRegistration(attendee.id);
-        onClose();
-    } catch (e) {
-        setError("Falha ao aprovar novo cadastro.");
-    } finally {
-        setIsSubmitting(false);
-    }
-  };
-  
-  const handleRejectRegistration = async () => {
-      setIsSubmitting(true);
-      try {
-          await onRejectNewRegistration(attendee.id);
-          onClose();
-      } catch (e) {
-          setError("Falha ao rejeitar novo cadastro.");
-      } finally {
-          setIsSubmitting(false);
-      }
   };
 
   const handleBlock = async () => {
@@ -281,362 +164,39 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     }
   }
 
-  const handleUnblock = async () => {
-      if(window.confirm('Deseja realmente desbloquear este colaborador?')) {
-          await api.unblockAttendee(currentEventId, attendee.id);
-          onClose();
-      }
-  }
+  const selectedSupplierData = useMemo(() => suppliers.find(s => s.id === editData.supplierId), [editData.supplierId, suppliers]);
 
-  const selectedSupplierData = useMemo(() => {
-    return suppliers.find(s => s.id === editData.supplierId);
-  }, [editData.supplierId, suppliers]);
-
-  const subCompanyOptions = useMemo(() => {
-    return selectedSupplierData?.subCompanies?.map(sc => sc.name) || [];
-  }, [selectedSupplierData]);
-
-  // Effect to auto-select sector when a sub-company is chosen during edit
-  useEffect(() => {
-    if (isEditing && selectedSupplierData?.subCompanies && editData.subCompany) {
-        const selected = selectedSupplierData.subCompanies.find(sc => sc.name === editData.subCompany);
-        if (selected) {
-            setEditData(prev => ({...prev, sectors: [selected.sector]}));
-        }
-    }
-  }, [editData.subCompany, selectedSupplierData, isEditing]);
-  
-  const renderStatusButton = (status: CheckinStatus, label: string, style: string = 'bg-indigo-600 hover:bg-indigo-700') => (
-    <button
-      onClick={() => {
-        onUpdateStatus(status);
-        if(status !== CheckinStatus.CHECKED_OUT){
-          onClose();
-        }
-      }}
-      className={`${style} text-white font-bold py-2 px-4 rounded-lg transition-colors w-full`}
-    >
-      {label}
-    </button>
-  );
-
-  const renderContent = () => {
-    if (isEditing) {
-      return (
-        <div className="space-y-4">
-           <div className="flex flex-col items-center mb-4">
-                <WebcamCapture 
-                    onCapture={(img) => setEditData(prev => ({ ...prev, photo: img }))} 
-                    capturedImage={editData.photo} 
-                    allowUpload={true}
-                    disabled={isSubmitting}
-                />
-            </div>
-          <div>
-            <label className="text-sm font-medium text-gray-400">Nome</label>
-            <input type="text" value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white" disabled={isSubmitting} />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-400">CPF</label>
-            <input type="text" value={editData.cpf} onChange={e => setEditData({ ...editData, cpf: formatCPF(e.target.value) })} className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white" disabled={isSubmitting} />
-          </div>
-           <div>
-            <label className="text-sm font-medium text-gray-400">Fornecedor</label>
-            <select
-                value={editData.supplierId}
-                onChange={e => {
-                    const newSupplierId = e.target.value;
-                    const newSupplier = suppliers.find(s => s.id === newSupplierId);
-                    const hasSubCompanies = !!(newSupplier?.subCompanies && newSupplier.subCompanies.length > 0);
-                    
-                    setEditData({ 
-                        ...editData, 
-                        supplierId: newSupplierId,
-                        // Reset sub-company and sectors when supplier changes
-                        subCompany: '',
-                        sectors: hasSubCompanies ? [] : (newSupplier?.sectors || [])
-                    });
-                }}
-                className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"
-                disabled={isSubmitting}
-            >
-                <option value="">Nenhum / Manual</option>
-                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
-          </div>
-          {selectedSupplierData?.subCompanies && selectedSupplierData.subCompanies.length > 0 ? (
-            <div>
-              <label className="text-sm font-medium text-gray-400">Empresa/Unidade</label>
-              <select
-                  value={editData.subCompany}
-                  onChange={e => setEditData({...editData, subCompany: e.target.value})}
-                  className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white"
-                  disabled={isSubmitting}
-              >
-                  <option value="">Selecione...</option>
-                  {subCompanyOptions.map(sc => <option key={sc} value={sc}>{sc}</option>)}
-              </select>
-            </div>
-          ) : (
-             <div>
-              <label className="text-sm font-medium text-gray-400">Empresa/Unidade (Opcional)</label>
-              <input type="text" value={editData.subCompany} onChange={e => setEditData({ ...editData, subCompany: e.target.value })} className="w-full bg-gray-900 border border-gray-600 rounded-md py-2 px-3 text-white" disabled={isSubmitting} />
-            </div>
-          )}
-          <div>
-            <label className="text-sm font-medium text-gray-400">Setores</label>
-            <div className="mt-2 grid grid-cols-2 gap-2 p-2 bg-gray-900 rounded-md max-h-32 overflow-y-auto border border-gray-600">
-                {sectors.map(sector => (
-                    <div key={sector.id} className="flex items-center">
-                        <input
-                            type="checkbox"
-                            id={`edit-sector-${sector.id}`}
-                            checked={editData.sectors.includes(sector.id)}
-                            onChange={() => handleEditSectorChange(sector.id)}
-                            className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
-                            disabled={isSubmitting || !!(selectedSupplierData?.subCompanies && selectedSupplierData.subCompanies.length > 0)}
-                        />
-                        <label htmlFor={`edit-sector-${sector.id}`} className="ml-2 text-white cursor-pointer">{sector.label}</label>
-                    </div>
-                ))}
-            </div>
-             {!!(selectedSupplierData?.subCompanies && selectedSupplierData.subCompanies.length > 0) &&
-                <p className="text-xs text-gray-500 mt-1">O setor é definido pela Empresa/Unidade selecionada.</p>
-             }
-          </div>
-        </div>
-      );
-    }
-    
-    if (attendee.status === CheckinStatus.PENDING_APPROVAL) {
-        return (
-            <div className="space-y-4 text-center">
-                {/* Alert for Blocked History */}
-                {attendee.blockReason && (
-                    <div className="p-3 bg-red-900/50 border border-red-500 rounded-lg flex items-start gap-2 text-left mb-2">
-                        <NoSymbolIcon className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-500" />
-                        <div>
-                            <p className="text-red-200 font-bold text-sm">Solicitação com Histórico de Bloqueio</p>
-                            <p className="text-white text-xs">{attendee.blockReason}</p>
-                        </div>
-                    </div>
-                )}
-
-                <div className="space-y-3 p-4 bg-gray-900/50 rounded-lg text-left">
-                  <div>
-                    <span className="text-sm font-medium text-gray-400">CPF</span>
-                    <p className="text-white text-lg">{formatCPF(attendee.cpf)}</p>
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium text-gray-400">Setores</span>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                        {attendeeSectors.map(sector => (
-                            <span key={sector.id} className="text-xs font-medium px-2 py-1 rounded-full" style={{ backgroundColor: `${sector.color}33`, color: sector.color }}>
-                                {sector.label}
-                            </span>
-                        ))}
-                    </div>
-                  </div>
-                  {supplier && (
-                    <div>
-                      <span className="text-sm font-medium text-gray-400">Fornecedor</span>
-                      <p className="text-white">{supplier.name}</p>
-                    </div>
-                  )}
-                   {attendee.subCompany && (
-                      <div>
-                          <span className="text-sm font-medium text-gray-400">Empresa / Unidade</span>
-                          <p className="text-white">{attendee.subCompany}</p>
-                      </div>
-                  )}
-                </div>
-                <div className="flex gap-4 mt-4">
-                     <button onClick={handleRejectRegistration} disabled={isSubmitting} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50">
-                        {isSubmitting && <SpinnerIcon className="w-5 h-5"/>}
-                        {t('attendeeDetail.rejectRegistrationButton')}
-                    </button>
-                     <button onClick={handleApproveRegistration} disabled={isSubmitting} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50">
-                        {isSubmitting && <SpinnerIcon className="w-5 h-5"/>}
-                        {t('attendeeDetail.approveRegistrationButton')}
-                    </button>
-                </div>
-            </div>
-        );
-    }
-
-    if (attendee.status === CheckinStatus.SUBSTITUTION_REQUEST && attendee.substitutionData) {
-        const { substitutionData } = attendee;
-        const requestedSectors = (substitutionData.newSectorIds || []).map(id => sectors.find(s => s.id === id)).filter(Boolean) as Sector[];
-
-        return (
-            <div>
-                <h3 className="text-xl font-bold text-center text-yellow-300 mb-4">{t('attendeeDetail.substitutionRequestTitle')}</h3>
-                <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center p-4 bg-gray-900/50 rounded-lg">
-                        <h4 className="font-semibold text-gray-400 mb-2">{t('attendeeDetail.originalData')}</h4>
-                        <div className="w-32 h-32 mx-auto mb-2">
-                            <UserAvatar src={attendee.photo} alt={attendee.name} className="w-full h-full object-contain rounded-full border-2 border-gray-600"/>
-                        </div>
-                        <p className="font-bold text-white">{attendee.name}</p>
-                        <p className="text-sm text-gray-300">{formatCPF(attendee.cpf)}</p>
-                    </div>
-                     <div className="text-center p-4 bg-gray-900/50 rounded-lg">
-                        <h4 className="font-semibold text-gray-400 mb-2">{t('attendeeDetail.newData')}</h4>
-                         <div className="w-32 h-32 mx-auto mb-2">
-                            <UserAvatar src={substitutionData.photo} alt={substitutionData.name} className="w-full h-full object-contain rounded-full border-2 border-blue-500"/>
-                        </div>
-                        <p className="font-bold text-white">{substitutionData.name}</p>
-                        <p className="text-sm text-gray-300">{formatCPF(substitutionData.cpf)}</p>
-                    </div>
-                </div>
-                 {requestedSectors.length > 0 && (
-                    <div className="mt-4 p-3 bg-gray-900/50 rounded-lg">
-                        <span className="text-sm font-medium text-gray-400">{t('attendeeDetail.requestedSector')}</span>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                            {requestedSectors.map(sector => (
-                                <span key={sector.id} className="text-xs font-medium px-2 py-1 rounded-full" style={{ backgroundColor: `${sector.color}33`, color: sector.color }}>
-                                    {sector.label}
-                                </span>
-                            ))}
-                        </div>
-                    </div>
-                )}
-                <div className="flex gap-4 mt-4">
-                     <button onClick={handleReject} disabled={isSubmitting} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50">
-                        {isSubmitting && <SpinnerIcon className="w-5 h-5"/>}
-                        {t('attendeeDetail.rejectButton')}
-                    </button>
-                     <button onClick={handleApprove} disabled={isSubmitting} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50">
-                        {isSubmitting && <SpinnerIcon className="w-5 h-5"/>}
-                        {t('attendeeDetail.approveButton')}
-                    </button>
-                </div>
-            </div>
-        );
-    }
-    
-    if (attendee.status === CheckinStatus.SECTOR_CHANGE_REQUEST && attendee.sectorChangeData) {
-        const { sectorChangeData } = attendee;
-        const currentSector = sectors.find(s => s.id === attendee.sectors[0]);
-        const requestedSector = sectors.find(s => s.id === sectorChangeData.newSectorId);
-
-        return (
-            <div>
-                <h3 className="text-xl font-bold text-center text-purple-300 mb-4">{t('attendeeDetail.sectorChangeRequestTitle')}</h3>
-                <div className="space-y-3 p-4 bg-gray-900/50 rounded-lg">
-                    <div>
-                        <span className="text-sm font-medium text-gray-400">{t('attendeeDetail.currentSector')}</span>
-                        <p className="text-white">{currentSector?.label || 'N/A'}</p>
-                    </div>
-                    <div>
-                        <span className="text-sm font-medium text-gray-400">{t('attendeeDetail.requestedSector')}</span>
-                        <p className="text-lg font-semibold text-purple-300">{requestedSector?.label || 'N/A'}</p>
-                    </div>
-                    {sectorChangeData.justification && (
-                        <div>
-                            <span className="text-sm font-medium text-gray-400">{t('attendeeDetail.justification')}</span>
-                            <p className="text-white italic bg-gray-700/50 p-2 rounded-md">{sectorChangeData.justification}</p>
-                        </div>
-                    )}
-                </div>
-                <div className="flex gap-4 mt-4">
-                     <button onClick={handleRejectSectorChange} disabled={isSubmitting} className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50">
-                        {isSubmitting && <SpinnerIcon className="w-5 h-5"/>}
-                        {t('attendeeDetail.rejectSectorChangeButton')}
-                    </button>
-                     <button onClick={handleApproveSectorChange} disabled={isSubmitting} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50">
-                        {isSubmitting && <SpinnerIcon className="w-5 h-5"/>}
-                        {t('attendeeDetail.approveSectorChangeButton')}
-                    </button>
-                </div>
-            </div>
-        );
-    }
-    
-    // Default display view
-    return (
-      <div className="space-y-3">
-        <div>
-          <span className="text-sm font-medium text-gray-400">CPF</span>
-          <p className="text-white text-lg">{formatCPF(attendee.cpf)}</p>
-        </div>
-        <div>
-          <span className="text-sm font-medium text-gray-400">Setores</span>
-          <div className="flex flex-wrap gap-1 mt-1">
-              {attendeeSectors.map(sector => (
-                  <span key={sector.id} className="text-xs font-medium px-2 py-1 rounded-full" style={{ backgroundColor: `${sector.color}33`, color: sector.color }}>
-                      {sector.label}
-                  </span>
-              ))}
-          </div>
-        </div>
-        {supplier && (
-          <div>
-            <span className="text-sm font-medium text-gray-400">Fornecedor</span>
-            <p className="text-white">{supplier.name}</p>
-          </div>
-        )}
-         {attendee.subCompany && (
-            <div>
-                <span className="text-sm font-medium text-gray-400">Empresa / Unidade</span>
-                <p className="text-white">{attendee.subCompany}</p>
-            </div>
-        )}
-        {attendee.checkinTime && (
-            <div>
-                <span className="text-sm font-medium text-gray-400">{t('attendeeDetail.checkinTime')}</span>
-                <p className="text-white">{formatTimestamp(attendee.checkinTime)}
-                {attendee.checkedInBy && <span className="text-xs text-gray-400 italic ml-1">{t('attendeeDetail.byUser', { user: attendee.checkedInBy })}</span>}
-                </p>
-            </div>
-        )}
-         {attendee.checkoutTime && (
-            <div>
-                <span className="text-sm font-medium text-gray-400">{t('attendeeDetail.checkoutTime')}</span>
-                <p className="text-white">{formatTimestamp(attendee.checkoutTime)}
-                {attendee.checkedOutBy && <span className="text-xs text-gray-400 italic ml-1">{t('attendeeDetail.byUser', { user: attendee.checkedOutBy })}</span>}
-                </p>
-            </div>
-        )}
-        
-        {attendee.status === CheckinStatus.BLOCKED && (
-            <div className="mt-4 p-3 bg-red-900/50 border border-red-500 rounded-lg">
-                <p className="text-red-200 font-bold mb-1">Registro Negativo (Bloqueado)</p>
-                <p className="text-white text-sm">Motivo: <span className="italic">{attendee.blockReason || 'Não informado'}</span></p>
-            </div>
-        )}
-      </div>
-    );
-  };
-  
-  const renderCheckinSection = () => {
+  // Layout logic for actions (Primary)
+  const renderQuickActions = () => {
     if (isEditing || attendee.status === CheckinStatus.SUBSTITUTION_REQUEST || attendee.status === CheckinStatus.SECTOR_CHANGE_REQUEST || attendee.status === CheckinStatus.PENDING_APPROVAL) return null;
 
     if (attendee.status === CheckinStatus.PENDING) {
       return (
-        <div className="space-y-4 pt-4 border-t border-gray-700/50">
-          {attendeeSectors.map(sector => (
-            <div key={sector.id}>
-              <label htmlFor={`wristband-${sector.id}`} className="block text-sm font-medium text-gray-300 mb-1">
-                {t('attendeeDetail.wristbandLabel')} ({sector.label})
-              </label>
-              <input
-                type="text"
-                id={`wristband-${sector.id}`}
-                value={wristbands[sector.id] || ''}
-                onChange={(e) => handleWristbandChange(sector.id, e.target.value)}
-                className={`w-full bg-gray-900 border rounded-md py-2 px-3 text-white focus:outline-none focus:ring-2 ${wristbandErrorSectors.has(sector.id) ? 'border-red-500 ring-red-500' : 'border-gray-600 focus:ring-indigo-500'}`}
-                placeholder={t('attendeeDetail.wristbandPlaceholder')}
-              />
-            </div>
-          ))}
-          <button onClick={handleUpdateWristbands} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg flex items-center justify-center gap-2">
+        <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-4 h-full flex flex-col justify-between">
+          <div className="space-y-3">
+             <div className="flex items-center gap-2 mb-1">
+                 <TagIcon className="w-4 h-4 text-green-400" />
+                 <span className="text-[10px] font-black uppercase tracking-widest text-green-400">Vincular Pulseira</span>
+             </div>
+             <div className="grid grid-cols-1 gap-2">
+                {attendeeSectors.map(sector => (
+                    <div key={sector.id} className="relative">
+                        <input
+                            type="text"
+                            value={wristbands[sector.id] || ''}
+                            onChange={(e) => handleWristbandChange(sector.id, e.target.value)}
+                            className={`w-full bg-black/40 border rounded-lg py-2.5 px-3 text-white text-sm focus:outline-none focus:ring-1 ${wristbandErrorSectors.has(sector.id) ? 'border-red-500 ring-red-500' : 'border-white/10 focus:ring-green-500'}`}
+                            placeholder={`${sector.label}...`}
+                            autoFocus
+                        />
+                    </div>
+                ))}
+             </div>
+          </div>
+          <button onClick={handleUpdateWristbands} className="mt-4 w-full bg-green-600 hover:bg-green-500 text-white font-black uppercase tracking-widest text-xs py-4 rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2">
             <CheckCircleIcon className="w-5 h-5"/>
-            {t('statusUpdateModal.confirmCheckin')}
+            Liberar Entrada
           </button>
-           {showWristbandSuccess && (
-                <p className="text-sm text-center text-green-400">{t('attendeeDetail.wristbandUpdateSuccess')}</p>
-           )}
         </div>
       );
     }
@@ -644,152 +204,148 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     if (attendee.status === CheckinStatus.CHECKED_IN || attendee.status === CheckinStatus.CHECKED_OUT) {
       const wristbandForQr = attendee.wristbands ? Object.values(attendee.wristbands).find(num => num) : undefined;
       return (
-        <div className="space-y-3">
-          <div>
-            <p className="text-sm font-medium text-gray-400">Pulseiras Entregues:</p>
-             {attendeeSectors.map(sector => (
-                  <div key={sector.id} className="flex justify-between items-center bg-gray-900/50 p-2 rounded-md">
-                      <span className="font-semibold" style={{ color: sector.color || 'inherit' }}>{sector.label}:</span>
-                      <span className="font-mono text-lg text-white">{attendee.wristbands?.[sector.id] || 'N/A'}</span>
-                  </div>
-             ))}
-          </div>
-          {wristbandForQr && (
-            <div className="pt-3 border-t border-gray-700/50">
-                <h4 className="text-sm font-medium text-center text-gray-400 mb-2">{t('attendeeDetail.qrCodeTitle')}</h4>
-                <QRCodeDisplay data={wristbandForQr} />
-            </div>
-          )}
+        <div className="bg-gray-900/50 border border-white/5 rounded-xl p-4 h-full flex flex-col items-center justify-center text-center">
+             {wristbandForQr ? (
+                 <div className="w-full">
+                     <QRCodeDisplay data={wristbandForQr} />
+                     <p className="text-[10px] font-bold text-gray-500 uppercase mt-2 tracking-widest">Código Ativo: {wristbandForQr}</p>
+                 </div>
+             ) : (
+                 <p className="text-gray-500 text-xs italic">Sem QR Code gerado.</p>
+             )}
         </div>
       );
     }
-
-    return null; // Don't show checkin for CANCELLED, etc.
-  };
-  
-  const renderFooter = () => {
-    if (isEditing) {
-      return (
-        <div className="flex gap-4">
-          <button onClick={() => setIsEditing(false)} disabled={isSubmitting} className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg disabled:opacity-50">{t('attendeeDetail.cancelButton')}</button>
-          <button onClick={handleSave} disabled={isSubmitting} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50">
-            {isSubmitting && <SpinnerIcon className="w-5 h-5"/>}
-            {t('attendeeDetail.saveButton')}
-          </button>
-        </div>
-      );
-    }
-
-    // Buttons for different statuses
-    const statusActions = [];
-    switch (attendee.status) {
-        case CheckinStatus.PENDING:
-            if (user.role !== 'checkin') {
-              statusActions.push(renderStatusButton(CheckinStatus.CANCELLED, t('statusUpdateModal.cancelRegistration')));
-              statusActions.push(renderStatusButton(CheckinStatus.MISSED, t('statusUpdateModal.markAsMissed')));
-            }
-            break;
-        case CheckinStatus.CHECKED_IN:
-            statusActions.push(renderStatusButton(CheckinStatus.CHECKED_OUT, t('attendeeDetail.confirmCheckout'), 'bg-yellow-600 hover:bg-yellow-700'));
-            if (user.role !== 'checkin') {
-              statusActions.push(renderStatusButton(CheckinStatus.PENDING, t('statusUpdateModal.cancelCheckin')));
-            }
-            break;
-        case CheckinStatus.CHECKED_OUT:
-            statusActions.push(renderStatusButton(CheckinStatus.CHECKED_IN, t('attendeeDetail.reactivateCheckin')));
-            break;
-        case CheckinStatus.CANCELLED:
-        case CheckinStatus.MISSED:
-            if (user.role !== 'checkin') {
-              statusActions.push(renderStatusButton(CheckinStatus.PENDING, t('statusUpdateModal.reactivateRegistration')));
-            }
-            break;
-        case CheckinStatus.BLOCKED:
-            if (user.role !== 'checkin') {
-                 statusActions.push(
-                    <button
-                        onClick={handleUnblock}
-                        className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors"
-                    >
-                        Desbloquear Colaborador
-                    </button>
-                 );
-            }
-            break;
-    }
-
-    return (
-      <div className="space-y-2">
-        {statusActions.map((button, index) => <div key={index}>{button}</div>)}
-        {user.role !== 'checkin' && attendee.status !== CheckinStatus.BLOCKED && (
-           <button
-             onClick={handleBlock}
-             className="w-full text-red-400 hover:bg-red-500/10 font-semibold py-2 rounded-lg transition-colors mt-2 border border-transparent hover:border-red-500/30"
-           >
-             Bloquear Colaborador
-           </button>
-        )}
-        {user.role !== 'checkin' && (
-          <button
-            onClick={handleDelete}
-            className="w-full text-gray-500 hover:text-red-400 hover:bg-red-500/10 font-semibold py-2 rounded-lg transition-colors mt-1"
-          >
-            {t('attendeeDetail.deleteButton')}
-          </button>
-        )}
-      </div>
-    );
+    return null;
   };
 
   return (
-    <>
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-        <div className="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg border border-gray-700 flex flex-col max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-          {/* Header */}
-          <div className="p-6 border-b border-gray-700 flex-shrink-0">
-            <div className="flex justify-between items-start">
-              <div className="flex items-start gap-4">
-                 <div className="w-24 h-24 flex-shrink-0">
-                    <UserAvatar 
-                        src={attendee.photo} 
-                        alt={attendee.name} 
-                        className="w-full h-full object-contain rounded-lg bg-black border-2 border-gray-600"
-                    />
-                 </div>
-                <div>
-                  <h2 className="text-2xl font-bold text-white">{isEditing ? editData.name : attendee.name}</h2>
-                  <div className={`mt-1 inline-flex px-2 py-1 text-xs font-bold rounded ${statusInfo.bg} ${statusInfo.text}`}>
-                    {statusInfo.label}
-                  </div>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                {user.role !== 'checkin' && !isEditing && attendee.status !== CheckinStatus.SUBSTITUTION_REQUEST && attendee.status !== CheckinStatus.SECTOR_CHANGE_REQUEST && attendee.status !== CheckinStatus.PENDING_APPROVAL &&(
-                  <button onClick={() => setIsEditing(true)} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700">
+    <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[100] p-4" onClick={onClose}>
+      <div className="bg-gray-800 rounded-3xl shadow-[0_50px_100px_rgba(0,0,0,0.5)] w-full max-w-5xl border border-white/10 overflow-hidden flex flex-col animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
+        
+        {/* Header Compacto */}
+        <div className="px-6 py-4 border-b border-white/5 flex justify-between items-center bg-gray-900/40">
+           <div className="flex items-center gap-3">
+              <div className={`w-2 h-2 rounded-full ${statusInfo.bg} animate-pulse`}></div>
+              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-gray-500">{statusInfo.label}</span>
+           </div>
+           <div className="flex items-center gap-2">
+                {user.role !== 'checkin' && !isEditing && attendee.status !== CheckinStatus.PENDING_APPROVAL && (
+                  <button onClick={() => setIsEditing(true)} className="p-2 text-gray-500 hover:text-white transition-colors hover:bg-white/5 rounded-lg">
                     <PencilIcon className="w-5 h-5" />
                   </button>
                 )}
-                <button onClick={onClose} className="p-2 text-gray-400 hover:text-white transition-colors rounded-full hover:bg-gray-700">
-                  <XMarkIcon className="w-5 h-5" />
+                <button onClick={onClose} className="p-2 text-gray-500 hover:text-white transition-colors hover:bg-white/5 rounded-lg">
+                  <XMarkIcon className="w-6 h-6" />
                 </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Scrollable Body */}
-          <div className="p-6 overflow-y-auto">
-              <div className="space-y-6">
-                  {renderContent()}
-                  {renderCheckinSection()}
-              </div>
-          </div>
-
-          {/* Footer */}
-          <div className="p-6 bg-gray-900/50 rounded-b-2xl flex-shrink-0 border-t border-gray-700">
-            {renderFooter()}
-          </div>
+           </div>
         </div>
+
+        <div className="p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+                
+                {/* Coluna 1: Avatar e Nome */}
+                <div className="lg:col-span-3 flex flex-col items-center text-center">
+                    <div className="w-full aspect-square max-w-[200px] rounded-2xl overflow-hidden border-2 border-white/5 shadow-2xl bg-black relative mb-4">
+                         <UserAvatar src={attendee.photo} alt={attendee.name} className="w-full h-full object-cover" />
+                    </div>
+                    <h2 className="text-xl font-black text-white uppercase tracking-tight leading-tight mb-1">{attendee.name}</h2>
+                    <p className="text-xs font-mono text-gray-500">{formatCPF(attendee.cpf)}</p>
+                </div>
+
+                {/* Coluna 2: Dados Técnicos (Grid) */}
+                <div className="lg:col-span-5 flex flex-col justify-center">
+                    <div className="bg-black/20 rounded-2xl p-6 border border-white/5 space-y-6">
+                        <div className="grid grid-cols-2 gap-6">
+                            <div>
+                                <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest block mb-1">Setor / Acesso</span>
+                                <div className="flex flex-wrap gap-1">
+                                    {attendeeSectors.map(s => (
+                                        <span key={s.id} className="text-[10px] font-bold px-2 py-0.5 rounded bg-white/5 border border-white/10" style={{ color: s.color }}>{s.label}</span>
+                                    ))}
+                                </div>
+                            </div>
+                            <div>
+                                <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest block mb-1">Grupo / Unidade</span>
+                                <p className="text-gray-300 font-bold text-xs truncate">{attendee.subCompany || 'Individual'}</p>
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-6">
+                            <div>
+                                <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest block mb-1">Fornecedor</span>
+                                <p className="text-gray-300 font-medium text-xs truncate">{supplier?.name || 'Direto'}</p>
+                            </div>
+                            <div>
+                                <span className="text-[9px] font-black text-gray-600 uppercase tracking-widest block mb-1">Status do Registro</span>
+                                <p className={`text-[10px] font-black uppercase ${attendee.status === CheckinStatus.PENDING ? 'text-yellow-500' : 'text-green-500'}`}>{statusInfo.label}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Coluna 3: Ações de Check-in (Onde o foco está) */}
+                <div className="lg:col-span-4">
+                    {renderQuickActions()}
+                </div>
+            </div>
+        </div>
+
+        {/* Footer para ações secundárias */}
+        <div className="px-6 py-4 bg-gray-900/40 border-t border-white/5 flex flex-wrap gap-4 items-center justify-between">
+            <div className="flex gap-4">
+                {attendee.status === CheckinStatus.CHECKED_IN && (
+                     <button onClick={() => onUpdateStatus(CheckinStatus.CHECKED_OUT)} className="bg-yellow-600/10 text-yellow-500 border border-yellow-500/20 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-yellow-600/20 transition-all">Registrar Saída</button>
+                )}
+                {attendee.status === CheckinStatus.CHECKED_OUT && (
+                     <button onClick={() => onUpdateStatus(CheckinStatus.CHECKED_IN)} className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all">Reativar Entrada</button>
+                )}
+            </div>
+            
+            <div className="flex items-center gap-3">
+                 {user.role !== 'checkin' && attendee.status !== CheckinStatus.BLOCKED && (
+                    <button onClick={handleBlock} className="text-[10px] font-black uppercase tracking-widest text-red-500/50 hover:text-red-500 transition-colors">Bloquear Registro</button>
+                 )}
+                 {user.role !== 'checkin' && (
+                    <button onClick={() => { if(confirm('Excluir permanentemente?')) onDelete(attendee.id); }} className="text-[10px] font-black uppercase tracking-widest text-gray-600 hover:text-white transition-colors">Excluir</button>
+                 )}
+            </div>
+        </div>
+
+        {/* Overlay de Edição (Se ativo) */}
+        {isEditing && (
+            <div className="absolute inset-0 bg-gray-900 z-50 p-8 flex flex-col">
+                <div className="flex justify-between items-center mb-8">
+                    <h3 className="text-2xl font-black text-white uppercase tracking-tighter">Editar Cadastro</h3>
+                    <button onClick={() => setIsEditing(false)} className="text-gray-500"><XMarkIcon className="w-8 h-8"/></button>
+                </div>
+                <div className="flex-grow overflow-y-auto pr-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                         <div className="space-y-6">
+                            <div>
+                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-2">Nome Completo</label>
+                                <input type="text" value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} className="w-full bg-black/40 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-indigo-500" />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-2">CPF</label>
+                                <input type="text" value={editData.cpf} onChange={e => setEditData({ ...editData, cpf: formatCPF(e.target.value) })} className="w-full bg-black/40 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-indigo-500" />
+                            </div>
+                            <div>
+                                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-2">Unidade / Empresa</label>
+                                <input type="text" value={editData.subCompany} onChange={e => setEditData({ ...editData, subCompany: e.target.value })} className="w-full bg-black/40 border border-white/10 rounded-xl py-3 px-4 text-white focus:outline-none focus:border-indigo-500" />
+                            </div>
+                         </div>
+                         <div className="flex flex-col items-center">
+                             <WebcamCapture onCapture={(img) => setEditData(prev => ({ ...prev, photo: img }))} capturedImage={editData.photo} allowUpload={true} />
+                         </div>
+                    </div>
+                </div>
+                <div className="pt-6 border-t border-white/5 flex gap-4">
+                    <button onClick={() => setIsEditing(false)} className="flex-grow py-4 bg-gray-800 text-white font-black uppercase tracking-widest text-xs rounded-xl">Cancelar</button>
+                    <button onClick={handleSave} className="flex-grow py-4 bg-indigo-600 text-white font-black uppercase tracking-widest text-xs rounded-xl shadow-lg">Salvar Alterações</button>
+                </div>
+            </div>
+        )}
       </div>
-    </>
+    </div>
   );
 };
