@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Attendee, CheckinStatus, Supplier, Sector, User } from '../../types.ts';
 import AttendeeCard from '../AttendeeCard.tsx';
@@ -38,19 +37,23 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
 
   const [filters, setFilters] = useState(() => {
     const savedFilters = sessionStorage.getItem(sessionKey);
-    if (savedFilters) return JSON.parse(savedFilters);
+    if (savedFilters) {
+        const parsed = JSON.parse(savedFilters);
+        // Remove age keys if they were saved in session
+        delete parsed.ageMin;
+        delete parsed.ageMax;
+        return parsed;
+    }
     
     return {
       searchTerm: '',
       searchBy: 'ALL',
       statusFilter: 'ALL',
       supplierFilter: 'ALL',
-      ageMin: '',
-      ageMax: '',
     };
   });
   
-  const { searchTerm, searchBy, statusFilter, supplierFilter, ageMin, ageMax } = filters;
+  const { searchTerm, searchBy, statusFilter, supplierFilter } = filters;
   const [selectedAttendeeIds, setSelectedAttendeeIds] = useState<Set<string>>(new Set<string>());
 
   useEffect(() => {
@@ -144,19 +147,12 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
 
   const filteredAttendees = useMemo(() => {
     const normalizedTerm = normalizeString(searchTerm);
-    const min = parseInt(ageMin) || 0;
-    const max = parseInt(ageMax) || 200;
 
     return attendees.filter((attendee) => {
       if (statusFilter !== 'ALL' && attendee.status !== statusFilter) return false;
       if (supplierFilter !== 'ALL') {
         if (supplierFilter === '') { if (attendee.supplierId) return false; } 
         else { if (attendee.supplierId !== supplierFilter) return false; }
-      }
-      
-      if (ageMin || ageMax) {
-          const attendeeAge = attendee.age || 0;
-          if (attendeeAge < min || attendeeAge > max) return false;
       }
 
       if (normalizedTerm) {
@@ -171,7 +167,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
       }
       return true;
     }).sort((a, b) => a.name.localeCompare(b.name));
-  }, [attendees, searchTerm, searchBy, statusFilter, supplierFilter, ageMin, ageMax]);
+  }, [attendees, searchTerm, searchBy, statusFilter, supplierFilter]);
 
   const stats = useMemo(() => ({
       checkedIn: attendees.filter(a => a.status === CheckinStatus.CHECKED_IN).length,
@@ -228,7 +224,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
             </select>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
              <select
                 value={statusFilter} onChange={(e) => handleFilterChange('statusFilter', e.target.value)}
                 className={inputClass}
@@ -250,10 +246,6 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
                 ))}
                 {attendees.some(a => !a.supplierId) && <option value="">{isVip ? 'Sem Host Vinculada' : 'Sem Fornecedor'}</option>}
              </select>
-             <div className="flex gap-2">
-                <input type="number" placeholder="Min Idade" value={ageMin} onChange={(e) => handleFilterChange('ageMin', e.target.value)} className={inputClass} />
-                <input type="number" placeholder="Max Idade" value={ageMax} onChange={(e) => handleFilterChange('ageMax', e.target.value)} className={inputClass} />
-             </div>
              <button onClick={handleExportToExcel} className={`${isVip ? 'bg-white text-black hover:bg-neutral-200' : 'bg-green-600 hover:bg-green-700 text-white'} font-black text-[10px] uppercase tracking-widest py-3 px-6 rounded-xl transition-all flex items-center justify-center gap-3 shadow-xl`}>
                 <ArrowDownTrayIcon className="w-4 h-4" /> Exportar Lista
              </button>
