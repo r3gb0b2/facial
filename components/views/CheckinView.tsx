@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Attendee, CheckinStatus, Supplier, Sector, User } from '../../types.ts';
 import AttendeeCard from '../AttendeeCard.tsx';
@@ -37,18 +38,16 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
 
   const [filters, setFilters] = useState(() => {
     const savedFilters = sessionStorage.getItem(sessionKey);
-    if (savedFilters) {
-        return JSON.parse(savedFilters);
-    }
-    return {
+    return savedFilters ? JSON.parse(savedFilters) : {
       searchTerm: '',
       searchBy: 'ALL',
       statusFilter: 'ALL',
       supplierFilter: 'ALL',
+      companyFilter: 'ALL',
     };
   });
   
-  const { searchTerm, searchBy, statusFilter, supplierFilter } = filters;
+  const { searchTerm, searchBy, statusFilter, supplierFilter, companyFilter } = filters;
   const [selectedAttendeeIds, setSelectedAttendeeIds] = useState<Set<string>>(new Set<string>());
 
   useEffect(() => {
@@ -60,25 +59,15 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
   const sectorMap = useMemo(() => new Map(sectors.map(s => [s.id, s])), [sectors]);
   const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s])), [suppliers]);
 
-  const availableStatusOptions = useMemo(() => {
-    const usedStatuses = new Set<string>();
-    attendees.forEach(a => usedStatuses.add(a.status));
-    return Object.values(CheckinStatus).filter(status => usedStatuses.has(status));
+  const availableCompanies = useMemo(() => {
+    const companies = new Set<string>();
+    attendees.forEach(a => { if (a.subCompany) companies.add(a.subCompany); });
+    return Array.from(companies).sort();
   }, [attendees]);
-
-  const availableSupplierOptions = useMemo(() => {
-    const usedSupplierIds = new Set<string>();
-    attendees.forEach(a => {
-        if (a.supplierId) usedSupplierIds.add(a.supplierId);
-    });
-    return suppliers.filter(s => usedSupplierIds.has(s.id));
-  }, [attendees, suppliers]);
 
   const handleFilterChange = (key: string, value: any) => {
     setFilters((prev: any) => ({ ...prev, [key]: value }));
   };
-
-  const handleSelectAttendee = (attendee: Attendee) => setSelectedAttendee(attendee);
 
   const toggleAttendeeSelection = (attendeeId: string, e: React.MouseEvent) => {
       e.stopPropagation();
@@ -96,141 +85,88 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
       setSelectedAttendee(null);
     }
   };
-  
-  const handleBulkStatusUpdate = async (status: CheckinStatus) => {
-      try {
-          await Promise.all(Array.from(selectedAttendeeIds).map((id: string) => 
-            api.updateAttendeeStatus(currentEventId, id, status, user.username)
-          ));
-          setSelectedAttendeeIds(new Set<string>());
-      } catch (e) {
-          setError("Falha na atualização em massa.");
-      }
-  };
-
-  const formatCPF = (cpf: string) => {
-    if (!cpf) return '';
-    return cpf.replace(/\D/g, '').slice(0, 11).replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-  };
 
   const handleExportToExcel = () => {
-    const dataToExport = attendees.map(attendee => {
-        const sectorLabels = (attendee.sectors || [])
-            .map(id => sectorMap.get(id)?.label)
-            .filter((l): l is string => typeof l === 'string')
-            .join(', ');
-        const supplierName = attendee.supplierId ? supplierMap.get(attendee.supplierId)?.name : '';
-        return {
-            [isVip ? 'Nome do Convidado' : 'Nome']: attendee.name,
-            'CPF': formatCPF(attendee.cpf),
-            'Status': t(`status.${attendee.status.toLowerCase()}`),
-            'Setor(es)': sectorLabels,
-            [isVip ? 'Promoter' : 'Fornecedor']: supplierName,
-            [isVip ? 'Local/Mesa' : 'Empresa']: attendee.subCompany || '',
-        };
-    });
+    const dataToExport = attendees.map(attendee => ({
+        [isVip ? 'Nome do Convidado' : 'Nome']: attendee.name,
+        'CPF': attendee.cpf,
+        'Status': t(`status.${attendee.status.toLowerCase()}`),
+        'Empresa': attendee.subCompany || '',
+        'Fornecedor': attendee.supplierId ? supplierMap.get(attendee.supplierId)?.name : '',
+    }));
     const ws = XLSX.utils.json_to_sheet(dataToExport);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Lista');
-    XLSX.writeFile(wb, `${currentEventName.replace(/\s/g, '_')}.xlsx`);
+    XLSX.writeFile(wb, `${currentEventName}.xlsx`);
   };
 
   const filteredAttendees = useMemo(() => {
     const normalizedTerm = normalizeString(searchTerm);
 
     return attendees.filter((attendee) => {
-      // 1. Filtro de Status (Correção Aqui)
       if (statusFilter !== 'ALL' && attendee.status !== statusFilter) return false;
-      
-      // 2. Filtro de Fornecedor
-      if (supplierFilter !== 'ALL') {
-        if (supplierFilter === '') { if (attendee.supplierId) return false; } 
-        else { if (attendee.supplierId !== supplierFilter) return false; }
-      }
+      if (supplierFilter !== 'ALL' && attendee.supplierId !== supplierFilter) return false;
+      if (companyFilter !== 'ALL' && attendee.subCompany !== companyFilter) return false;
 
-      // 3. Busca de Termo
       if (normalizedTerm) {
-        let match = false;
         const wristbandsStr = attendee.wristbands ? Object.values(attendee.wristbands).join(' ') : '';
-        
         if (searchBy === 'ALL') {
-          match = normalizeString(attendee.name).includes(normalizedTerm) ||
-                  attendee.cpf.replace(/\D/g, '').includes(normalizedTerm) ||
-                  normalizeString(wristbandsStr).includes(normalizedTerm) ||
-                  (attendee.subCompany ? normalizeString(attendee.subCompany).includes(normalizedTerm) : false);
-        } else if (searchBy === 'NAME') { match = normalizeString(attendee.name).includes(normalizedTerm); }
-        else if (searchBy === 'CPF') { match = attendee.cpf.replace(/\D/g, '').includes(normalizedTerm); }
-        
-        if (!match) return false;
+          return normalizeString(attendee.name).includes(normalizedTerm) ||
+                 attendee.cpf.includes(normalizedTerm) ||
+                 normalizeString(wristbandsStr).includes(normalizedTerm) ||
+                 (attendee.subCompany && normalizeString(attendee.subCompany).includes(normalizedTerm));
+        }
+        if (searchBy === 'NAME') return normalizeString(attendee.name).includes(normalizedTerm);
+        if (searchBy === 'CPF') return attendee.cpf.includes(normalizedTerm);
       }
       return true;
     }).sort((a, b) => a.name.localeCompare(b.name));
-  }, [attendees, searchTerm, searchBy, statusFilter, supplierFilter]);
-
-  const stats = useMemo(() => ({
-      checkedIn: attendees.filter(a => a.status === CheckinStatus.CHECKED_IN).length,
-      pending: attendees.filter(a => a.status === CheckinStatus.PENDING).length,
-      total: attendees.length,
-  }), [attendees]);
+  }, [attendees, searchTerm, searchBy, statusFilter, supplierFilter, companyFilter]);
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-8 pb-32">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-              { label: t('checkin.stats.total'), val: stats.total, color: 'text-white', bg: isVip ? 'bg-neutral-900/80' : 'bg-gray-800' },
-              { label: t('checkin.stats.pending'), val: stats.pending, color: 'text-amber-400', bg: isVip ? 'bg-neutral-900/80' : 'bg-gray-800' },
-              { label: t('checkin.stats.checkedIn'), val: stats.checkedIn, color: isVip ? 'text-rose-500' : 'text-green-400', bg: isVip ? 'bg-neutral-900/80' : 'bg-gray-800' },
-              { label: 'Recusados', val: attendees.filter(a => a.status === CheckinStatus.REJECTED || a.status === CheckinStatus.BLOCKED).length, color: 'text-neutral-500', bg: isVip ? 'bg-neutral-900/80' : 'bg-gray-800' }
+              { label: 'Total Geral', val: attendees.length, color: 'text-white' },
+              { label: 'Presentes', val: attendees.filter(a => a.status === CheckinStatus.CHECKED_IN).length, color: isVip ? 'text-rose-500' : 'text-green-400' },
+              { label: 'Pendentes', val: attendees.filter(a => a.status === CheckinStatus.PENDING).length, color: 'text-amber-400' },
+              { label: 'Filtrados', val: filteredAttendees.length, color: 'text-indigo-400' }
           ].map(s => (
-              <div key={s.label} className={`${s.bg} border border-white/5 p-6 rounded-[2rem] text-center shadow-xl`}>
+              <div key={s.label} className="bg-neutral-900/80 border border-white/5 p-6 rounded-[2rem] text-center shadow-xl">
                   <p className={`text-4xl font-black tracking-tighter ${s.color}`}>{s.val}</p>
                   <p className="text-[10px] text-neutral-500 uppercase font-black tracking-widest mt-2">{s.label}</p>
               </div>
           ))}
       </div>
 
-      <div className={isVip ? "bg-neutral-900/50 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl" : "bg-gray-800 p-8 rounded-2xl border border-gray-700 shadow-lg"}>
+      <div className="bg-neutral-900/50 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl">
         <div className="flex flex-col gap-6">
           <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
             <div className="md:col-span-8 relative">
-              <SearchIcon className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 ${isVip ? 'text-rose-400' : 'text-gray-400'}`} />
-              <input
-                type="text" placeholder={t('checkin.searchPlaceholder')}
-                value={searchTerm} onChange={(e) => handleFilterChange('searchTerm', e.target.value)}
-                className="w-full bg-black/40 border border-white/10 rounded-xl py-4 px-12 text-white focus:outline-none focus:ring-2 focus:ring-rose-500/50 transition-all font-medium"
-              />
+              <SearchIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-600" />
+              <input type="text" placeholder="Nome, CPF, Pulseira ou Empresa..." value={searchTerm} onChange={(e) => handleFilterChange('searchTerm', e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl py-4 px-12 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/30 transition-all font-medium" />
             </div>
-            <select
-              value={searchBy} onChange={(e) => handleFilterChange('searchBy', e.target.value)}
-              className="md:col-span-4 bg-black/40 border border-white/10 rounded-xl py-4 px-4 text-white focus:outline-none cursor-pointer font-bold uppercase text-[10px] tracking-widest"
-            >
-              <option value="ALL">{t('checkin.filter.searchBy.all')}</option>
-              <option value="NAME">{t('checkin.filter.searchBy.name')}</option>
-              <option value="CPF">{t('checkin.filter.searchBy.cpf')}</option>
+            <select value={searchBy} onChange={(e) => handleFilterChange('searchBy', e.target.value)} className="md:col-span-4 bg-black/40 border border-white/10 rounded-xl py-4 px-4 text-white focus:outline-none font-bold uppercase text-[10px] tracking-widest">
+              <option value="ALL">Buscar por Tudo</option>
+              <option value="NAME">Por Nome</option>
+              <option value="CPF">Por CPF</option>
             </select>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-             <select
-                value={statusFilter} onChange={(e) => handleFilterChange('statusFilter', e.target.value)}
-                className="bg-black/40 border border-white/10 rounded-xl py-4 px-4 text-white focus:outline-none font-bold uppercase text-[10px] tracking-widest"
-             >
-                <option value="ALL">Status: Todos</option>
-                {availableStatusOptions.map(s => (
-                    <option key={s} value={s}>{t(`status.${s.toLowerCase()}`)}</option>
-                ))}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+             <select value={statusFilter} onChange={(e) => handleFilterChange('statusFilter', e.target.value)} className="bg-black/40 border border-white/10 rounded-xl py-4 px-4 text-white focus:outline-none font-bold uppercase text-[10px] tracking-widest">
+                <option value="ALL">Todos os Status</option>
+                {Object.values(CheckinStatus).map(s => <option key={s} value={s}>{t(`status.${s.toLowerCase()}`)}</option>)}
              </select>
-             <select
-                value={supplierFilter} onChange={(e) => handleFilterChange('supplierFilter', e.target.value)}
-                className="bg-black/40 border border-white/10 rounded-xl py-4 px-4 text-white focus:outline-none font-bold uppercase text-[10px] tracking-widest"
-             >
-                <option value="ALL">{isVip ? 'Todas as Hosts' : t('checkin.filter.allSuppliers')}</option>
-                {availableSupplierOptions.map(s => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-                {attendees.some(a => !a.supplierId) && <option value="">{isVip ? 'Sem Host Vinculada' : 'Sem Fornecedor'}</option>}
+             <select value={companyFilter} onChange={(e) => handleFilterChange('companyFilter', e.target.value)} className="bg-black/40 border border-white/10 rounded-xl py-4 px-4 text-white focus:outline-none font-bold uppercase text-[10px] tracking-widest">
+                <option value="ALL">Todas as Empresas</option>
+                {availableCompanies.map(c => <option key={c} value={c}>{c}</option>)}
              </select>
-             <button onClick={handleExportToExcel} className={`${isVip ? 'bg-white text-black hover:bg-neutral-200' : 'bg-green-600 hover:bg-green-700 text-white'} font-black text-[10px] uppercase tracking-widest py-4 px-6 rounded-xl transition-all flex items-center justify-center gap-3 shadow-xl`}>
+             <select value={supplierFilter} onChange={(e) => handleFilterChange('supplierFilter', e.target.value)} className="bg-black/40 border border-white/10 rounded-xl py-4 px-4 text-white focus:outline-none font-bold uppercase text-[10px] tracking-widest">
+                <option value="ALL">Todos Fornecedores</option>
+                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+             </select>
+             <button onClick={handleExportToExcel} className="bg-white text-black hover:bg-neutral-200 font-black text-[10px] uppercase tracking-widest py-4 px-6 rounded-xl transition-all flex items-center justify-center gap-3 shadow-xl">
                 <ArrowDownTrayIcon className="w-4 h-4" /> Exportar Planilha
              </button>
           </div>
@@ -240,42 +176,16 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
         {filteredAttendees.map((attendee) => (
           <div key={attendee.id} className="relative group">
-            <div 
-                onClick={(e) => toggleAttendeeSelection(attendee.id, e)}
-                className={`absolute top-4 left-4 z-20 w-6 h-6 rounded-lg border-2 transition-all cursor-pointer flex items-center justify-center ${selectedAttendeeIds.has(attendee.id) ? (isVip ? 'bg-rose-500 border-rose-500' : 'bg-indigo-600 border-indigo-600') : 'bg-black/40 border-white/20 hover:border-indigo-500'}`}
-            >
+            <div onClick={(e) => toggleAttendeeSelection(attendee.id, e)} className={`absolute top-4 left-4 z-20 w-6 h-6 rounded-lg border-2 transition-all cursor-pointer flex items-center justify-center ${selectedAttendeeIds.has(attendee.id) ? 'bg-indigo-500 border-indigo-500' : 'bg-black/40 border-white/20'}`}>
                 {selectedAttendeeIds.has(attendee.id) && <CheckCircleIcon className="w-4 h-4 text-white" />}
             </div>
-            <AttendeeCard 
-              attendee={attendee} 
-              onSelect={handleSelectAttendee}
-              sectors={(attendee.sectors || []).map(id => ({ label: sectorMap.get(id)?.label || id, color: sectorMap.get(id)?.color }))}
-              supplierName={attendee.supplierId ? supplierMap.get(attendee.supplierId)?.name : ''}
-              isVipMode={isVip}
-            />
+            <AttendeeCard attendee={attendee} onSelect={setSelectedAttendee} sectors={(attendee.sectors || []).map(id => ({ label: sectorMap.get(id)?.label || id, color: sectorMap.get(id)?.color }))} supplierName={attendee.supplierId ? supplierMap.get(attendee.supplierId)?.name : ''} />
           </div>
         ))}
       </div>
-      
-      {selectedAttendeeIds.size > 0 && (
-          <div className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-[80] border p-4 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.9)] flex items-center gap-6 animate-in slide-in-from-bottom-10 ${isVip ? 'bg-neutral-900 border-rose-500/30' : 'bg-gray-800 border-indigo-500/30'}`}>
-              <p className="text-white font-black uppercase text-[10px] tracking-widest ml-4">{selectedAttendeeIds.size} selecionados</p>
-              <div className="h-6 w-[1px] bg-white/10"></div>
-              <button onClick={() => handleBulkStatusUpdate(CheckinStatus.CHECKED_IN)} className={`${isVip ? 'bg-rose-600 hover:bg-rose-500' : 'bg-indigo-600 hover:bg-indigo-500'} text-white font-black uppercase tracking-widest text-[9px] py-3 px-6 rounded-xl`}>Aprovar Entrada</button>
-              <button onClick={() => setSelectedAttendeeIds(new Set<string>())} className="text-neutral-500 hover:text-white transition-colors p-2"><XMarkIcon className="w-6 h-6"/></button>
-          </div>
-      )}
 
       {selectedAttendee && (
-        <AttendeeDetailModal
-          user={user} attendee={selectedAttendee} sectors={sectors} suppliers={suppliers} allAttendees={attendees} currentEventId={currentEventId}
-          onClose={() => setSelectedAttendee(null)} onUpdateStatus={handleUpdateStatus} onUpdateDetails={onUpdateAttendeeDetails}
-          onDelete={onDeleteAttendee} onApproveSubstitution={onApproveSubstitution} onRejectSubstitution={onRejectSubstitution}
-          onApproveSectorChange={onApproveSectorChange} onRejectSectorChange={onRejectSectorChange}
-          onApproveNewRegistration={onApproveNewRegistration} onRejectNewRegistration={onRejectNewRegistration}
-          setError={setError} supplier={selectedAttendee.supplierId ? supplierMap.get(selectedAttendee.supplierId) : undefined}
-          isVip={isVip}
-        />
+        <AttendeeDetailModal user={user} attendee={selectedAttendee} sectors={sectors} suppliers={suppliers} allAttendees={attendees} currentEventId={currentEventId} onClose={() => setSelectedAttendee(null)} onUpdateStatus={handleUpdateStatus} onUpdateDetails={onUpdateAttendeeDetails} onDelete={onDeleteAttendee} onApproveSubstitution={onApproveSubstitution} onRejectSubstitution={onRejectSubstitution} onApproveSectorChange={onApproveSectorChange} onRejectSectorChange={onRejectSectorChange} onApproveNewRegistration={onApproveNewRegistration} onRejectNewRegistration={onRejectNewRegistration} setError={setError} supplier={selectedAttendee.supplierId ? supplierMap.get(selectedAttendee.supplierId) : undefined} isVip={isVip} />
       )}
     </div>
   );
