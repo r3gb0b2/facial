@@ -162,16 +162,16 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                             <div 
                                 key={attendee.id} 
                                 onClick={() => handleToggleSelection(attendee.id)}
-                                className={`relative p-4 rounded-3xl border transition-all cursor-pointer group ${selectedForApproval.has(attendee.id) ? 'bg-blue-600/20 border-blue-500/40 shadow-lg' : 'bg-black/40 border-white/5 hover:border-blue-500/20'}`}
+                                className={`relative p-5 rounded-[2rem] border transition-all cursor-pointer group ${selectedForApproval.has(attendee.id) ? 'bg-blue-600/20 border-blue-500/40 shadow-lg' : 'bg-black/40 border-white/5 hover:border-blue-500/20'}`}
                             >
                                 <div className={`absolute top-4 right-4 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${selectedForApproval.has(attendee.id) ? 'bg-blue-500 border-blue-500' : 'border-white/10 group-hover:border-blue-500/40'}`}>
                                     {selectedForApproval.has(attendee.id) && <CheckCircleIcon className="w-4 h-4 text-white" />}
                                 </div>
-                                <div className="flex items-center gap-4">
-                                    <UserAvatar src={attendee.photo} alt={attendee.name} className="w-20 h-20 rounded-2xl object-cover bg-black" />
+                                <div className="flex items-center gap-5">
+                                    <UserAvatar src={attendee.photo} alt={attendee.name} className="w-[100px] h-[100px] rounded-3xl object-cover bg-black shadow-2xl" />
                                     <div className="overflow-hidden">
-                                        <p className="font-black text-white uppercase tracking-tight text-sm truncate">{attendee.name}</p>
-                                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{attendee.subCompany || 'Individual'}</p>
+                                        <p className="font-black text-white uppercase tracking-tight text-base truncate">{attendee.name}</p>
+                                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">{attendee.subCompany || 'Individual'}</p>
                                     </div>
                                 </div>
                             </div>
