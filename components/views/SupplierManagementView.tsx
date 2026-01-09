@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 // FIX: Add file extensions to local imports.
 import { Supplier, Sector, Attendee, SubCompany, CheckinStatus, EventType } from '../../types.ts';
@@ -14,7 +15,7 @@ interface SupplierManagementViewProps {
     suppliers: Supplier[];
     attendees: Attendee[];
     sectors: Sector[];
-    onAddSupplier: (name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[], email?: string) => Promise<void>;
+    onAddSupplier: (name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[], email?: string, needsApproval?: boolean) => Promise<void>;
     onUpdateSupplier: (supplierId: string, data: Partial<Supplier>) => Promise<void>;
     onDeleteSupplier: (supplier: Supplier) => Promise<void>;
     onSupplierStatusUpdate: (supplierId: string, active: boolean) => Promise<void>;
@@ -34,6 +35,7 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
     const [supplierEmail, setSupplierEmail] = useState('');
     const [selectedSectors, setSelectedSectors] = useState<string[]>([]);
     const [limit, setLimit] = useState('');
+    const [needsApproval, setNeedsApproval] = useState(false);
     const [subCompanies, setSubCompanies] = useState<SubCompany[]>([]);
     const [currentSubCompanyName, setCurrentSubCompanyName] = useState('');
     const [currentSubCompanySector, setCurrentSubCompanySector] = useState('');
@@ -71,16 +73,6 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
     const formatCPF = (cpf: string) => {
         if (!cpf) return '';
         return cpf.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
-    };
-
-    const formatTimestamp = (timestamp: any) => {
-        if (!timestamp || !timestamp.seconds) return '-';
-        return new Date(timestamp.seconds * 1000).toLocaleString('pt-BR', {
-            day: '2-digit',
-            month: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
     };
 
     const handleSectorChange = (sectorId: string, isEditing: boolean) => {
@@ -151,7 +143,6 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
             return;
         }
 
-        // For VIP, if no sectors selected, auto-select first one
         let finalSectors = selectedSectors;
         if (isVip && selectedSectors.length === 0 && sectors.length > 0) {
             finalSectors = [sectors[0].id];
@@ -159,11 +150,12 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
 
         setIsSubmitting(true);
         try {
-            await onAddSupplier(supplierName, finalSectors, registrationLimit, subCompanies, supplierEmail);
+            await onAddSupplier(supplierName, finalSectors, registrationLimit, subCompanies, supplierEmail, needsApproval);
             setSupplierName('');
             setSupplierEmail('');
             setSelectedSectors([]);
             setLimit('');
+            setNeedsApproval(false);
             setSubCompanies([]);
             setCurrentSubCompanyName('');
         } finally {
@@ -375,6 +367,8 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                 return <span className="bg-red-600 text-white px-2 py-0.5 rounded-full text-[10px] font-bold border border-red-700 shadow-lg">BLOQUEADO</span>;
             case CheckinStatus.REJECTED:
                 return <span className="bg-red-500/10 text-red-500 px-2 py-0.5 rounded-full text-[10px] font-bold border border-red-500/20">{t('status.rejected')}</span>;
+            case CheckinStatus.SUPPLIER_REVIEW:
+                return <span className="bg-blue-500/10 text-blue-500 px-2 py-0.5 rounded-full text-[10px] font-bold border border-blue-500/20">Análise Forn.</span>;
             default:
                 return <span className="bg-gray-600/10 text-gray-300 px-2 py-0.5 rounded-full text-[10px] font-bold">{status}</span>;
         }
@@ -407,14 +401,26 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                            <label htmlFor="limit" className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">{isVip ? "Limite de Convidados" : t('suppliers.limitLabel')}</label>
-                            <input
-                                type="number" id="limit" value={limit} onChange={(e) => setLimit(e.target.value)}
-                                className="w-full bg-gray-900/50 border border-gray-700/50 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-pink-500/30 transition-all placeholder:text-gray-700"
-                                placeholder="Ex: 100"
-                                min="1"
-                            />
+                        <div className="space-y-4">
+                            <div>
+                                <label htmlFor="limit" className="block text-xs font-bold uppercase tracking-widest text-gray-400 mb-2">{isVip ? "Limite de Convidados" : t('suppliers.limitLabel')}</label>
+                                <input
+                                    type="number" id="limit" value={limit} onChange={(e) => setLimit(e.target.value)}
+                                    className="w-full bg-gray-900/50 border border-gray-700/50 rounded-xl py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-pink-500/30 transition-all placeholder:text-gray-700"
+                                    placeholder="Ex: 100"
+                                    min="1"
+                                />
+                            </div>
+                            <div className="flex items-center gap-3 p-3 bg-gray-900/30 rounded-xl border border-gray-700/50">
+                                <input
+                                    type="checkbox"
+                                    id="needsApproval"
+                                    checked={needsApproval}
+                                    onChange={(e) => setNeedsApproval(e.target.checked)}
+                                    className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-pink-600 focus:ring-pink-500 cursor-pointer"
+                                />
+                                <label htmlFor="needsApproval" className="text-xs font-bold uppercase text-gray-300 cursor-pointer">Analisar Colaboradores</label>
+                            </div>
                         </div>
                         {!isVip && (
                             <div>
@@ -455,7 +461,19 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                                 <input type="text" value={editingSupplier.name} onChange={(e) => setEditingSupplier({ ...editingSupplier, name: e.target.value })} className="bg-gray-800 border border-gray-700 rounded-lg py-2 px-4 text-white"/>
                                                 <input type="email" value={editingSupplier.email || ''} onChange={(e) => setEditingSupplier({ ...editingSupplier, email: e.target.value })} className="bg-gray-800 border border-gray-700 rounded-lg py-2 px-4 text-white" placeholder="Email"/>
                                             </div>
-                                            <input type="number" value={editingSupplier.registrationLimit} onChange={(e) => setEditingSupplier({ ...editingSupplier, registrationLimit: parseInt(e.target.value, 10) || 0 })} className="w-full bg-gray-800 border border-gray-700 rounded-lg py-2 px-4 text-white"/>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <input type="number" value={editingSupplier.registrationLimit} onChange={(e) => setEditingSupplier({ ...editingSupplier, registrationLimit: parseInt(e.target.value, 10) || 0 })} className="bg-gray-800 border border-gray-700 rounded-lg py-2 px-4 text-white"/>
+                                                <div className="flex items-center gap-3 p-2 bg-gray-800 rounded-lg border border-gray-700">
+                                                    <input
+                                                        type="checkbox"
+                                                        id={`edit-needsApproval-${supplier.id}`}
+                                                        checked={editingSupplier.needsApproval || false}
+                                                        onChange={(e) => setEditingSupplier({ ...editingSupplier, needsApproval: e.target.checked })}
+                                                        className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-pink-600 focus:ring-pink-500 cursor-pointer"
+                                                    />
+                                                    <label htmlFor={`edit-needsApproval-${supplier.id}`} className="text-xs font-bold uppercase text-gray-300 cursor-pointer">Analisar Colaboradores</label>
+                                                </div>
+                                            </div>
                                             {!isVip && <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 p-2 bg-gray-800/50 rounded-lg">{renderSectorCheckboxes(true)}</div>}
                                             {renderSubCompanyManager(true)}
                                             <div className="flex justify-end gap-2 pt-4">
@@ -472,6 +490,9 @@ const SupplierManagementView: React.FC<SupplierManagementViewProps> = ({ current
                                                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-tighter ${supplier.active ? 'bg-green-500/10 text-green-500' : 'bg-red-500/10 text-red-500'}`}>
                                                         {supplier.active ? "Ativa" : "Inativa"}
                                                     </span>
+                                                    {supplier.needsApproval && (
+                                                        <span className="bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-tighter border border-blue-500/20">Modo Análise</span>
+                                                    )}
                                                 </div>
                                                 <p className="text-gray-500 text-xs mt-0.5 font-medium">{supplier.email || 'Sem e-mail cadastrado'}</p>
                                                 <div className="flex items-center gap-4 text-[10px] text-gray-500 mt-3 font-bold uppercase tracking-widest">

@@ -1,3 +1,4 @@
+
 import firebase from 'firebase/compat/app';
 import 'firebase/compat/firestore';
 import { db, storage, FieldValue, Timestamp } from './config.ts';
@@ -163,9 +164,16 @@ export const addAttendee = async (eventId: string, attendeeData: Omit<Attendee, 
         photoUrl = await uploadPhoto(attendeeData.photo, attendeeData.cpf);
     }
 
-    const initialStatus = attendeeData.blockReason ? CheckinStatus.PENDING_APPROVAL : CheckinStatus.PENDING;
+    let initialStatus = attendeeData.blockReason ? CheckinStatus.PENDING_APPROVAL : CheckinStatus.PENDING;
 
-    // FIX: Previne erro de undefined no Firestore
+    // Se o fornecedor exigir análise, o status inicial deve ser SUPPLIER_REVIEW
+    if (supplierId) {
+        const supplierSnap = await db.collection('events').doc(eventId).collection('suppliers').doc(supplierId).get();
+        if (supplierSnap.exists && supplierSnap.data()?.needsApproval === true) {
+            initialStatus = CheckinStatus.SUPPLIER_REVIEW;
+        }
+    }
+
     const data: Omit<Attendee, 'id'> = {
         ...attendeeData,
         email: attendeeData.email || '', 
@@ -208,6 +216,16 @@ export const rejectNewRegistration = (eventId: string, attendeeId: string) => {
     return db.collection('events').doc(eventId).collection('attendees').doc(attendeeId).update({
         status: CheckinStatus.REJECTED
     });
+};
+
+export const approveAttendeesBySupplier = async (eventId: string, attendeeIds: string[]) => {
+    if (attendeeIds.length === 0) return;
+    const batch = db.batch();
+    attendeeIds.forEach(id => {
+        const ref = db.collection('events').doc(eventId).collection('attendees').doc(id);
+        batch.update(ref, { status: CheckinStatus.PENDING });
+    });
+    await batch.commit();
 };
 
 export const blockAttendee = (eventId: string, attendeeId: string, reason?: string) => {
@@ -351,6 +369,7 @@ export const rejectSectorChange = (eventId: string, attendeeId: string) => {
     });
 };
 
+// FIX: Added missing sectorIds parameter to resolve "Cannot find name 'sectorIds'" and argument count mismatch in AdminView.tsx.
 export const updateSectorsForAttendees = async (eventId: string, attendeeIds: string[], sectorIds: string[]) => {
     if (attendeeIds.length === 0) {
         return;
@@ -367,7 +386,7 @@ export const updateSectorsForAttendees = async (eventId: string, attendeeIds: st
 
 
 // Supplier Management
-export const addSupplier = (eventId: string, name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[], email?: string) => {
+export const addSupplier = (eventId: string, name: string, sectors: string[], registrationLimit: number, subCompanies: SubCompany[], email?: string, needsApproval?: boolean) => {
     const adminToken = uuidv4();
     return db.collection('events').doc(eventId).collection('suppliers').add({ 
         name, 
@@ -376,7 +395,8 @@ export const addSupplier = (eventId: string, name: string, sectors: string[], re
         registrationLimit,
         subCompanies,
         active: true,
-        adminToken
+        adminToken,
+        needsApproval: needsApproval || false
     });
 };
 

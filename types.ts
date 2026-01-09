@@ -1,3 +1,4 @@
+
 // FIX: Replaced Timestamp value with FirebaseTimestamp type to resolve conflict between value and type.
 import type { FirebaseTimestamp } from './firebase/config.ts';
 
@@ -13,6 +14,7 @@ export enum CheckinStatus {
   CHECKED_OUT = 'CHECKED_OUT',
   BLOCKED = 'BLOCKED', // Registro Negativo
   REJECTED = 'REJECTED', // Recusado pelo Admin
+  SUPPLIER_REVIEW = 'SUPPLIER_REVIEW', // Aguardando aprovação do fornecedor
 }
 
 export type EventType = 'CREDENTIALING' | 'VIP_LIST';
@@ -80,6 +82,7 @@ export interface Supplier {
   registrationLimit: number;
   subCompanies?: SubCompany[]; // Optional list of sub-companies for this supplier
   adminToken?: string; // Unique token for the read-only admin link
+  needsApproval?: boolean; // If true, supplier admin must approve collaborator before they appear for event admin
 }
 
 export interface Sector {
