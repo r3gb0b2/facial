@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { Attendee, CheckinStatus, Supplier, Sector, User } from '../../types.ts';
 import AttendeeCard from '../AttendeeCard.tsx';
@@ -59,11 +58,38 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
   const sectorMap = useMemo(() => new Map(sectors.map(s => [s.id, s])), [sectors]);
   const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s])), [suppliers]);
 
+  // --- Filtros Dinâmicos ---
+  const availableStatusOptions = useMemo(() => {
+    const usedStatuses = new Set<string>();
+    attendees.forEach(a => usedStatuses.add(a.status));
+    return Object.values(CheckinStatus).filter(status => usedStatuses.has(status));
+  }, [attendees]);
+
+  const availableSuppliers = useMemo(() => {
+    const usedSupplierIds = new Set<string>();
+    attendees.forEach(a => { if (a.supplierId) usedSupplierIds.add(a.supplierId); });
+    return suppliers.filter(s => usedSupplierIds.has(s.id)).sort((a, b) => a.name.localeCompare(b.name));
+  }, [attendees, suppliers]);
+
   const availableCompanies = useMemo(() => {
     const companies = new Set<string>();
     attendees.forEach(a => { if (a.subCompany) companies.add(a.subCompany); });
     return Array.from(companies).sort();
   }, [attendees]);
+
+  // Efeito para resetar filtros se a opção selecionada deixar de existir (ex: após deletar último bloqueado)
+  useEffect(() => {
+    if (statusFilter !== 'ALL' && !availableStatusOptions.includes(statusFilter as CheckinStatus)) {
+        handleFilterChange('statusFilter', 'ALL');
+    }
+    if (supplierFilter !== 'ALL' && !availableSuppliers.some(s => s.id === supplierFilter)) {
+        handleFilterChange('supplierFilter', 'ALL');
+    }
+    if (companyFilter !== 'ALL' && !availableCompanies.includes(companyFilter)) {
+        handleFilterChange('companyFilter', 'ALL');
+    }
+  }, [availableStatusOptions, availableSuppliers, availableCompanies]);
+
 
   const handleFilterChange = (key: string, value: any) => {
     setFilters((prev: any) => ({ ...prev, [key]: value }));
@@ -155,16 +181,16 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
           
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
              <select value={statusFilter} onChange={(e) => handleFilterChange('statusFilter', e.target.value)} className="bg-black/40 border border-white/10 rounded-xl py-4 px-4 text-white focus:outline-none font-bold uppercase text-[10px] tracking-widest">
-                <option value="ALL">Todos os Status</option>
-                {Object.values(CheckinStatus).map(s => <option key={s} value={s}>{t(`status.${s.toLowerCase()}`)}</option>)}
+                <option value="ALL">Status: Todos ({availableStatusOptions.length})</option>
+                {availableStatusOptions.map(s => <option key={s} value={s}>{t(`status.${s.toLowerCase()}`)}</option>)}
              </select>
              <select value={companyFilter} onChange={(e) => handleFilterChange('companyFilter', e.target.value)} className="bg-black/40 border border-white/10 rounded-xl py-4 px-4 text-white focus:outline-none font-bold uppercase text-[10px] tracking-widest">
-                <option value="ALL">Todas as Empresas</option>
+                <option value="ALL">{isVip ? 'Todos Grupos' : 'Todas Empresas'} ({availableCompanies.length})</option>
                 {availableCompanies.map(c => <option key={c} value={c}>{c}</option>)}
              </select>
              <select value={supplierFilter} onChange={(e) => handleFilterChange('supplierFilter', e.target.value)} className="bg-black/40 border border-white/10 rounded-xl py-4 px-4 text-white focus:outline-none font-bold uppercase text-[10px] tracking-widest">
-                <option value="ALL">Todos Fornecedores</option>
-                {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                <option value="ALL">{isVip ? 'Todas Divulgadoras' : 'Todos Fornecedores'} ({availableSuppliers.length})</option>
+                {availableSuppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
              </select>
              <button onClick={handleExportToExcel} className="bg-white text-black hover:bg-neutral-200 font-black text-[10px] uppercase tracking-widest py-4 px-6 rounded-xl transition-all flex items-center justify-center gap-3 shadow-xl">
                 <ArrowDownTrayIcon className="w-4 h-4" /> Exportar Planilha
