@@ -1,17 +1,19 @@
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { CameraIcon, RefreshIcon } from './icons.tsx';
+import { CameraIcon, RefreshIcon, ArrowUpTrayIcon } from './icons.tsx';
 import { useTranslation } from '../hooks/useTranslation.tsx';
 
 interface WebcamCaptureProps {
   onCapture: (imageDataUrl: string) => void;
   capturedImage: string | null;
   disabled?: boolean;
+  allowUpload?: boolean;
 }
 
-const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage, disabled = false }) => {
+const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage, disabled = false, allowUpload = false }) => {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [isStreamActive, setIsStreamActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,6 +80,17 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
       onCapture('');
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        onCapture(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   return (
     <div className="w-full max-w-sm mx-auto flex flex-col items-center">
         <div className="relative w-full aspect-square bg-neutral-950 rounded-[2.5rem] overflow-hidden border-4 border-white/5 shadow-2xl">
@@ -93,7 +106,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
                 </div>
             }
         </div>
-        <div className="mt-8 w-full px-4">
+        <div className="mt-8 w-full px-4 space-y-3">
             {capturedImage ? (
                 <button
                     type="button"
@@ -105,15 +118,39 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
                     {t('webcam.retakeButton')}
                 </button>
             ) : (
-                <button
-                    type="button"
-                    onClick={handleCapture}
-                    disabled={!isStreamActive || disabled}
-                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-[0.2em] text-[10px] py-5 rounded-2xl shadow-xl shadow-indigo-500/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
-                >
-                    <CameraIcon className="w-5 h-5" />
-                    {t('webcam.captureButton')}
-                </button>
+                <>
+                    <button
+                        type="button"
+                        onClick={handleCapture}
+                        disabled={!isStreamActive || disabled}
+                        className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-[0.2em] text-[10px] py-5 rounded-2xl shadow-xl shadow-indigo-500/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
+                    >
+                        <CameraIcon className="w-5 h-5" />
+                        {t('webcam.captureButton')}
+                    </button>
+                    
+                    {allowUpload && (
+                        <div className="w-full">
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                className="hidden"
+                                accept="image/*"
+                                onChange={handleFileChange}
+                                disabled={disabled}
+                            />
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={disabled}
+                                className="w-full bg-white/5 hover:bg-white/10 text-neutral-400 font-black uppercase tracking-[0.2em] text-[10px] py-4 rounded-2xl transition-all flex items-center justify-center gap-3 border border-white/5"
+                            >
+                                <ArrowUpTrayIcon className="w-4 h-4" />
+                                {t('webcam.uploadButton')}
+                            </button>
+                        </div>
+                    )}
+                </>
             )}
         </div>
     </div>

@@ -356,7 +356,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                          <div className="flex flex-col items-center justify-center">
                              <span className="text-[11px] font-black text-neutral-600 uppercase tracking-widest block mb-6">Bio-Scan Identidade</span>
                              <div className="w-full max-w-sm">
-                                <WebcamCapture onCapture={(img) => setEditData(prev => ({ ...prev, photo: img }))} capturedImage={editData.photo} />
+                                <WebcamCapture onCapture={(img) => setEditData(prev => ({ ...prev, photo: img }))} capturedImage={editData.photo} allowUpload={true} />
                              </div>
                          </div>
                     </div>

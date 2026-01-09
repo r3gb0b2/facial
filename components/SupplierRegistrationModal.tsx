@@ -162,7 +162,7 @@ const SupplierRegistrationModal: React.FC<SupplierRegistrationModalProps> = ({ e
               </button>
           </form>
           <div className="flex flex-col items-center">
-            <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting} />
+            <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting} allowUpload={true} />
           </div>
         </div>
       </div>

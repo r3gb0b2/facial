@@ -146,7 +146,7 @@ const SubstitutionRequestModal: React.FC<SubstitutionRequestModalProps> = ({ att
               </button>
           </form>
           <div className="flex flex-col items-center">
-            <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting} />
+            <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting} allowUpload={true} />
             <div className="w-full mt-8 border-t border-gray-700 pt-4">
                  <h4 className="text-sm font-medium text-gray-400 mb-2 text-center">Atual</h4>
                  <div className="w-24 h-24 mx-auto">

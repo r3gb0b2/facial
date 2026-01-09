@@ -201,7 +201,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
             <div className="flex flex-col items-center justify-center pt-10">
                <span className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.3em] mb-8">Bio-Identidade Facial</span>
                <div className="w-full max-w-sm">
-                  <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting || isPhotoLocked} />
+                  <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting || isPhotoLocked} allowUpload={isAdminView} />
                </div>
             </div>
           </div>
