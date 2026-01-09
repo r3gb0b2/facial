@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Attendee, Sector, Supplier, SubCompany } from '../types.ts';
 import WebcamCapture from './WebcamCapture.tsx';
@@ -36,31 +37,20 @@ const SupplierRegistrationModal: React.FC<SupplierRegistrationModalProps> = ({ e
   
   const hasSubCompanies = Array.isArray(supplier.subCompanies) && supplier.subCompanies.length > 0;
 
+  // Lógica Automática de Setor
   useEffect(() => {
     if (!hasSubCompanies) {
-        // If there are no sub-companies, pre-select all allowed sectors
-        setSelectedSectors(supplier.sectors || []);
-    }
-  }, [hasSubCompanies, supplier.sectors]);
-
-  // Effect to auto-select sector when a sub-company is chosen
-  useEffect(() => {
-    if (subCompany && hasSubCompanies) {
-        const selectedSubCompanyConfig = supplier.subCompanies?.find(sc => sc.name === subCompany);
-        if (selectedSubCompanyConfig) {
-            setSelectedSectors([selectedSubCompanyConfig.sector]);
+        // Se não tem sub-empresas, usa o primeiro setor permitido do fornecedor
+        if (supplier.sectors && supplier.sectors.length > 0) {
+            setSelectedSectors([supplier.sectors[0]]);
         }
+    } else if (subCompany) {
+        // Se selecionou sub-empresa, usa o setor dela
+        const sc = supplier.subCompanies?.find(c => c.name === subCompany);
+        if (sc) setSelectedSectors([sc.sector]);
     }
-  }, [subCompany, hasSubCompanies, supplier.subCompanies]);
+  }, [hasSubCompanies, supplier.sectors, subCompany, supplier.subCompanies]);
 
-  const handleSectorChange = (sectorId: string) => {
-    setSelectedSectors(prev =>
-      prev.includes(sectorId)
-        ? prev.filter(id => id !== sectorId)
-        : [...prev, sectorId]
-    );
-  };
-  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const rawCpf = cpf.replace(/\D/g, '');
@@ -103,34 +93,6 @@ const SupplierRegistrationModal: React.FC<SupplierRegistrationModalProps> = ({ e
     } finally {
       setIsSubmitting(false);
     }
-  };
-  
-  const renderSectorSelection = () => {
-    if (hasSubCompanies) return null; // Sector is determined by sub-company
-
-    return (
-        <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">{t('register.form.sectorLabel')}</label>
-          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 p-2 bg-gray-900 rounded-md max-h-48 overflow-y-auto border border-gray-600">
-            {allowedSectors.map(sector => (
-                <div key={sector.id} className="flex items-center p-1 rounded-md hover:bg-gray-700/50">
-                    <input
-                        type="checkbox"
-                        id={`reg-sector-${sector.id}`}
-                        checked={selectedSectors.includes(sector.id)}
-                        onChange={() => handleSectorChange(sector.id)}
-                        className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500"
-                        disabled={isSubmitting}
-                    />
-                    <label htmlFor={`reg-sector-${sector.id}`} className="ml-2 text-white cursor-pointer flex items-center gap-2">
-                        <span className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: sector.color || '#4B5563' }}></span>
-                        {sector.label}
-                    </label>
-                </div>
-            ))}
-          </div>
-        </div>
-    );
   };
   
   const renderSubCompanySelection = () => {
@@ -190,7 +152,6 @@ const SupplierRegistrationModal: React.FC<SupplierRegistrationModalProps> = ({ e
             </div>
             
             {renderSubCompanySelection()}
-            {renderSectorSelection()}
             
             {error && <p className="text-red-400 text-sm">{error}</p>}
 

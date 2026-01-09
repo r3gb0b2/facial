@@ -45,7 +45,6 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
   const [existingAttendeeFound, setExistingAttendeeFound] = useState(false);
   const [isPhotoLocked, setIsPhotoLocked] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [blockedWarning, setBlockedWarning] = useState<string | null>(null);
   const [blockedInfo, setBlockedInfo] = useState<{ reason: string, eventName: string } | null>(null);
 
   const isAdminView = !predefinedSector;
@@ -59,17 +58,22 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
     return Array.isArray(selectedSupplierData?.subCompanies) && selectedSupplierData!.subCompanies!.length > 0;
   }, [selectedSupplierData]);
 
+  // Efeito para automatizar a escolha do setor para não-admins
   useEffect(() => {
     if (selectedSupplierData) {
-        // Se mudou o fornecedor e ele não tem sub-empresas, limpa o campo
-        if (!hasSubCompanies) setSubCompany('');
-        
-        // Auto-seleciona setor se houver apenas um no fornecedor
-        if (selectedSupplierData.sectors?.length === 1) {
-            setSector(selectedSupplierData.sectors[0]);
+        if (!hasSubCompanies) {
+            setSubCompany('');
+            // Se não tem sub-empresa, pega o primeiro setor do fornecedor
+            if (!isAdminView && selectedSupplierData.sectors?.length > 0) {
+                setSector(selectedSupplierData.sectors[0]);
+            }
+        } else if (subCompany && !isAdminView) {
+            // Se selecionou sub-empresa, pega o setor dela
+            const sc = selectedSupplierData.subCompanies?.find(c => c.name === subCompany);
+            if (sc) setSector(sc.sector);
         }
     }
-  }, [selectedSupplierData, hasSubCompanies]);
+  }, [selectedSupplierData, hasSubCompanies, subCompany, isAdminView]);
 
   const handleCpfBlur = async () => {
     const rawCpf = cpf.replace(/\D/g, '');
@@ -111,6 +115,11 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
     if (hasSubCompanies && !subCompany) {
       setError('A seleção da empresa/unidade é obrigatória.');
       return;
+    }
+    // Se não é VIP e ainda não tem setor definido
+    if (!isVip && !sector) {
+       setError('Setor de acesso não identificado.');
+       return;
     }
 
     setIsSubmitting(true);
@@ -166,9 +175,9 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
         </div>
       )}
 
-      {!isVip && (
+      {!isVip && isAdminView && (
         <div>
-          <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-2">Setor de Acesso</label>
+          <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-2">Setor de Acesso (Admin)</label>
           <select value={sector} onChange={(e) => setSector(e.target.value)} className="w-full bg-neutral-900 border border-white/10 rounded-xl py-4 px-4 text-white font-bold focus:border-indigo-500 transition-all appearance-none" required>
             <option value="">Selecionar Setor...</option>
             {sectors.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
