@@ -168,7 +168,7 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                                     {selectedForApproval.has(attendee.id) && <CheckCircleIcon className="w-4 h-4 text-white" />}
                                 </div>
                                 <div className="flex items-center gap-4">
-                                    <UserAvatar src={attendee.photo} alt={attendee.name} className="w-12 h-12 rounded-2xl object-cover bg-black" />
+                                    <UserAvatar src={attendee.photo} alt={attendee.name} className="w-16 h-16 rounded-2xl object-cover bg-black" />
                                     <div className="overflow-hidden">
                                         <p className="font-black text-white uppercase tracking-tight text-sm truncate">{attendee.name}</p>
                                         <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{attendee.subCompany || 'Individual'}</p>
@@ -223,7 +223,7 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
         <main>
             {activeAttendees.length > 0 ? (
                 filteredAttendees.length > 0 ? (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8">
                         {filteredAttendees.map((attendee) => {
                           const isPending = attendee.status === CheckinStatus.PENDING;
                           const isEditRequested = submittedEdits.has(attendee.id) || attendee.status === CheckinStatus.SUBSTITUTION_REQUEST;
@@ -234,11 +234,11 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                                     <UserAvatar 
                                         src={attendee.photo} 
                                         alt={attendee.name} 
-                                        className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" 
+                                        className="w-full h-full object-cover transition-all duration-500" 
                                     />
                                     <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black to-transparent">
-                                         <h3 className="font-black text-xs text-white uppercase tracking-tight truncate">{attendee.name}</h3>
-                                         <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest truncate">{attendee.subCompany || 'Individual'}</p>
+                                         <h3 className="font-black text-sm text-white uppercase tracking-tight truncate">{attendee.name}</h3>
+                                         <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest truncate">{attendee.subCompany || 'Individual'}</p>
                                     </div>
                                 </div>
                                 <div className="p-4 bg-black/40">
@@ -246,7 +246,7 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                                           <button
                                             onClick={() => setEditingAttendee(attendee)}
                                             disabled={isEditRequested}
-                                            className={`w-full text-[9px] font-black uppercase tracking-widest py-3 rounded-xl transition-all flex items-center justify-center gap-2 ${isEditRequested ? 'bg-gray-800 text-gray-500' : 'bg-white/5 text-gray-400 hover:bg-indigo-600 hover:text-white'}`}
+                                            className={`w-full text-[10px] font-black uppercase tracking-widest py-3 rounded-xl transition-all flex items-center justify-center gap-2 ${isEditRequested ? 'bg-gray-800 text-gray-500' : 'bg-white/5 text-gray-400 hover:bg-indigo-600 hover:text-white'}`}
                                           >
                                             <PencilIcon className="w-3 h-3" />
                                             {isEditRequested ? t('supplierAdmin.editRequested') : t('supplierAdmin.requestEdit')}
@@ -254,7 +254,7 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                                       )}
                                       {!isPending && (
                                            <div className="text-center py-2">
-                                                <span className="text-[9px] font-black uppercase tracking-widest text-indigo-400/60">Acesso Liberado</span>
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400/60">Acesso Liberado</span>
                                            </div>
                                       )}
                                 </div>
