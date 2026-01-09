@@ -126,24 +126,24 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
             <p className="text-gray-500 mt-1 text-lg font-bold uppercase tracking-widest">{supplier.name} &bull; <span className="text-indigo-400">{eventName}</span></p>
         </header>
 
-        {/* Section: Pending Approvals */}
+        {/* Section: Pending Approvals - LARGE PHOTO (140px) */}
         {pendingAttendees.length > 0 && (
             <section className="mb-12 animate-in fade-in slide-in-from-top-4 duration-700">
-                <div className="bg-blue-600/10 border border-blue-500/20 rounded-[2.5rem] p-8 shadow-2xl">
-                    <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-8">
+                <div className="bg-blue-600/10 border border-blue-500/20 rounded-[3rem] p-10 shadow-2xl">
+                    <div className="flex flex-col md:flex-row justify-between items-center gap-6 mb-10">
                         <div>
-                            <h2 className="text-2xl font-black text-white uppercase tracking-tight flex items-center gap-3">
-                                <UsersIcon className="w-6 h-6 text-blue-400" />
+                            <h2 className="text-3xl font-black text-white uppercase tracking-tight flex items-center gap-4">
+                                <UsersIcon className="w-8 h-8 text-blue-400" />
                                 Aprovação Pendente ({pendingAttendees.length})
                             </h2>
-                            <p className="text-blue-400/60 text-xs font-bold uppercase tracking-widest mt-1">Colaboradores aguardando sua liberação para acesso</p>
+                            <p className="text-blue-400/60 text-sm font-bold uppercase tracking-widest mt-1">Colaboradores aguardando sua liberação para acesso</p>
                         </div>
                         <div className="flex items-center gap-4">
                              {selectedForApproval.size > 0 && (
                                 <button 
                                     onClick={handleBatchApprove}
                                     disabled={isApproving}
-                                    className="bg-blue-600 hover:bg-blue-500 text-white font-black uppercase tracking-widest text-[10px] py-4 px-8 rounded-2xl shadow-xl transition-all active:scale-95 flex items-center gap-2"
+                                    className="bg-blue-600 hover:bg-blue-500 text-white font-black uppercase tracking-widest text-xs py-5 px-10 rounded-2xl shadow-xl transition-all active:scale-95 flex items-center gap-2"
                                 >
                                     {isApproving ? 'Processando...' : `Aprovar Selecionados (${selectedForApproval.size})`}
                                 </button>
@@ -157,21 +157,21 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
                         {pendingAttendees.map(attendee => (
                             <div 
                                 key={attendee.id} 
                                 onClick={() => handleToggleSelection(attendee.id)}
-                                className={`relative p-5 rounded-[2rem] border transition-all cursor-pointer group ${selectedForApproval.has(attendee.id) ? 'bg-blue-600/20 border-blue-500/40 shadow-lg' : 'bg-black/40 border-white/5 hover:border-blue-500/20'}`}
+                                className={`relative p-6 rounded-[2.5rem] border transition-all cursor-pointer group ${selectedForApproval.has(attendee.id) ? 'bg-blue-600/20 border-blue-500/40 shadow-lg' : 'bg-black/40 border-white/5 hover:border-blue-500/20'}`}
                             >
-                                <div className={`absolute top-4 right-4 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${selectedForApproval.has(attendee.id) ? 'bg-blue-500 border-blue-500' : 'border-white/10 group-hover:border-blue-500/40'}`}>
-                                    {selectedForApproval.has(attendee.id) && <CheckCircleIcon className="w-4 h-4 text-white" />}
+                                <div className={`absolute top-6 right-6 w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${selectedForApproval.has(attendee.id) ? 'bg-blue-500 border-blue-500' : 'border-white/10 group-hover:border-blue-500/40'}`}>
+                                    {selectedForApproval.has(attendee.id) && <CheckCircleIcon className="w-5 h-5 text-white" />}
                                 </div>
-                                <div className="flex items-center gap-5">
-                                    <UserAvatar src={attendee.photo} alt={attendee.name} className="w-[100px] h-[100px] rounded-3xl object-cover bg-black shadow-2xl" />
+                                <div className="flex items-center gap-6">
+                                    <UserAvatar src={attendee.photo} alt={attendee.name} className="w-[140px] h-[140px] rounded-[2rem] object-cover bg-black shadow-2xl ring-4 ring-white/5 group-hover:ring-blue-500/20 transition-all" />
                                     <div className="overflow-hidden">
-                                        <p className="font-black text-white uppercase tracking-tight text-base truncate">{attendee.name}</p>
-                                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-1">{attendee.subCompany || 'Individual'}</p>
+                                        <p className="font-black text-white uppercase tracking-tight text-lg leading-tight truncate">{attendee.name}</p>
+                                        <p className="text-[11px] text-gray-500 font-bold uppercase tracking-widest mt-2">{attendee.subCompany || 'Individual'}</p>
                                     </div>
                                 </div>
                             </div>
@@ -223,38 +223,39 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
         <main>
             {activeAttendees.length > 0 ? (
                 filteredAttendees.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8">
+                    /* DENSE GRID FOR ACTIVE ATTENDEES (Accepted) */
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 2xl:grid-cols-10 gap-4">
                         {filteredAttendees.map((attendee) => {
                           const isPending = attendee.status === CheckinStatus.PENDING;
                           const isEditRequested = submittedEdits.has(attendee.id) || attendee.status === CheckinStatus.SUBSTITUTION_REQUEST;
                           
                           return (
-                            <div key={attendee.id} className="bg-neutral-900 border border-white/5 rounded-[2rem] overflow-hidden shadow-lg transition-all hover:border-indigo-500/30 group">
+                            <div key={attendee.id} className="bg-neutral-900 border border-white/5 rounded-2xl overflow-hidden shadow-lg transition-all hover:border-indigo-500/30 group">
                                 <div className="relative aspect-square">
                                     <UserAvatar 
                                         src={attendee.photo} 
                                         alt={attendee.name} 
                                         className="w-full h-full object-cover transition-all duration-500" 
                                     />
-                                    <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black to-transparent">
-                                         <h3 className="font-black text-sm text-white uppercase tracking-tight truncate">{attendee.name}</h3>
-                                         <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest truncate">{attendee.subCompany || 'Individual'}</p>
+                                    <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black to-transparent">
+                                         <h3 className="font-black text-[10px] text-white uppercase tracking-tight truncate leading-tight">{attendee.name}</h3>
+                                         <p className="text-[8px] text-gray-400 font-bold uppercase tracking-widest truncate">{attendee.subCompany || 'Individual'}</p>
                                     </div>
                                 </div>
-                                <div className="p-4 bg-black/40">
+                                <div className="p-2 bg-black/40">
                                       {isPending && (
                                           <button
                                             onClick={() => setEditingAttendee(attendee)}
                                             disabled={isEditRequested}
-                                            className={`w-full text-[10px] font-black uppercase tracking-widest py-3 rounded-xl transition-all flex items-center justify-center gap-2 ${isEditRequested ? 'bg-gray-800 text-gray-500' : 'bg-white/5 text-gray-400 hover:bg-indigo-600 hover:text-white'}`}
+                                            className={`w-full text-[8px] font-black uppercase tracking-widest py-2 rounded-lg transition-all flex items-center justify-center gap-1.5 ${isEditRequested ? 'bg-gray-800 text-gray-500' : 'bg-white/5 text-gray-400 hover:bg-indigo-600 hover:text-white'}`}
                                           >
-                                            <PencilIcon className="w-3 h-3" />
-                                            {isEditRequested ? t('supplierAdmin.editRequested') : t('supplierAdmin.requestEdit')}
+                                            <PencilIcon className="w-2.5 h-2.5" />
+                                            {isEditRequested ? 'Solicit.' : 'Editar'}
                                           </button>
                                       )}
                                       {!isPending && (
-                                           <div className="text-center py-2">
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-400/60">Acesso Liberado</span>
+                                           <div className="text-center py-1.5">
+                                                <span className="text-[8px] font-black uppercase tracking-widest text-indigo-400/60">Liberado</span>
                                            </div>
                                       )}
                                 </div>
