@@ -104,6 +104,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const rawCpf = cpf.replace(/\D/g, '');
+    
     if (!name || !rawCpf || !photo) {
       setError('Preencha todos os campos e capture a foto.');
       return;
@@ -137,7 +138,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
   const formatCPF = (value: string) => value.replace(/\D/g, '').slice(0, 11).replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
 
   const renderFormFields = () => (
-    <div className="space-y-6">
+    <form onSubmit={handleRegisterSubmit} className="space-y-6">
       <div>
         <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-2">Nome Completo</label>
         <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-neutral-900 border border-white/10 rounded-xl py-4 px-5 text-white font-bold focus:border-indigo-500 transition-all" placeholder="Nome do colaborador" required disabled={isSubmitting || existingAttendeeFound} />
@@ -180,10 +181,27 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
         </div>
       )}
 
-      <button type="submit" disabled={isSubmitting || existingAttendeeFound || !photo} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-[0.2em] text-xs py-5 rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50">
-        {isSubmitting ? 'Processando...' : 'Finalizar Cadastro'}
+      <button 
+        type="submit" 
+        disabled={isSubmitting || existingAttendeeFound || !photo} 
+        className={`w-full font-black uppercase tracking-[0.2em] text-xs py-5 rounded-2xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${!photo ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}
+      >
+        {isSubmitting ? (
+          <>
+            <SpinnerIcon className="w-5 h-5" />
+            Processando...
+          </>
+        ) : (
+          <>
+            {!photo && <NoSymbolIcon className="w-4 h-4" />}
+            {existingAttendeeFound ? 'Já Cadastrado' : 'Finalizar Cadastro'}
+          </>
+        )}
       </button>
-    </div>
+      {!photo && !existingAttendeeFound && (
+        <p className="text-[9px] text-center font-black uppercase tracking-widest text-rose-500 animate-pulse">Aguardando Captura da Foto</p>
+      )}
+    </form>
   );
 
   return (
