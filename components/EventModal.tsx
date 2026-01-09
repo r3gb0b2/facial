@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Event, EventModules, EventType } from '../types.ts';
 import { useTranslation } from '../hooks/useTranslation.tsx';
@@ -6,7 +7,7 @@ import { XMarkIcon, UsersIcon, FaceSmileIcon } from './icons.tsx';
 interface EventModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (name: string, type: EventType, eventId?: string, modules?: EventModules, allowPhotoChange?: boolean, allowGuestUploads?: boolean) => void;
+  onSave: (name: string, type: EventType, eventId?: string, modules?: EventModules, allowPhotoChange?: boolean) => void;
   eventToEdit?: Event | null;
 }
 
@@ -25,7 +26,6 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, eventT
   const [eventType, setEventType] = useState<EventType>('CREDENTIALING');
   const [modules, setModules] = useState<EventModules>(defaultModules);
   const [allowPhotoChange, setAllowPhotoChange] = useState(true);
-  const [allowGuestUploads, setAllowGuestUploads] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -34,13 +34,11 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, eventT
       setEventType(eventToEdit.type || 'CREDENTIALING');
       setModules(eventToEdit.modules || defaultModules);
       setAllowPhotoChange(eventToEdit.allowPhotoChange !== undefined ? eventToEdit.allowPhotoChange : true);
-      setAllowGuestUploads(eventToEdit.allowGuestUploads !== undefined ? eventToEdit.allowGuestUploads : false);
     } else {
       setEventName('');
       setEventType('CREDENTIALING');
       setModules(defaultModules);
       setAllowPhotoChange(true);
-      setAllowGuestUploads(false);
     }
     setError('');
   }, [eventToEdit, isOpen]);
@@ -52,7 +50,7 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, eventT
       setError(t('events.modal.error'));
       return;
     }
-    onSave(eventName, eventType, eventToEdit?.id, modules, allowPhotoChange, allowGuestUploads);
+    onSave(eventName, eventType, eventToEdit?.id, modules, allowPhotoChange);
   };
   
   const toggleModule = (key: keyof EventModules) => {
@@ -126,18 +124,6 @@ const EventModal: React.FC<EventModalProps> = ({ isOpen, onClose, onSave, eventT
                 />
                 <label htmlFor="allowPhotoChange" className="ml-2 text-sm text-gray-300 cursor-pointer select-none">
                     {t('events.modal.allowPhotoChange')}
-                </label>
-            </div>
-             <div className="flex items-center">
-                <input
-                    type="checkbox"
-                    id="allowGuestUploads"
-                    checked={allowGuestUploads}
-                    onChange={(e) => setAllowGuestUploads(e.target.checked)}
-                    className="h-4 w-4 rounded border-gray-500 bg-gray-700 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
-                />
-                <label htmlFor="allowGuestUploads" className="ml-2 text-sm text-gray-300 cursor-pointer select-none">
-                    {t('events.modal.allowGuestUploads')}
                 </label>
             </div>
           </div>

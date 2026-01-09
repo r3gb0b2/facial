@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import * as api from './firebase/service.ts';
 import { User, Event, Attendee, Supplier, Sector, UserRole, EventModules, EventType } from './types.ts';
@@ -20,14 +21,12 @@ const App: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     
-    // States for public link routes
-    const [supplierInfo, setSupplierInfo] = useState<{ data: Supplier & { eventId: string }, name: string, sectors: Sector[], allowPhotoChange: boolean, allowGuestUploads: boolean, type: EventType } | null>(null);
+    const [supplierInfo, setSupplierInfo] = useState<{ data: Supplier & { eventId: string }, name: string, sectors: Sector[], allowPhotoChange: boolean, type: EventType } | null>(null);
     const [supplierAdminData, setSupplierAdminData] = useState<{ eventName: string, attendees: Attendee[], eventId: string, supplierId: string, supplier: Supplier, sectors: Sector[] } | null>(null);
     const [publicLinkError, setPublicLinkError] = useState<string | null>(null);
     const [isUserSignupMode, setIsUserSignupMode] = useState(false);
     const [inviteToken, setInviteToken] = useState<string | null>(null);
 
-    // Check for URL parameters or saved session on initial load
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
         const eventId = params.get('eventId');
@@ -163,18 +162,18 @@ const App: React.FC = () => {
         setEventData({ attendees: [], suppliers: [], sectors: [] });
     };
 
-    const handleCreateEvent = async (name: string, type: EventType, modules?: EventModules, allowPhotoChange?: boolean, allowGuestUploads?: boolean) => {
+    const handleCreateEvent = async (name: string, type: EventType, modules?: EventModules, allowPhotoChange?: boolean) => {
         try {
-            await api.createEvent(name, type, modules, allowPhotoChange, allowGuestUploads);
+            await api.createEvent(name, type, modules, allowPhotoChange);
             if (user) refreshAndFilterEvents(user);
         } catch (err: any) {
             setError(err.message);
         }
     };
 
-    const handleUpdateEvent = async (id: string, name: string, type?: EventType, modules?: EventModules, allowPhotoChange?: boolean, allowGuestUploads?: boolean) => {
+    const handleUpdateEvent = async (id: string, name: string, type?: EventType, modules?: EventModules, allowPhotoChange?: boolean) => {
         try {
-            await api.updateEvent(id, name, type, modules, allowPhotoChange, allowGuestUploads);
+            await api.updateEvent(id, name, type, modules, allowPhotoChange);
             if (user) refreshAndFilterEvents(user);
         } catch (err: any) {
             setError(err.message);
@@ -286,7 +285,6 @@ const App: React.FC = () => {
                     supplierName={supplierInfo.data.name}
                     supplierInfo={supplierInfo}
                     allowPhotoChange={supplierInfo.allowPhotoChange}
-                    allowGuestUploads={supplierInfo.allowGuestUploads}
                     eventType={supplierInfo.type}
                 />
             </div>

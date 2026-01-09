@@ -17,7 +17,6 @@ interface RegisterViewProps {
   supplierInfo?: { data: Supplier & { eventId: string } };
   currentEventId?: string;
   allowPhotoChange?: boolean;
-  allowGuestUploads?: boolean;
   eventType?: EventType;
 }
 
@@ -26,7 +25,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
     onRegister, setError, sectors, suppliers = [], 
     predefinedSector, eventName, supplierName, 
     supplierInfo, currentEventId, allowPhotoChange = true, 
-    allowGuestUploads = false, eventType = 'CREDENTIALING' 
+    eventType = 'CREDENTIALING' 
   } = props;
 
   const { t } = useTranslation();
@@ -58,17 +57,14 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
     return Array.isArray(selectedSupplierData?.subCompanies) && selectedSupplierData!.subCompanies!.length > 0;
   }, [selectedSupplierData]);
 
-  // Efeito para automatizar a escolha do setor para não-admins
   useEffect(() => {
     if (selectedSupplierData) {
         if (!hasSubCompanies) {
             setSubCompany('');
-            // Se não tem sub-empresa, pega o primeiro setor do fornecedor
             if (!isAdminView && selectedSupplierData.sectors?.length > 0) {
                 setSector(selectedSupplierData.sectors[0]);
             }
         } else if (subCompany && !isAdminView) {
-            // Se selecionou sub-empresa, pega o setor dela
             const sc = selectedSupplierData.subCompanies?.find(c => c.name === subCompany);
             if (sc) setSector(sc.sector);
         }
@@ -116,7 +112,6 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
       setError('A seleção da empresa/unidade é obrigatória.');
       return;
     }
-    // Se não é VIP e ainda não tem setor definido
     if (!isVip && !sector) {
        setError('Setor de acesso não identificado.');
        return;
@@ -206,7 +201,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
             <div className="flex flex-col items-center justify-center pt-10">
                <span className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.3em] mb-8">Bio-Identidade Facial</span>
                <div className="w-full max-w-sm">
-                  <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting || isPhotoLocked} allowUpload={isAdminView || allowGuestUploads} />
+                  <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting || isPhotoLocked} />
                </div>
             </div>
           </div>

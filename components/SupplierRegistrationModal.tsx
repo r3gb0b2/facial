@@ -40,12 +40,10 @@ const SupplierRegistrationModal: React.FC<SupplierRegistrationModalProps> = ({ e
   // Lógica Automática de Setor
   useEffect(() => {
     if (!hasSubCompanies) {
-        // Se não tem sub-empresas, usa o primeiro setor permitido do fornecedor
         if (supplier.sectors && supplier.sectors.length > 0) {
             setSelectedSectors([supplier.sectors[0]]);
         }
     } else if (subCompany) {
-        // Se selecionou sub-empresa, usa o setor dela
         const sc = supplier.subCompanies?.find(c => c.name === subCompany);
         if (sc) setSelectedSectors([sc.sector]);
     }
@@ -64,7 +62,6 @@ const SupplierRegistrationModal: React.FC<SupplierRegistrationModalProps> = ({ e
       return;
     }
     
-    // Check registration limit
     const currentCount = await api.getRegistrationsCountForSupplier(eventId, supplier.id);
     if (currentCount >= supplier.registrationLimit) {
         setError(t('errors.registrationLimitReached'));
@@ -165,7 +162,7 @@ const SupplierRegistrationModal: React.FC<SupplierRegistrationModalProps> = ({ e
               </button>
           </form>
           <div className="flex flex-col items-center">
-            <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting} allowUpload={true} />
+            <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting} />
           </div>
         </div>
       </div>

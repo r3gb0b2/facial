@@ -237,8 +237,6 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-xl flex items-center justify-center z-[100] p-4" onClick={onClose}>
       <div className="bg-neutral-900 rounded-[2.5rem] shadow-[0_50px_100px_rgba(0,0,0,1)] w-full max-w-6xl border border-white/10 overflow-hidden flex flex-col animate-in zoom-in-95 duration-300" onClick={(e) => e.stopPropagation()}>
-        
-        {/* Header Ultra Compacto */}
         <div className="px-8 py-4 border-b border-white/5 flex justify-between items-center bg-black/40">
            <div className="flex items-center gap-4">
               <div className={`w-3 h-3 rounded-full ${statusInfo.bg} shadow-[0_0_15px_rgba(0,0,0,0.5)]`}></div>
@@ -258,8 +256,6 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
 
         <div className="p-10">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-stretch">
-                
-                {/* Coluna 1: Identidade Visual */}
                 <div className="lg:col-span-3 flex flex-col items-center text-center">
                     <div className="w-full aspect-square max-w-[240px] rounded-[2rem] overflow-hidden border-4 border-white/5 shadow-[0_20px_60px_rgba(0,0,0,0.8)] bg-black relative mb-6 group">
                          <UserAvatar src={attendee.photo} alt={attendee.name} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
@@ -267,8 +263,6 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                     <h2 className="text-3xl font-black text-white uppercase tracking-tighter leading-none mb-2">{attendee.name}</h2>
                     <p className="text-xs font-mono text-neutral-500 tracking-[0.2em]">{formatCPF(attendee.cpf)}</p>
                 </div>
-
-                {/* Coluna 2: Grid de Dados Técnicos (Horizontalizada) */}
                 <div className="lg:col-span-5 flex flex-col justify-center">
                     <div className="bg-white/[0.02] rounded-[2.5rem] p-10 border border-white/5 space-y-10">
                         <div className="grid grid-cols-2 gap-10">
@@ -299,15 +293,12 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                         </div>
                     </div>
                 </div>
-
-                {/* Coluna 3: Ações de Check-in (Onde o foco operacional está) */}
                 <div className="lg:col-span-4">
                     {renderQuickActions()}
                 </div>
             </div>
         </div>
 
-        {/* Footer Minimalista */}
         <div className="px-8 py-5 bg-black/40 border-t border-white/5 flex items-center justify-between">
             <div className="flex items-center gap-8">
                  {user.role !== 'checkin' && attendee.status !== CheckinStatus.BLOCKED && (
@@ -322,7 +313,6 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
             </div>
         </div>
 
-        {/* Overlay de Edição */}
         {isEditing && (
             <div className="absolute inset-0 bg-neutral-950 z-50 p-12 flex flex-col">
                 <div className="flex justify-between items-center mb-10">
@@ -336,7 +326,6 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                                 <label className="text-[11px] font-black text-neutral-600 uppercase tracking-widest block mb-4">Nome Completo</label>
                                 <input type="text" value={editData.name} onChange={e => setEditData({ ...editData, name: e.target.value })} className="w-full bg-white/5 border border-white/10 rounded-2xl py-5 px-6 text-white text-xl font-black focus:outline-none focus:border-rose-500 transition-all" />
                             </div>
-                            
                             <div>
                                 <label className="text-[11px] font-black text-neutral-600 uppercase tracking-widest block mb-4">Setores de Acesso (Múltiplo)</label>
                                 <div className="grid grid-cols-2 gap-3 p-4 bg-white/5 rounded-2xl border border-white/5">
@@ -353,7 +342,6 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                                     ))}
                                 </div>
                             </div>
-
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 <div>
                                     <label className="text-[11px] font-black text-neutral-600 uppercase tracking-widest block mb-4">Documento CPF</label>
@@ -368,7 +356,7 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
                          <div className="flex flex-col items-center justify-center">
                              <span className="text-[11px] font-black text-neutral-600 uppercase tracking-widest block mb-6">Bio-Scan Identidade</span>
                              <div className="w-full max-w-sm">
-                                <WebcamCapture onCapture={(img) => setEditData(prev => ({ ...prev, photo: img }))} capturedImage={editData.photo} allowUpload={true} />
+                                <WebcamCapture onCapture={(img) => setEditData(prev => ({ ...prev, photo: img }))} capturedImage={editData.photo} />
                              </div>
                          </div>
                     </div>

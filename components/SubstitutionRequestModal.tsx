@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Attendee, Sector } from '../types.ts';
 import { useTranslation } from '../hooks/useTranslation.tsx';
@@ -33,12 +34,10 @@ const SubstitutionRequestModal: React.FC<SubstitutionRequestModalProps> = ({ att
   const [error, setError] = useState('');
 
   useEffect(() => {
-    // Keep the sectors from the original attendee as a default
     const validCurrentSectors = (attendee.sectors || []).filter(sectorId =>
         allowedSectors.some(s => s.id === sectorId)
     );
     setNewSectorIds(validCurrentSectors);
-    // Reset personal info for the new person
     setName('');
     setCpf('');
     setPhoto(null);
@@ -147,7 +146,7 @@ const SubstitutionRequestModal: React.FC<SubstitutionRequestModalProps> = ({ att
               </button>
           </form>
           <div className="flex flex-col items-center">
-            <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting} allowUpload={true} />
+            <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting} />
             <div className="w-full mt-8 border-t border-gray-700 pt-4">
                  <h4 className="text-sm font-medium text-gray-400 mb-2 text-center">Atual</h4>
                  <div className="w-24 h-24 mx-auto">

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Attendee } from '../types.ts';
 import WebcamCapture from './WebcamCapture.tsx';
@@ -11,7 +12,6 @@ interface VerificationModalProps {
   onConfirm: () => void;
 }
 
-// Helper to convert an image URL to a base64 string for the API
 const imageUrlToPartData = async (url: string): Promise<{ base64: string; mimeType: string; }> => {
     const response = await fetch(url);
     const blob = await response.blob();
@@ -36,7 +36,6 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
   const [verificationResult, setVerificationResult] = useState<'MATCH' | 'NO_MATCH' | 'ERROR' | null>(null);
   const [verificationMessage, setVerificationMessage] = useState('');
 
-  // Reset state when a new attendee is selected
   useEffect(() => {
     setVerificationPhoto(null);
     setIsVerifying(false);
@@ -54,7 +53,6 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
 
     let ai: GoogleGenAI;
     
-    // FIX: Use API_KEY from environment variables as per guidelines.
     if (!process.env.API_KEY) {
         setVerificationResult('ERROR');
         setVerificationMessage(t('errors.apiKeyNeeded'));
@@ -74,7 +72,6 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
 
 
     try {
-        // Prepare registered photo
         const registeredPhotoData = await imageUrlToPartData(attendee.photo);
         const registeredPhotoPart = {
             inlineData: {
@@ -83,7 +80,6 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
             },
         };
 
-        // Prepare captured photo
         const [header, capturedBase64] = verificationPhoto.split(',');
         const capturedMimeType = header.match(/:(.*?);/)?.[1] || 'image/png';
         const capturedPhotoPart = {
@@ -95,7 +91,6 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
         
         const prompt = "Analyze the two images provided. Are they of the same person? Respond ONLY with the word 'MATCH' if they are the same person, or 'NO_MATCH' if they are different people. Do not add any other explanation, punctuation, or formatting.";
 
-        // FIX: Updated model name to 'gemini-3-flash-preview' for multimodal reasoning.
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
             contents: { parts: [{ text: prompt }, registeredPhotoPart, capturedPhotoPart] },
@@ -181,7 +176,7 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
               <div className="text-center">
                 <h3 className="text-lg font-semibold text-gray-300 mb-2">{t('verificationModal.liveVerification')}</h3>
                 <>
-                  <WebcamCapture onCapture={setVerificationPhoto} capturedImage={verificationPhoto} allowUpload={true} />
+                  <WebcamCapture onCapture={setVerificationPhoto} capturedImage={verificationPhoto} />
                   {renderVerificationControls()}
                 </>
               </div>

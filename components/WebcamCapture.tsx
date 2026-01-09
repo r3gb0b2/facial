@@ -1,18 +1,17 @@
+
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { CameraIcon, RefreshIcon, ArrowUpTrayIcon } from './icons.tsx';
+import { CameraIcon, RefreshIcon } from './icons.tsx';
 import { useTranslation } from '../hooks/useTranslation.tsx';
 
 interface WebcamCaptureProps {
   onCapture: (imageDataUrl: string) => void;
   capturedImage: string | null;
   disabled?: boolean;
-  allowUpload?: boolean;
 }
 
-const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage, disabled = false, allowUpload = false }) => {
+const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage, disabled = false }) => {
   const { t } = useTranslation();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [isStreamActive, setIsStreamActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -26,15 +25,11 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
   }, []);
 
   const startStream = useCallback(async () => {
-    // Ensure any previous stream is stopped before starting a new one
     if (streamRef.current) {
         stopStream();
     }
     try {
       setError(null);
-      // Simplified constraints for maximum compatibility, especially on Android devices.
-      // Instead of requesting a specific resolution, we let the device choose its default,
-      // which prevents the "white screen" issue on non-compliant browsers/hardware.
       const mediaStream = await navigator.mediaDevices.getUserMedia({ 
         video: {
             facingMode: 'user'
@@ -46,12 +41,10 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
       }
       setIsStreamActive(true);
     } catch (err: any) {
-      console.error("Error accessing webcam:", err); // Log the full error for better debugging
-      // Provide a more detailed error message for debugging, including the error name and message.
+      console.error("Error accessing webcam:", err);
       const baseMessage = "Não foi possível acessar a webcam.";
-      const errorDetails = `(${err.name || 'Error'}: ${err.message || 'Verifique as permissões e se a câmera não está em uso por outro app.'})`;
-      const detailedMessage = `${baseMessage} ${errorDetails}`;
-      setError(detailedMessage);
+      const errorDetails = `(${err.name || 'Error'}: ${err.message || 'Verifique as permissões da câmera.'})`;
+      setError(`${baseMessage} ${errorDetails}`);
     }
   }, [stopStream]);
 
@@ -85,85 +78,42 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
       onCapture('');
   };
 
-  const handleUploadClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const dataUrl = reader.result as string;
-        onCapture(dataUrl);
-      };
-      reader.readAsDataURL(file);
-    }
-    // Reset file input to allow re-uploading the same file if needed
-    if (event.target) {
-        event.target.value = "";
-    }
-  };
-
   return (
     <div className="w-full max-w-sm mx-auto flex flex-col items-center">
-        <div className="relative w-full aspect-square bg-gray-900 rounded-lg overflow-hidden border-2 border-gray-600 shadow-lg">
-            {error && <div className="absolute inset-0 flex items-center justify-center text-center text-red-400 p-4">{error}</div>}
+        <div className="relative w-full aspect-square bg-neutral-950 rounded-[2.5rem] overflow-hidden border-4 border-white/5 shadow-2xl">
+            {error && <div className="absolute inset-0 flex items-center justify-center text-center text-red-400 p-8 text-xs font-bold uppercase">{error}</div>}
             {capturedImage ? (
-                <img src={capturedImage} alt="Captured" className="w-full h-full object-contain" />
+                <img src={capturedImage} alt="Captured" className="w-full h-full object-cover animate-in fade-in zoom-in-95 duration-500" />
             ) : (
                 <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" muted></video>
             )}
              {!isStreamActive && !capturedImage && !error &&
                 <div className="absolute inset-0 flex items-center justify-center">
-                    <p className="text-gray-400">{t('webcam.starting')}</p>
+                    <p className="text-neutral-600 text-[10px] font-black uppercase tracking-[0.2em] animate-pulse">{t('webcam.starting')}</p>
                 </div>
             }
         </div>
-        <div className="mt-4 w-full">
+        <div className="mt-8 w-full px-4">
             {capturedImage ? (
                 <button
                     type="button"
                     onClick={handleRetake}
                     disabled={disabled}
-                    className="w-full bg-yellow-500 hover:bg-yellow-600 text-black font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed"
+                    className="w-full bg-neutral-800 hover:bg-neutral-700 text-white font-black uppercase tracking-[0.2em] text-[10px] py-5 rounded-2xl transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
                 >
-                    <RefreshIcon className="w-5 h-5"/>
+                    <RefreshIcon className="w-4 h-4"/>
                     {t('webcam.retakeButton')}
                 </button>
             ) : (
-                <div className="space-y-2">
-                    <button
-                        type="button"
-                        onClick={handleCapture}
-                        disabled={!isStreamActive || disabled}
-                        className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed"
-                    >
-                        <CameraIcon className="w-5 h-5" />
-                        {t('webcam.captureButton')}
-                    </button>
-                    {allowUpload && (
-                        <>
-                            <input
-                                type="file"
-                                ref={fileInputRef}
-                                onChange={handleFileChange}
-                                className="hidden"
-                                accept="image/*"
-                                disabled={disabled}
-                            />
-                            <button
-                                type="button"
-                                onClick={handleUploadClick}
-                                disabled={disabled}
-                                className="w-full bg-gray-600 hover:bg-gray-700 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 disabled:bg-gray-500 disabled:cursor-not-allowed"
-                            >
-                                <ArrowUpTrayIcon className="w-5 h-5" />
-                                {t('webcam.uploadButton')}
-                            </button>
-                        </>
-                    )}
-                </div>
+                <button
+                    type="button"
+                    onClick={handleCapture}
+                    disabled={!isStreamActive || disabled}
+                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-[0.2em] text-[10px] py-5 rounded-2xl shadow-xl shadow-indigo-500/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
+                >
+                    <CameraIcon className="w-5 h-5" />
+                    {t('webcam.captureButton')}
+                </button>
             )}
         </div>
     </div>
