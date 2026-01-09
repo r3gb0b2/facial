@@ -168,7 +168,7 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                                     {selectedForApproval.has(attendee.id) && <CheckCircleIcon className="w-4 h-4 text-white" />}
                                 </div>
                                 <div className="flex items-center gap-4">
-                                    <UserAvatar src={attendee.photo} alt={attendee.name} className="w-16 h-16 rounded-2xl object-cover bg-black" />
+                                    <UserAvatar src={attendee.photo} alt={attendee.name} className="w-20 h-20 rounded-2xl object-cover bg-black" />
                                     <div className="overflow-hidden">
                                         <p className="font-black text-white uppercase tracking-tight text-sm truncate">{attendee.name}</p>
                                         <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">{attendee.subCompany || 'Individual'}</p>
