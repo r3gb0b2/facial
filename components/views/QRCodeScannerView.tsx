@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 // FIX: Added .ts extension to correctly resolve the module.
@@ -21,11 +22,10 @@ const QRCodeScannerView: React.FC<QRCodeScannerViewProps> = ({ currentEvent, att
     const html5QrCodeRef = useRef<Html5Qrcode | null>(null);
     const readerId = "qr-reader";
 
-    // Create a ref to hold the latest version of the attendees array.
-    // This prevents the QR code callback from using a stale list of attendees.
+    // Filtrar a lista para ignorar quem está em análise pelo fornecedor no reconhecimento
     const attendeesRef = useRef(attendees);
     useEffect(() => {
-        attendeesRef.current = attendees;
+        attendeesRef.current = attendees.filter(a => a.status !== CheckinStatus.SUPPLIER_REVIEW);
     }, [attendees]);
 
 

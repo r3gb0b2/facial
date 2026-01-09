@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Attendee, CheckinStatus, Supplier, Sector, User } from '../../types.ts';
 import AttendeeCard from '../AttendeeCard.tsx';
@@ -35,6 +36,11 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
   const { t } = useTranslation();
   const sessionKey = `filters_${currentEventId}`;
 
+  // Filtrar a lista base para ignorar quem está em análise pelo fornecedor
+  const baseAttendees = useMemo(() => {
+    return attendees.filter(a => a.status !== CheckinStatus.SUPPLIER_REVIEW);
+  }, [attendees]);
+
   const [filters, setFilters] = useState(() => {
     const savedFilters = sessionStorage.getItem(sessionKey);
     return savedFilters ? JSON.parse(savedFilters) : {
@@ -61,23 +67,23 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
   // --- Filtros Dinâmicos ---
   const availableStatusOptions = useMemo(() => {
     const usedStatuses = new Set<string>();
-    attendees.forEach(a => usedStatuses.add(a.status));
+    baseAttendees.forEach(a => usedStatuses.add(a.status));
     return Object.values(CheckinStatus).filter(status => usedStatuses.has(status));
-  }, [attendees]);
+  }, [baseAttendees]);
 
   const availableSuppliers = useMemo(() => {
     const usedSupplierIds = new Set<string>();
-    attendees.forEach(a => { if (a.supplierId) usedSupplierIds.add(a.supplierId); });
+    baseAttendees.forEach(a => { if (a.supplierId) usedSupplierIds.add(a.supplierId); });
     return suppliers.filter(s => usedSupplierIds.has(s.id)).sort((a, b) => a.name.localeCompare(b.name));
-  }, [attendees, suppliers]);
+  }, [baseAttendees, suppliers]);
 
   const availableCompanies = useMemo(() => {
     const companies = new Set<string>();
-    attendees.forEach(a => { if (a.subCompany) companies.add(a.subCompany); });
+    baseAttendees.forEach(a => { if (a.subCompany) companies.add(a.subCompany); });
     return Array.from(companies).sort();
-  }, [attendees]);
+  }, [baseAttendees]);
 
-  // Efeito para resetar filtros se a opção selecionada deixar de existir (ex: após deletar último bloqueado)
+  // Efeito para resetar filtros se a opção selecionada deixar de existir
   useEffect(() => {
     if (statusFilter !== 'ALL' && !availableStatusOptions.includes(statusFilter as CheckinStatus)) {
         handleFilterChange('statusFilter', 'ALL');
@@ -113,7 +119,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
   };
 
   const handleExportToExcel = () => {
-    const dataToExport = attendees.map(attendee => ({
+    const dataToExport = baseAttendees.map(attendee => ({
         [isVip ? 'Nome do Convidado' : 'Nome']: attendee.name,
         'CPF': attendee.cpf,
         'Status': t(`status.${attendee.status.toLowerCase()}`),
@@ -129,7 +135,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
   const filteredAttendees = useMemo(() => {
     const normalizedTerm = normalizeString(searchTerm);
 
-    return attendees.filter((attendee) => {
+    return baseAttendees.filter((attendee) => {
       if (statusFilter !== 'ALL' && attendee.status !== statusFilter) return false;
       if (supplierFilter !== 'ALL' && attendee.supplierId !== supplierFilter) return false;
       if (companyFilter !== 'ALL' && attendee.subCompany !== companyFilter) return false;
@@ -147,15 +153,15 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
       }
       return true;
     }).sort((a, b) => a.name.localeCompare(b.name));
-  }, [attendees, searchTerm, searchBy, statusFilter, supplierFilter, companyFilter]);
+  }, [baseAttendees, searchTerm, searchBy, statusFilter, supplierFilter, companyFilter]);
 
   return (
     <div className="w-full max-w-7xl mx-auto space-y-8 pb-32">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-              { label: 'Total Geral', val: attendees.length, color: 'text-white' },
-              { label: 'Presentes', val: attendees.filter(a => a.status === CheckinStatus.CHECKED_IN).length, color: isVip ? 'text-rose-500' : 'text-green-400' },
-              { label: 'Pendentes', val: attendees.filter(a => a.status === CheckinStatus.PENDING).length, color: 'text-amber-400' },
+              { label: 'Total Operacional', val: baseAttendees.length, color: 'text-white' },
+              { label: 'Presentes', val: baseAttendees.filter(a => a.status === CheckinStatus.CHECKED_IN).length, color: isVip ? 'text-rose-500' : 'text-green-400' },
+              { label: 'Pendentes', val: baseAttendees.filter(a => a.status === CheckinStatus.PENDING).length, color: 'text-amber-400' },
               { label: 'Filtrados', val: filteredAttendees.length, color: 'text-indigo-400' }
           ].map(s => (
               <div key={s.label} className="bg-neutral-900/80 border border-white/5 p-6 rounded-[2rem] text-center shadow-xl">
