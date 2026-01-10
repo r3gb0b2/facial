@@ -51,12 +51,19 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
     setTimeout(() => setSuccessMessage(''), 5000);
   };
 
+  // Centraliza o que é "Pendente" para o fornecedor
   const pendingAttendees = useMemo(() => {
-    return attendees.filter(a => a.status === CheckinStatus.SUPPLIER_REVIEW);
+    return attendees.filter(a => 
+        a.status === CheckinStatus.SUPPLIER_REVIEW || 
+        a.status === CheckinStatus.SUBSTITUTION_REQUEST
+    );
   }, [attendees]);
 
   const activeAttendees = useMemo(() => {
-    return attendees.filter(a => a.status !== CheckinStatus.SUPPLIER_REVIEW);
+    return attendees.filter(a => 
+        a.status !== CheckinStatus.SUPPLIER_REVIEW && 
+        a.status !== CheckinStatus.SUBSTITUTION_REQUEST
+    );
   }, [attendees]);
 
   const uniqueCompanies = useMemo(() => {
@@ -99,12 +106,17 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
     });
   };
 
-  const handleApproveSingle = async (e: React.MouseEvent, id: string, name: string) => {
+  const handleApproveSingle = async (e: React.MouseEvent, attendee: Attendee) => {
     e.stopPropagation();
     setIsApproving(true);
     try {
-        await api.approveAttendeesBySupplier(eventId, [id]);
-        setSuccessMessage(`${name} liberado com sucesso!`);
+        if (attendee.status === CheckinStatus.SUBSTITUTION_REQUEST) {
+            await api.approveSubstitution(eventId, attendee.id);
+            setSuccessMessage(`Substituição de ${attendee.substitutionData?.name || attendee.name} aprovada!`);
+        } else {
+            await api.approveAttendeesBySupplier(eventId, [attendee.id]);
+            setSuccessMessage(`${attendee.name} liberado com sucesso!`);
+        }
         setTimeout(() => setSuccessMessage(''), 5000);
     } catch (e) {
         console.error(e);
@@ -118,13 +130,29 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
     if (selectedForApproval.size === 0) return;
     setIsApproving(true);
     try {
-        await api.approveAttendeesBySupplier(eventId, Array.from(selectedForApproval));
+        const idsToApprove = Array.from(selectedForApproval);
+        const attendeesToApprove = pendingAttendees.filter(a => idsToApprove.includes(a.id));
+        
+        // Separa quem é substituição de quem é novo registro
+        const substitutions = attendeesToApprove.filter(a => a.status === CheckinStatus.SUBSTITUTION_REQUEST);
+        const newRegs = attendeesToApprove.filter(a => a.status === CheckinStatus.SUPPLIER_REVIEW);
+
+        // Processa substituições individualmente (exigência da API)
+        for (const sub of substitutions) {
+            await api.approveSubstitution(eventId, sub.id);
+        }
+
+        // Processa novos registros em lote
+        if (newRegs.length > 0) {
+            await api.approveAttendeesBySupplier(eventId, newRegs.map(a => a.id));
+        }
+
         setSelectedForApproval(new Set());
-        setSuccessMessage(`${selectedForApproval.size} colaborador(es) liberados com sucesso!`);
+        setSuccessMessage(`${attendeesToApprove.length} solicitações processadas com sucesso!`);
         setTimeout(() => setSuccessMessage(''), 5000);
     } catch (e) {
         console.error(e);
-        alert("Falha ao aprovar.");
+        alert("Falha ao aprovar em lote.");
     } finally {
         setIsApproving(false);
     }
@@ -151,7 +179,7 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                                 <UsersIcon className="w-8 h-8 text-blue-400" />
                                 Aprovação Pendente ({pendingAttendees.length})
                             </h2>
-                            <p className="text-blue-400/60 text-sm font-bold uppercase tracking-widest mt-1">Colaboradores aguardando sua liberação para acesso</p>
+                            <p className="text-blue-400/60 text-sm font-bold uppercase tracking-widest mt-1">Cadastros e substituições aguardando liberação</p>
                         </div>
                         <div className="flex items-center gap-4">
                              {selectedForApproval.size > 0 && (
@@ -173,33 +201,46 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
-                        {pendingAttendees.map(attendee => (
-                            <div 
-                                key={attendee.id} 
-                                onClick={() => handleToggleSelection(attendee.id)}
-                                className={`relative p-6 rounded-[2.5rem] border transition-all cursor-pointer group ${selectedForApproval.has(attendee.id) ? 'bg-blue-600/20 border-blue-500/40 shadow-lg' : 'bg-black/40 border-white/5 hover:border-blue-500/20'}`}
-                            >
-                                <div className={`absolute top-6 right-6 w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${selectedForApproval.has(attendee.id) ? 'bg-blue-500 border-blue-500' : 'border-white/10 group-hover:border-blue-500/40'}`}>
-                                    {selectedForApproval.has(attendee.id) && <CheckCircleIcon className="w-5 h-5 text-white" />}
-                                </div>
-                                <div className="flex items-center gap-6">
-                                    <UserAvatar src={attendee.photo} alt={attendee.name} className="w-[140px] h-[140px] rounded-[2rem] object-cover bg-black shadow-2xl ring-4 ring-white/5 group-hover:ring-blue-500/20 transition-all" />
-                                    <div className="overflow-hidden flex-grow">
-                                        <p className="font-black text-white uppercase tracking-tight text-lg leading-tight truncate">{attendee.name}</p>
-                                        <p className="text-[11px] text-gray-500 font-bold uppercase tracking-widest mt-2 mb-4">{attendee.subCompany || 'Individual'}</p>
-                                        
-                                        <button 
-                                            onClick={(e) => handleApproveSingle(e, attendee.id, attendee.name)}
-                                            disabled={isApproving}
-                                            className="w-full bg-green-500/10 hover:bg-green-500 border border-green-500/20 hover:border-green-400 text-green-500 hover:text-white font-black uppercase tracking-widest text-[9px] py-3 rounded-xl transition-all flex items-center justify-center gap-2 active:scale-95"
-                                        >
-                                            <CheckCircleIcon className="w-4 h-4" />
-                                            Liberar Acesso
-                                        </button>
+                        {pendingAttendees.map(attendee => {
+                            const isSubstitution = attendee.status === CheckinStatus.SUBSTITUTION_REQUEST;
+                            const displayName = isSubstitution ? (attendee.substitutionData?.name || attendee.name) : attendee.name;
+                            const displayPhoto = isSubstitution ? (attendee.substitutionData?.photo || attendee.photo) : attendee.photo;
+
+                            return (
+                                <div 
+                                    key={attendee.id} 
+                                    onClick={() => handleToggleSelection(attendee.id)}
+                                    className={`relative p-6 rounded-[2.5rem] border transition-all cursor-pointer group ${selectedForApproval.has(attendee.id) ? 'bg-blue-600/20 border-blue-500/40 shadow-lg' : 'bg-black/40 border-white/5 hover:border-blue-500/20'}`}
+                                >
+                                    <div className={`absolute top-6 right-6 w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all ${selectedForApproval.has(attendee.id) ? 'bg-blue-500 border-blue-500' : 'border-white/10 group-hover:border-blue-500/40'}`}>
+                                        {selectedForApproval.has(attendee.id) && <CheckCircleIcon className="w-5 h-5 text-white" />}
+                                    </div>
+                                    <div className="flex items-center gap-6">
+                                        <div className="relative">
+                                            <UserAvatar src={displayPhoto} alt={displayName} className="w-[140px] h-[140px] rounded-[2rem] object-cover bg-black shadow-2xl ring-4 ring-white/5 group-hover:ring-blue-500/20 transition-all" />
+                                            {isSubstitution && (
+                                                <div className="absolute -bottom-2 -right-2 bg-blue-600 text-white text-[8px] font-black uppercase p-2 rounded-lg shadow-lg border border-blue-400">
+                                                    Substituição
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="overflow-hidden flex-grow">
+                                            <p className="font-black text-white uppercase tracking-tight text-lg leading-tight truncate">{displayName}</p>
+                                            <p className="text-[11px] text-gray-500 font-bold uppercase tracking-widest mt-2 mb-4">{attendee.subCompany || 'Individual'}</p>
+                                            
+                                            <button 
+                                                onClick={(e) => handleApproveSingle(e, attendee)}
+                                                disabled={isApproving}
+                                                className="w-full bg-green-500/10 hover:bg-green-500 border border-green-500/20 hover:border-green-400 text-green-500 hover:text-white font-black uppercase tracking-widest text-[9px] py-3 rounded-xl transition-all flex items-center justify-center gap-2 active:scale-95"
+                                            >
+                                                <CheckCircleIcon className="w-4 h-4" />
+                                                Liberar Acesso
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             </section>

@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Attendee, CheckinStatus, Sector, Supplier, User } from '../types.ts';
 import { useTranslation } from '../hooks/useTranslation.tsx';
-import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon, NoSymbolIcon, TagIcon, ArrowPathIcon } from './icons.tsx';
+import { XMarkIcon, PencilIcon, TrashIcon, CheckCircleIcon, NoSymbolIcon, TagIcon, ArrowPathIcon, SpinnerIcon } from './icons.tsx';
 import QRCodeDisplay from './QRCodeDisplay.tsx';
 import UserAvatar from './UserAvatar.tsx';
 import WebcamCapture from './WebcamCapture.tsx';
@@ -180,6 +180,72 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
 
   const renderQuickActions = () => {
     if (isEditing) return null;
+
+    // Ações para Substituição Pendente
+    if (attendee.status === CheckinStatus.SUBSTITUTION_REQUEST && attendee.substitutionData) {
+        return (
+            <div className="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-6 h-full flex flex-col gap-6">
+                <div className="text-center">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-blue-400 block mb-4">Substituição Solicitada</span>
+                    <div className="grid grid-cols-1 gap-4">
+                        <div className="bg-black/40 p-4 rounded-xl border border-white/5 text-left">
+                            <p className="text-[9px] text-gray-500 font-black uppercase tracking-widest mb-2">Novo Colaborador</p>
+                            <div className="flex items-center gap-3">
+                                <UserAvatar src={attendee.substitutionData.photo} alt={attendee.substitutionData.name} className="w-12 h-12 rounded-lg object-cover bg-black" />
+                                <div>
+                                    <p className="text-xs font-black text-white uppercase">{attendee.substitutionData.name}</p>
+                                    <p className="text-[9px] text-gray-500 font-mono">{formatCPF(attendee.substitutionData.cpf)}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div className="flex flex-col gap-2 mt-auto">
+                    <button 
+                        onClick={() => onApproveSubstitution(attendee.id)}
+                        disabled={isSubmitting}
+                        className="w-full bg-green-600 hover:bg-green-500 text-white font-black uppercase tracking-widest text-[10px] py-4 rounded-xl transition-all shadow-xl flex items-center justify-center gap-2"
+                    >
+                        {isSubmitting ? <SpinnerIcon className="w-4 h-4"/> : <CheckCircleIcon className="w-4 h-4"/>}
+                        Aprovar Substituição
+                    </button>
+                    <button 
+                        onClick={() => onRejectSubstitution(attendee.id)}
+                        disabled={isSubmitting}
+                        className="w-full bg-red-600/10 hover:bg-red-600/20 text-red-500 font-black uppercase tracking-widest text-[10px] py-4 rounded-xl transition-all border border-red-500/20 flex items-center justify-center gap-2"
+                    >
+                        Rejeitar Solicitação
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
+    // Ações para Novo Cadastro Pendente (Admin)
+    if (attendee.status === CheckinStatus.PENDING_APPROVAL) {
+        return (
+            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-2xl p-6 h-full flex flex-col gap-6">
+                 <div className="text-center">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-yellow-500 block mb-4">Aprovação Administrativa</span>
+                    <p className="text-gray-400 text-xs leading-relaxed">Este colaborador foi cadastrado e aguarda a liberação oficial do administrador para o check-in.</p>
+                </div>
+                <div className="flex flex-col gap-2 mt-auto">
+                    <button 
+                        onClick={() => onApproveNewRegistration(attendee.id)}
+                        className="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-black uppercase tracking-widest text-[10px] py-4 rounded-xl transition-all shadow-xl flex items-center justify-center gap-2"
+                    >
+                        Liberar Cadastro
+                    </button>
+                    <button 
+                        onClick={() => onRejectNewRegistration(attendee.id)}
+                        className="w-full bg-red-600/10 hover:bg-red-600/20 text-red-500 font-black uppercase tracking-widest text-[10px] py-4 rounded-xl transition-all border border-red-500/20 flex items-center justify-center gap-2"
+                    >
+                        Rejeitar
+                    </button>
+                </div>
+            </div>
+        )
+    }
 
     if (attendee.status === CheckinStatus.PENDING) {
       return (
