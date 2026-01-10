@@ -80,23 +80,16 @@ const App: React.FC = () => {
                 const savedUser = sessionStorage.getItem('currentUser');
                 if (savedUser) {
                     setUser(JSON.parse(savedUser));
-                    
-                    // Recuperar o evento anterior se houver
-                    const savedEventId = sessionStorage.getItem('currentEventId');
-                    if (savedEventId) {
-                        setCurrentEventId(savedEventId);
-                    }
                 }
             } catch (e) {
                 console.error("Failed to parse user from session storage", e);
                 sessionStorage.removeItem('currentUser');
-                sessionStorage.removeItem('currentEventId');
             }
             setIsLoading(false);
         }
     }, [t]);
 
-    const refreshAndFilterEvents = async (currentUser: User) => {
+    const fetchEvents = async (currentUser: User) => {
         try {
             const allEvents = await api.getEvents();
             let eventsToSet: Event[] = [];
@@ -107,10 +100,11 @@ const App: React.FC = () => {
             }
             setEvents(eventsToSet);
 
-            // Verificar se o evento restaurado ainda é válido para este usuário
+            // Tentar restaurar o evento apenas DEPOIS de carregar a lista
             const savedEventId = sessionStorage.getItem('currentEventId');
-            if (savedEventId && !eventsToSet.some(e => e.id === savedEventId)) {
-                setCurrentEventId(null);
+            if (savedEventId && eventsToSet.some(e => e.id === savedEventId)) {
+                setCurrentEventId(savedEventId);
+            } else {
                 sessionStorage.removeItem('currentEventId');
             }
         } catch (err: any) {
@@ -118,6 +112,14 @@ const App: React.FC = () => {
         }
     };
 
+    // Carrega eventos sempre que o usuário logar
+    useEffect(() => {
+        if (user) {
+            fetchEvents(user);
+        }
+    }, [user]);
+
+    // Subscreve aos dados do evento quando um ID é selecionado
     useEffect(() => {
         if (user && currentEventId) {
             const unsubscribe = api.subscribeToEventData(
@@ -126,8 +128,6 @@ const App: React.FC = () => {
                 (err) => setError(err.message)
             );
             return () => unsubscribe();
-        } else if (user) {
-             refreshAndFilterEvents(user);
         }
     }, [user, currentEventId]);
 
@@ -161,6 +161,7 @@ const App: React.FC = () => {
     const handleLogout = () => {
         setUser(null);
         setCurrentEventId(null);
+        setEvents([]);
         setEventData({ attendees: [], suppliers: [], sectors: [] });
         sessionStorage.removeItem('currentUser');
         sessionStorage.removeItem('currentEventId');
@@ -183,7 +184,7 @@ const App: React.FC = () => {
     const handleCreateEvent = async (name: string, type: EventType, modules?: EventModules, allowPhotoChange?: boolean) => {
         try {
             await api.createEvent(name, type, modules, allowPhotoChange);
-            if (user) refreshAndFilterEvents(user);
+            if (user) fetchEvents(user);
         } catch (err: any) {
             setError(err.message);
         }
@@ -192,7 +193,7 @@ const App: React.FC = () => {
     const handleUpdateEvent = async (id: string, name: string, type?: EventType, modules?: EventModules, allowPhotoChange?: boolean) => {
         try {
             await api.updateEvent(id, name, type, modules, allowPhotoChange);
-            if (user) refreshAndFilterEvents(user);
+            if (user) fetchEvents(user);
         } catch (err: any) {
             setError(err.message);
         }
@@ -201,7 +202,7 @@ const App: React.FC = () => {
     const handleDeleteEvent = async (id: string) => {
         try {
             await api.deleteEvent(id);
-            if (user) refreshAndFilterEvents(user);
+            if (user) fetchEvents(user);
         } catch (err: any) {
              setError(err.message);
         }
@@ -331,6 +332,18 @@ const App: React.FC = () => {
         );
     }
 
+    // Se temos usuário mas os eventos ainda estão carregando, mostramos loader
+    if (user && events.length === 0 && !error) {
+        return (
+            <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+                <div className="text-center">
+                    <SpinnerIcon className="w-10 h-10 text-indigo-500 animate-spin mx-auto mb-4"/>
+                    <p className="text-gray-400">Buscando eventos disponíveis...</p>
+                </div>
+            </div>
+        );
+    }
+
     if (!currentEventId) {
         return (
              <div className="min-h-screen bg-gray-900 p-4 flex items-center justify-center">
@@ -350,11 +363,14 @@ const App: React.FC = () => {
     const currentEvent = events.find(e => e.id === currentEventId);
     
     if (!currentEvent) {
-        // Se chegarmos aqui e o evento não existir (ex: deletado), limpamos o estado
-        if (events.length > 0) {
-            handleBackToEvents();
-        }
-        return null;
+        return (
+            <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4 text-center">
+                <div>
+                    <p className="text-gray-400 mb-4">O evento selecionado não foi encontrado.</p>
+                    <button onClick={handleBackToEvents} className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-bold">Voltar para Seleção</button>
+                </div>
+            </div>
+        );
     }
 
     return (
