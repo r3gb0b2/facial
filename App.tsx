@@ -80,10 +80,17 @@ const App: React.FC = () => {
                 const savedUser = sessionStorage.getItem('currentUser');
                 if (savedUser) {
                     setUser(JSON.parse(savedUser));
+                    
+                    // Recuperar o evento anterior se houver
+                    const savedEventId = sessionStorage.getItem('currentEventId');
+                    if (savedEventId) {
+                        setCurrentEventId(savedEventId);
+                    }
                 }
             } catch (e) {
                 console.error("Failed to parse user from session storage", e);
                 sessionStorage.removeItem('currentUser');
+                sessionStorage.removeItem('currentEventId');
             }
             setIsLoading(false);
         }
@@ -92,11 +99,19 @@ const App: React.FC = () => {
     const refreshAndFilterEvents = async (currentUser: User) => {
         try {
             const allEvents = await api.getEvents();
+            let eventsToSet: Event[] = [];
             if (currentUser.role === 'superadmin') {
-                setEvents(allEvents);
+                eventsToSet = allEvents;
             } else {
-                const linkedEvents = allEvents.filter(e => currentUser.linkedEventIds.includes(e.id));
-                setEvents(linkedEvents);
+                eventsToSet = allEvents.filter(e => currentUser.linkedEventIds.includes(e.id));
+            }
+            setEvents(eventsToSet);
+
+            // Verificar se o evento restaurado ainda é válido para este usuário
+            const savedEventId = sessionStorage.getItem('currentEventId');
+            if (savedEventId && !eventsToSet.some(e => e.id === savedEventId)) {
+                setCurrentEventId(null);
+                sessionStorage.removeItem('currentEventId');
             }
         } catch (err: any) {
             setError(err.message);
@@ -148,6 +163,7 @@ const App: React.FC = () => {
         setCurrentEventId(null);
         setEventData({ attendees: [], suppliers: [], sectors: [] });
         sessionStorage.removeItem('currentUser');
+        sessionStorage.removeItem('currentEventId');
         setIsUserSignupMode(false);
         setInviteToken(null);
         window.location.href = window.location.origin;
@@ -155,10 +171,12 @@ const App: React.FC = () => {
 
     const handleSelectEvent = (eventId: string) => {
         setCurrentEventId(eventId);
+        sessionStorage.setItem('currentEventId', eventId);
     };
     
     const handleBackToEvents = () => {
         setCurrentEventId(null);
+        sessionStorage.removeItem('currentEventId');
         setEventData({ attendees: [], suppliers: [], sectors: [] });
     };
 
@@ -332,7 +350,10 @@ const App: React.FC = () => {
     const currentEvent = events.find(e => e.id === currentEventId);
     
     if (!currentEvent) {
-        handleBackToEvents();
+        // Se chegarmos aqui e o evento não existir (ex: deletado), limpamos o estado
+        if (events.length > 0) {
+            handleBackToEvents();
+        }
         return null;
     }
 
