@@ -99,6 +99,21 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
     });
   };
 
+  const handleApproveSingle = async (e: React.MouseEvent, id: string, name: string) => {
+    e.stopPropagation();
+    setIsApproving(true);
+    try {
+        await api.approveAttendeesBySupplier(eventId, [id]);
+        setSuccessMessage(`${name} liberado com sucesso!`);
+        setTimeout(() => setSuccessMessage(''), 5000);
+    } catch (e) {
+        console.error(e);
+        alert("Falha ao aprovar colaborador.");
+    } finally {
+        setIsApproving(false);
+    }
+  };
+
   const handleBatchApprove = async () => {
     if (selectedForApproval.size === 0) return;
     setIsApproving(true);
@@ -157,7 +172,7 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
                         {pendingAttendees.map(attendee => (
                             <div 
                                 key={attendee.id} 
@@ -169,9 +184,18 @@ const SupplierAdminView: React.FC<SupplierAdminViewProps> = ({ eventName, attend
                                 </div>
                                 <div className="flex items-center gap-6">
                                     <UserAvatar src={attendee.photo} alt={attendee.name} className="w-[140px] h-[140px] rounded-[2rem] object-cover bg-black shadow-2xl ring-4 ring-white/5 group-hover:ring-blue-500/20 transition-all" />
-                                    <div className="overflow-hidden">
+                                    <div className="overflow-hidden flex-grow">
                                         <p className="font-black text-white uppercase tracking-tight text-lg leading-tight truncate">{attendee.name}</p>
-                                        <p className="text-[11px] text-gray-500 font-bold uppercase tracking-widest mt-2">{attendee.subCompany || 'Individual'}</p>
+                                        <p className="text-[11px] text-gray-500 font-bold uppercase tracking-widest mt-2 mb-4">{attendee.subCompany || 'Individual'}</p>
+                                        
+                                        <button 
+                                            onClick={(e) => handleApproveSingle(e, attendee.id, attendee.name)}
+                                            disabled={isApproving}
+                                            className="w-full bg-green-500/10 hover:bg-green-500 border border-green-500/20 hover:border-green-400 text-green-500 hover:text-white font-black uppercase tracking-widest text-[9px] py-3 rounded-xl transition-all flex items-center justify-center gap-2 active:scale-95"
+                                        >
+                                            <CheckCircleIcon className="w-4 h-4" />
+                                            Liberar Acesso
+                                        </button>
                                     </div>
                                 </div>
                             </div>
