@@ -45,6 +45,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
   const [isPhotoLocked, setIsPhotoLocked] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [blockedInfo, setBlockedInfo] = useState<{ reason: string, eventName: string } | null>(null);
+  const [isLimitReached, setIsLimitReached] = useState(false);
 
   const isAdminView = !predefinedSector;
 
@@ -56,6 +57,21 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
   const hasSubCompanies = useMemo(() => {
     return Array.isArray(selectedSupplierData?.subCompanies) && selectedSupplierData!.subCompanies!.length > 0;
   }, [selectedSupplierData]);
+
+  // Efeito para verificar limite do fornecedor (para portal público)
+  useEffect(() => {
+    const checkLimit = async () => {
+        if (!isAdminView && supplierInfo) {
+            const count = await api.getRegistrationsCountForSupplier(supplierInfo.data.eventId, supplierInfo.data.id);
+            if (count >= supplierInfo.data.registrationLimit) {
+                setIsLimitReached(true);
+            } else {
+                setIsLimitReached(false);
+            }
+        }
+    };
+    checkLimit();
+  }, [isAdminView, supplierInfo]);
 
   useEffect(() => {
     if (selectedSupplierData) {
@@ -105,6 +121,11 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
     e.preventDefault();
     const rawCpf = cpf.replace(/\D/g, '');
     
+    if (isLimitReached) {
+        setError("Limite de cadastros atingido para este fornecedor.");
+        return;
+    }
+
     if (!name || !rawCpf || !photo) {
       setError('Preencha todos os campos e capture a foto.');
       return;
@@ -130,6 +151,10 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
       setTimeout(() => setShowSuccess(false), 5000);
     } catch (error: any) {
       setError(error.message || "Falha ao registrar.");
+      // Se o erro for de limite, atualizar o estado local
+      if (error.message?.includes("limite")) {
+          setIsLimitReached(true);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -141,13 +166,13 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
     <form onSubmit={handleRegisterSubmit} className="space-y-6">
       <div>
         <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-2">Nome Completo</label>
-        <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-neutral-900 border border-white/10 rounded-xl py-4 px-5 text-white font-bold focus:border-indigo-500 transition-all" placeholder="Nome do colaborador" required disabled={isSubmitting || existingAttendeeFound} />
+        <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-neutral-900 border border-white/10 rounded-xl py-4 px-5 text-white font-bold focus:border-indigo-500 transition-all" placeholder="Nome do colaborador" required disabled={isSubmitting || existingAttendeeFound || isLimitReached} />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-2">CPF</label>
-          <input type="text" value={cpf} onChange={(e) => setCpf(formatCPF(e.target.value))} onBlur={handleCpfBlur} className="w-full bg-neutral-900 border border-white/10 rounded-xl py-4 px-5 text-white font-bold focus:border-indigo-500 transition-all" placeholder="000.000.000-00" required disabled={isSubmitting} />
+          <input type="text" value={cpf} onChange={(e) => setCpf(formatCPF(e.target.value))} onBlur={handleCpfBlur} className="w-full bg-neutral-900 border border-white/10 rounded-xl py-4 px-5 text-white font-bold focus:border-indigo-500 transition-all" placeholder="000.000.000-00" required disabled={isSubmitting || isLimitReached} />
           {cpfCheckMessage && <p className="text-[9px] font-black text-indigo-400 mt-2 uppercase">{cpfCheckMessage}</p>}
         </div>
         {isAdminView && (
@@ -164,7 +189,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
       {hasSubCompanies && (
         <div className="animate-in slide-in-from-top-2 duration-300">
           <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-2">Empresa / Unidade</label>
-          <select value={subCompany} onChange={(e) => setSubCompany(e.target.value)} className="w-full bg-neutral-900 border border-white/10 rounded-xl py-4 px-4 text-white font-bold focus:border-indigo-500 transition-all cursor-pointer appearance-none" required>
+          <select value={subCompany} onChange={(e) => setSubCompany(e.target.value)} className="w-full bg-neutral-900 border border-white/10 rounded-xl py-4 px-4 text-white font-bold focus:border-indigo-500 transition-all cursor-pointer appearance-none" required disabled={isLimitReached}>
             <option value="">Selecionar Empresa...</option>
             {selectedSupplierData?.subCompanies?.map(sc => <option key={sc.name} value={sc.name}>{sc.name}</option>)}
           </select>
@@ -183,8 +208,8 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
 
       <button 
         type="submit" 
-        disabled={isSubmitting || existingAttendeeFound || !photo} 
-        className={`w-full font-black uppercase tracking-[0.2em] text-xs py-5 rounded-2xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${!photo ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}
+        disabled={isSubmitting || existingAttendeeFound || !photo || isLimitReached} 
+        className={`w-full font-black uppercase tracking-[0.2em] text-xs py-5 rounded-2xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${(!photo || isLimitReached) ? 'bg-neutral-800 text-neutral-500 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}
       >
         {isSubmitting ? (
           <>
@@ -193,12 +218,24 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
           </>
         ) : (
           <>
-            {!photo && <NoSymbolIcon className="w-4 h-4" />}
-            {existingAttendeeFound ? 'Já Cadastrado' : 'Finalizar Cadastro'}
+            {isLimitReached ? (
+                <>
+                    <NoSymbolIcon className="w-4 h-4 text-red-500" />
+                    Limite de Vagas Atingido
+                </>
+            ) : (
+                <>
+                    {!photo && <NoSymbolIcon className="w-4 h-4" />}
+                    {existingAttendeeFound ? 'Já Cadastrado' : 'Finalizar Cadastro'}
+                </>
+            )}
           </>
         )}
       </button>
-      {!photo && !existingAttendeeFound && (
+      {isLimitReached && (
+          <p className="text-[10px] text-center font-black uppercase tracking-widest text-red-500">As inscrições para este grupo foram encerradas.</p>
+      )}
+      {!photo && !existingAttendeeFound && !isLimitReached && (
         <p className="text-[9px] text-center font-black uppercase tracking-widest text-rose-500 animate-pulse">Aguardando Captura da Foto</p>
       )}
     </form>
@@ -219,7 +256,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
             <div className="flex flex-col items-center justify-center pt-10">
                <span className="text-[10px] font-black text-neutral-500 uppercase tracking-[0.3em] mb-8">Bio-Identidade Facial</span>
                <div className="w-full max-w-sm">
-                  <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting || isPhotoLocked} allowUpload={isAdminView} />
+                  <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting || isPhotoLocked || isLimitReached} allowUpload={isAdminView} />
                </div>
             </div>
           </div>

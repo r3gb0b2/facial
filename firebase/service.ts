@@ -159,19 +159,30 @@ const uploadPhoto = async (photoDataUrl: string, cpf: string): Promise<string> =
 };
 
 export const addAttendee = async (eventId: string, attendeeData: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>, supplierId?: string) => {
+    let initialStatus = attendeeData.blockReason ? CheckinStatus.PENDING_APPROVAL : CheckinStatus.PENDING;
+
+    if (supplierId) {
+        // Validação de limite no momento do cadastro
+        const supplierRef = db.collection('events').doc(eventId).collection('suppliers').doc(supplierId);
+        const [supplierSnap, countSnap] = await Promise.all([
+            supplierRef.get(),
+            db.collection('events').doc(eventId).collection('attendees').where('supplierId', '==', supplierId).get()
+        ]);
+
+        if (supplierSnap.exists) {
+            const supplier = supplierSnap.data();
+            if (countSnap.size >= (supplier?.registrationLimit || 0)) {
+                throw new Error("O limite de cadastros para este fornecedor/divulgadora foi atingido.");
+            }
+            if (supplier?.needsApproval === true) {
+                initialStatus = CheckinStatus.SUPPLIER_REVIEW;
+            }
+        }
+    }
+
     let photoUrl = attendeeData.photo;
     if (attendeeData.photo.startsWith('data:image') || !attendeeData.photo.startsWith('http')) {
         photoUrl = await uploadPhoto(attendeeData.photo, attendeeData.cpf);
-    }
-
-    let initialStatus = attendeeData.blockReason ? CheckinStatus.PENDING_APPROVAL : CheckinStatus.PENDING;
-
-    // Se o fornecedor exigir análise, o status inicial deve ser SUPPLIER_REVIEW
-    if (supplierId) {
-        const supplierSnap = await db.collection('events').doc(eventId).collection('suppliers').doc(supplierId).get();
-        if (supplierSnap.exists && supplierSnap.data()?.needsApproval === true) {
-            initialStatus = CheckinStatus.SUPPLIER_REVIEW;
-        }
     }
 
     const data: Omit<Attendee, 'id'> = {
@@ -188,6 +199,20 @@ export const addAttendee = async (eventId: string, attendeeData: Omit<Attendee, 
 };
 
 export const requestNewRegistration = async (eventId: string, attendeeData: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>, supplierId: string) => {
+    // Validação de limite também na solicitação por admin fornecedor
+    const supplierRef = db.collection('events').doc(eventId).collection('suppliers').doc(supplierId);
+    const [supplierSnap, countSnap] = await Promise.all([
+        supplierRef.get(),
+        db.collection('events').doc(eventId).collection('attendees').where('supplierId', '==', supplierId).get()
+    ]);
+
+    if (supplierSnap.exists) {
+        const supplier = supplierSnap.data();
+        if (countSnap.size >= (supplier?.registrationLimit || 0)) {
+            throw new Error("O limite de cadastros foi atingido.");
+        }
+    }
+
     let photoUrl = attendeeData.photo;
     if (attendeeData.photo.startsWith('data:image')) {
         photoUrl = await uploadPhoto(attendeeData.photo, attendeeData.cpf);
