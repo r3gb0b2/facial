@@ -119,6 +119,25 @@ export const findAttendeeByCpf = async (cpf: string, eventId?: string): Promise<
     return { ...attendee, eventId: docEventId };
 };
 
+export const searchAttendeesGlobal = async (cpf: string): Promise<(Attendee & { eventId: string, eventName: string })[]> => {
+    const snapshot = await db.collectionGroup('attendees').where('cpf', '==', cpf).get();
+    const results: (Attendee & { eventId: string, eventName: string })[] = [];
+
+    for (const doc of snapshot.docs) {
+        const attendee = getData<Attendee>(doc);
+        const eventRef = doc.ref.parent.parent;
+        if (eventRef) {
+            const eventSnap = await eventRef.get();
+            results.push({
+                ...attendee,
+                eventId: eventRef.id,
+                eventName: eventSnap.data()?.name || 'Evento Desconhecido'
+            });
+        }
+    }
+    return results;
+};
+
 export const checkBlockedStatus = async (cpf: string): Promise<{ isBlocked: true, reason: string, eventName: string } | null> => {
     const snapshot = await db.collectionGroup('attendees')
         .where('cpf', '==', cpf)

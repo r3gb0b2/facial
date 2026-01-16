@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { User, Attendee, Supplier, Sector, Event, UserRole } from '../../types.ts';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
@@ -11,12 +12,13 @@ import WristbandReportView from './WristbandReportView.tsx';
 import CheckinLogView from './CheckinLogView.tsx';
 import QRCodeScannerView from './QRCodeScannerView.tsx';
 import UserManagementView from './UserManagementView.tsx';
+import GlobalSearchView from './GlobalSearchView.tsx';
 import * as api from '../../firebase/service.ts';
 import { 
     ArrowLeftOnRectangleIcon, 
 } from '../icons.tsx';
 
-type AdminTab = 'checkin' | 'register' | 'suppliers' | 'sectors' | 'companies' | 'spreadsheet' | 'reports' | 'logs' | 'scanner' | 'users';
+type AdminTab = 'checkin' | 'register' | 'suppliers' | 'sectors' | 'companies' | 'spreadsheet' | 'reports' | 'logs' | 'scanner' | 'users' | 'globalSearch';
 
 interface AdminViewProps {
     user: User;
@@ -42,6 +44,7 @@ const TABS: { id: AdminTab, labelKey: string, roles: UserRole[] }[] = [
     { id: 'checkin', labelKey: 'admin.tabs.checkin', roles: ['superadmin', 'admin', 'checkin'] },
     { id: 'scanner', labelKey: 'admin.tabs.scanner', roles: ['superadmin', 'admin', 'checkin'] },
     { id: 'logs', labelKey: 'admin.tabs.logs', roles: ['superadmin', 'admin', 'checkin'] },
+    { id: 'globalSearch', labelKey: 'admin.tabs.globalSearch', roles: ['superadmin'] },
     { id: 'register', labelKey: 'admin.tabs.register', roles: ['superadmin', 'admin'] },
     { id: 'suppliers', labelKey: 'admin.tabs.suppliers', roles: ['superadmin', 'admin'] },
     { id: 'companies', labelKey: 'admin.tabs.companies', roles: ['superadmin', 'admin'] },
@@ -212,6 +215,7 @@ const AdminView: React.FC<AdminViewProps> = (props) => {
             <main className="flex-grow overflow-y-auto rounded-lg">
                 <div className="py-6">
                     {activeTab === 'checkin' && <CheckinView {...checkinViewProps} />}
+                    {activeTab === 'globalSearch' && <GlobalSearchView setError={setError} />}
                     {activeTab === 'register' && <RegisterView onRegister={onRegister} setError={setError} sectors={eventData.sectors} suppliers={eventData.suppliers} currentEventId={currentEventId} eventType={currentEvent.type} />}
                     {activeTab === 'suppliers' && <SupplierManagementView currentEventId={currentEventId} suppliers={eventData.suppliers} attendees={eventData.attendees} sectors={eventData.sectors} onAddSupplier={handleAddSupplier} onUpdateSupplier={handleUpdateSupplier} onDeleteSupplier={handleDeleteSupplier} onSupplierStatusUpdate={handleSupplierStatusUpdate} onRegenerateAdminToken={handleRegenerateAdminToken} onUpdateSectorsForSelectedAttendees={handleUpdateSectorsForAttendees} setError={setError} eventType={currentEvent.type} />}
                     {activeTab === 'sectors' && <SectorManagementView sectors={eventData.sectors} onAddSector={handleAddSector} onUpdateSector={handleUpdateSector} onDeleteSector={handleDeleteSector} setError={setError} />}

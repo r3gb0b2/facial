@@ -11,6 +11,7 @@
     "admin.tabs.spreadsheet": "Importar",
     "admin.tabs.reports": "Rel. Pulseiras",
     "admin.tabs.users": "Usuários",
+    "admin.tabs.globalSearch": "Busca Global",
     "login.title": "Acessar Painel",
     "login.usernameLabel": "Usuário",
     "login.usernamePlaceholder": "Digite seu usuário",
