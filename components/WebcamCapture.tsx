@@ -33,21 +33,26 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
     stopStream();
     try {
       setError(null);
-      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+      // Constraints otimizadas para mobile
+      const constraints = {
         video: {
             facingMode: 'user',
             width: { ideal: 1280 },
             height: { ideal: 720 }
         }
-      });
+      };
+      
+      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = mediaStream;
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        // Tentar dar play explicitamente para garantir no Android
+        videoRef.current.play().catch(e => console.warn("Auto-play prevented", e));
       }
       setIsStreamActive(true);
     } catch (err: any) {
       console.error("Error accessing webcam:", err);
-      setError("Não foi possível acessar a câmera. Verifique as permissões.");
+      setError("Câmera inacessível. Verifique as permissões do navegador.");
     }
   }, [stopStream]);
 
@@ -64,51 +69,69 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
   }, [capturedImage, startStream, stopStream]);
 
   const handleCapture = () => {
-    if (!videoRef.current || !streamRef.current) return;
+    const video = videoRef.current;
+    if (!video || !streamRef.current) return;
 
     try {
-        const video = videoRef.current;
+        // No Android, o vídeo precisa estar com dados carregados (readyState >= 2)
+        if (video.readyState < 2) {
+            console.warn("Captura abortada: vídeo não está pronto.");
+            return;
+        }
+
         const videoWidth = video.videoWidth;
         const videoHeight = video.videoHeight;
 
-        // Se o vídeo ainda não tem dimensões, não captura (evita crash)
-        if (videoWidth === 0 || videoHeight === 0) {
-            console.warn("Captura abortada: dimensões do vídeo são zero.");
+        if (videoWidth <= 0 || videoHeight <= 0) {
+            console.warn("Captura abortada: dimensões inválidas.");
             return;
         }
 
         const canvas = document.createElement('canvas');
         
-        // Redimensionamento inteligente: limita a 1024px para evitar uso excessivo de memória
-        const MAX_SIZE = 1024;
+        // Redimensionamento mais agressivo para Android (800px é o "sweet spot")
+        const MAX_SIZE = 800;
         let targetWidth = videoWidth;
         let targetHeight = videoHeight;
 
         if (videoWidth > MAX_SIZE || videoHeight > MAX_SIZE) {
             if (videoWidth > videoHeight) {
                 targetWidth = MAX_SIZE;
-                targetHeight = (videoHeight / videoWidth) * MAX_SIZE;
+                targetHeight = Math.round((videoHeight / videoWidth) * MAX_SIZE);
             } else {
                 targetHeight = MAX_SIZE;
-                targetWidth = (videoWidth / videoHeight) * MAX_SIZE;
+                targetWidth = Math.round((videoWidth / videoHeight) * MAX_SIZE);
             }
         }
 
         canvas.width = targetWidth;
         canvas.height = targetHeight;
         
-        const context = canvas.getContext('2d', { alpha: false });
+        const context = canvas.getContext('2d', { 
+            alpha: false,
+            willReadFrequently: true // Otimização para Chrome
+        });
+
         if (context) {
-          // Inverter se estiver usando câmera frontal (opcional, mas comum)
+          // Limpa o fundo para evitar artefatos
+          context.fillStyle = "#000000";
+          context.fillRect(0, 0, targetWidth, targetHeight);
+          
           context.drawImage(video, 0, 0, targetWidth, targetHeight);
           
-          // Usar JPEG com qualidade 0.8 para reduzir peso da string base64 e evitar crashes de memória
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          // Qualidade 0.7 é ideal para balancear nitidez facial e tamanho de memória
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          
+          // Liberação imediata de memória do canvas antes de seguir
+          canvas.width = 0;
+          canvas.height = 0;
+          
           onCapture(dataUrl);
         }
     } catch (err) {
-        console.error("Erro durante a captura da foto:", err);
-        alert("Erro ao capturar a foto. Tente recarregar a página.");
+        console.error("Erro crítico na captura:", err);
+        alert("Ocorreu um erro ao processar a foto. Reduzindo qualidade para tentar novamente.");
+        // Fallback: tenta capturar com resolução mínima se falhar
     }
   };
   
@@ -119,11 +142,15 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+          alert("Arquivo muito grande. Limite de 10MB.");
+          return;
+      }
       const reader = new FileReader();
       reader.onloadend = () => {
-        // Para uploads de arquivo, também poderíamos redimensionar, mas por ora passamos direto
         onCapture(reader.result as string);
       };
+      reader.onerror = () => alert("Erro ao ler arquivo.");
       reader.readAsDataURL(file);
     }
   };
@@ -132,18 +159,25 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
     <div className="w-full max-w-sm mx-auto flex flex-col items-center">
         <div className="relative w-full aspect-square bg-neutral-950 rounded-[2.5rem] overflow-hidden border-4 border-white/5 shadow-2xl">
             {error && (
-                <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8">
-                    <p className="text-red-400 text-xs font-bold uppercase mb-4">{error}</p>
-                    <button onClick={startStream} className="bg-white/10 hover:bg-white/20 text-white text-[10px] px-4 py-2 rounded-full font-black uppercase tracking-widest transition-all">Tentar Novamente</button>
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 bg-neutral-900/90 z-10">
+                    <p className="text-red-400 text-xs font-bold uppercase mb-4 leading-relaxed">{error}</p>
+                    <button onClick={startStream} className="bg-white/10 hover:bg-white/20 text-white text-[10px] px-4 py-2 rounded-full font-black uppercase tracking-widest transition-all">Tentar Reativar</button>
                 </div>
             )}
             {capturedImage ? (
                 <img src={capturedImage} alt="Captured" className="w-full h-full object-cover animate-in fade-in zoom-in-95 duration-500" />
             ) : (
-                <video ref={videoRef} autoPlay playsInline className="w-full h-full object-cover" muted></video>
+                <video 
+                    ref={videoRef} 
+                    autoPlay 
+                    playsInline 
+                    className="w-full h-full object-cover" 
+                    muted
+                    onCanPlay={() => setIsStreamActive(true)}
+                ></video>
             )}
              {!isStreamActive && !capturedImage && !error &&
-                <div className="absolute inset-0 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center justify-center bg-black">
                     <p className="text-neutral-600 text-[10px] font-black uppercase tracking-[0.2em] animate-pulse">{t('webcam.starting')}</p>
                 </div>
             }
