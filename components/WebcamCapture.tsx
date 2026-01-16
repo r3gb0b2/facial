@@ -1,6 +1,6 @@
 
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { CameraIcon, RefreshIcon, ArrowUpTrayIcon } from './icons.tsx';
+import { CameraIcon, RefreshIcon, ArrowUpTrayIcon, SpinnerIcon } from './icons.tsx';
 import { useTranslation } from '../hooks/useTranslation.tsx';
 
 interface WebcamCaptureProps {
@@ -16,6 +16,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
   const fileInputRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const [isStreamActive, setIsStreamActive] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const stopStream = useCallback(() => {
@@ -33,12 +34,12 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
     stopStream();
     try {
       setError(null);
-      // Constraints otimizadas para mobile
+      // Constraints super conservadoras para Android
       const constraints = {
         video: {
             facingMode: 'user',
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
+            width: { ideal: 640 },
+            height: { ideal: 480 }
         }
       };
       
@@ -46,13 +47,17 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
       streamRef.current = mediaStream;
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-        // Tentar dar play explicitamente para garantir no Android
-        videoRef.current.play().catch(e => console.warn("Auto-play prevented", e));
+        // Play explícito com tratamento de erro
+        try {
+            await videoRef.current.play();
+            setIsStreamActive(true);
+        } catch (e) {
+            console.warn("Auto-play blocked, waiting for user", e);
+        }
       }
-      setIsStreamActive(true);
     } catch (err: any) {
       console.error("Error accessing webcam:", err);
-      setError("Câmera inacessível. Verifique as permissões do navegador.");
+      setError("Câmera bloqueada. Verifique as permissões do Chrome.");
     }
   }, [stopStream]);
 
@@ -68,70 +73,75 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
     };
   }, [capturedImage, startStream, stopStream]);
 
-  const handleCapture = () => {
+  const handleCapture = async () => {
     const video = videoRef.current;
-    if (!video || !streamRef.current) return;
+    if (!video || !streamRef.current || isProcessing) return;
+
+    setIsProcessing(true);
+    const track = streamRef.current.getVideoTracks()[0];
 
     try {
-        // No Android, o vídeo precisa estar com dados carregados (readyState >= 2)
-        if (video.readyState < 2) {
-            console.warn("Captura abortada: vídeo não está pronto.");
-            return;
-        }
-
-        const videoWidth = video.videoWidth;
-        const videoHeight = video.videoHeight;
-
-        if (videoWidth <= 0 || videoHeight <= 0) {
-            console.warn("Captura abortada: dimensões inválidas.");
-            return;
-        }
-
-        const canvas = document.createElement('canvas');
-        
-        // Redimensionamento mais agressivo para Android (800px é o "sweet spot")
-        const MAX_SIZE = 800;
-        let targetWidth = videoWidth;
-        let targetHeight = videoHeight;
-
-        if (videoWidth > MAX_SIZE || videoHeight > MAX_SIZE) {
-            if (videoWidth > videoHeight) {
-                targetWidth = MAX_SIZE;
-                targetHeight = Math.round((videoHeight / videoWidth) * MAX_SIZE);
-            } else {
-                targetHeight = MAX_SIZE;
-                targetWidth = Math.round((videoWidth / videoHeight) * MAX_SIZE);
+        // TÉCNICA 1: ImageCapture (Nativa do Chrome Android - Evita crash de Canvas)
+        if ('ImageCapture' in window && track) {
+            try {
+                const imageCapture = new (window as any).ImageCapture(track);
+                const bitmap = await imageCapture.grabFrame();
+                
+                const canvas = document.createElement('canvas');
+                canvas.width = bitmap.width > 640 ? 640 : bitmap.width;
+                canvas.height = Math.round((bitmap.height / bitmap.width) * canvas.width);
+                
+                const ctx = canvas.getContext('2d', { alpha: false });
+                if (ctx) {
+                    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                    onCapture(dataUrl);
+                    setIsProcessing(false);
+                    return;
+                }
+            } catch (e) {
+                console.warn("ImageCapture failed, falling back to Canvas method", e);
             }
         }
 
-        canvas.width = targetWidth;
-        canvas.height = targetHeight;
-        
+        // TÉCNICA 2: Canvas via Blob (Mais estável que DataURL direto)
+        if (video.readyState < 2) throw new Error("Vídeo não está pronto");
+
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 640; // Resolução VGA para máxima compatibilidade Android
+        const scale = MAX_WIDTH / video.videoWidth;
+        canvas.width = MAX_WIDTH;
+        canvas.height = Math.round(video.videoHeight * scale);
+
         const context = canvas.getContext('2d', { 
             alpha: false,
-            willReadFrequently: true // Otimização para Chrome
+            desynchronized: true // Melhora performance no Chrome
         });
 
         if (context) {
-          // Limpa o fundo para evitar artefatos
-          context.fillStyle = "#000000";
-          context.fillRect(0, 0, targetWidth, targetHeight);
-          
-          context.drawImage(video, 0, 0, targetWidth, targetHeight);
-          
-          // Qualidade 0.7 é ideal para balancear nitidez facial e tamanho de memória
-          const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-          
-          // Liberação imediata de memória do canvas antes de seguir
-          canvas.width = 0;
-          canvas.height = 0;
-          
-          onCapture(dataUrl);
+            context.fillStyle = "#000000";
+            context.fillRect(0, 0, canvas.width, canvas.height);
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Converter para Blob antes de virar DataURL (mais seguro para memória)
+            canvas.toBlob((blob) => {
+                if (blob) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        onCapture(reader.result as string);
+                        setIsProcessing(false);
+                        // Limpeza agressiva
+                        canvas.width = 0;
+                        canvas.height = 0;
+                    };
+                    reader.readAsDataURL(blob);
+                }
+            }, 'image/jpeg', 0.7);
         }
     } catch (err) {
-        console.error("Erro crítico na captura:", err);
-        alert("Ocorreu um erro ao processar a foto. Reduzindo qualidade para tentar novamente.");
-        // Fallback: tenta capturar com resolução mínima se falhar
+        console.error("Erro na captura:", err);
+        alert("Erro ao capturar foto. Tente atualizar a página.");
+        setIsProcessing(false);
     }
   };
   
@@ -142,15 +152,14 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 10 * 1024 * 1024) {
-          alert("Arquivo muito grande. Limite de 10MB.");
+      if (file.size > 8 * 1024 * 1024) {
+          alert("Arquivo muito grande.");
           return;
       }
       const reader = new FileReader();
       reader.onloadend = () => {
         onCapture(reader.result as string);
       };
-      reader.onerror = () => alert("Erro ao ler arquivo.");
       reader.readAsDataURL(file);
     }
   };
@@ -161,7 +170,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
             {error && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 bg-neutral-900/90 z-10">
                     <p className="text-red-400 text-xs font-bold uppercase mb-4 leading-relaxed">{error}</p>
-                    <button onClick={startStream} className="bg-white/10 hover:bg-white/20 text-white text-[10px] px-4 py-2 rounded-full font-black uppercase tracking-widest transition-all">Tentar Reativar</button>
+                    <button onClick={startStream} className="bg-white/10 hover:bg-white/20 text-white text-[10px] px-6 py-2 rounded-full font-black uppercase tracking-widest transition-all">Reativar</button>
                 </div>
             )}
             {capturedImage ? (
@@ -176,9 +185,12 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
                     onCanPlay={() => setIsStreamActive(true)}
                 ></video>
             )}
-             {!isStreamActive && !capturedImage && !error &&
-                <div className="absolute inset-0 flex items-center justify-center bg-black">
-                    <p className="text-neutral-600 text-[10px] font-black uppercase tracking-[0.2em] animate-pulse">{t('webcam.starting')}</p>
+             {(!isStreamActive || isProcessing) && !capturedImage && !error &&
+                <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-4">
+                    <SpinnerIcon className="w-8 h-8 text-indigo-500 animate-spin" />
+                    <p className="text-neutral-500 text-[10px] font-black uppercase tracking-[0.2em]">
+                        {isProcessing ? "Processando Foto..." : t('webcam.starting')}
+                    </p>
                 </div>
             }
         </div>
@@ -187,7 +199,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
                 <button
                     type="button"
                     onClick={handleRetake}
-                    disabled={disabled}
+                    disabled={disabled || isProcessing}
                     className="w-full bg-neutral-800 hover:bg-neutral-700 text-white font-black uppercase tracking-[0.2em] text-[10px] py-5 rounded-2xl transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
                 >
                     <RefreshIcon className="w-4 h-4"/>
@@ -198,14 +210,14 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
                     <button
                         type="button"
                         onClick={handleCapture}
-                        disabled={!isStreamActive || disabled}
+                        disabled={!isStreamActive || disabled || isProcessing}
                         className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-[0.2em] text-[10px] py-5 rounded-2xl shadow-xl shadow-indigo-500/20 transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
                     >
-                        <CameraIcon className="w-5 h-5" />
-                        {t('webcam.captureButton')}
+                        {isProcessing ? <SpinnerIcon className="w-5 h-5 animate-spin" /> : <CameraIcon className="w-5 h-5" />}
+                        {isProcessing ? "Capturando..." : t('webcam.captureButton')}
                     </button>
                     
-                    {allowUpload && (
+                    {allowUpload && !isProcessing && (
                         <div className="w-full">
                             <input
                                 type="file"
