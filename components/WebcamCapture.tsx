@@ -23,18 +23,21 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
         streamRef.current.getTracks().forEach(track => track.stop());
         streamRef.current = null;
     }
+    if (videoRef.current) {
+        videoRef.current.srcObject = null;
+    }
     setIsStreamActive(false);
   }, []);
 
   const startStream = useCallback(async () => {
-    if (streamRef.current) {
-        stopStream();
-    }
+    stopStream();
     try {
       setError(null);
       const mediaStream = await navigator.mediaDevices.getUserMedia({ 
         video: {
-            facingMode: 'user'
+            facingMode: 'user',
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
         }
       });
       streamRef.current = mediaStream;
@@ -44,9 +47,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
       setIsStreamActive(true);
     } catch (err: any) {
       console.error("Error accessing webcam:", err);
-      const baseMessage = "Não foi possível acessar a webcam.";
-      const errorDetails = `(${err.name || 'Error'}: ${err.message || 'Verifique as permissões da câmera.'})`;
-      setError(`${baseMessage} ${errorDetails}`);
+      setError("Não foi possível acessar a câmera. Verifique as permissões.");
     }
   }, [stopStream]);
 
@@ -63,16 +64,51 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
   }, [capturedImage, startStream, stopStream]);
 
   const handleCapture = () => {
-    if (videoRef.current && streamRef.current) {
-      const canvas = document.createElement('canvas');
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
-      const context = canvas.getContext('2d');
-      if (context) {
-        context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/png');
-        onCapture(dataUrl);
-      }
+    if (!videoRef.current || !streamRef.current) return;
+
+    try {
+        const video = videoRef.current;
+        const videoWidth = video.videoWidth;
+        const videoHeight = video.videoHeight;
+
+        // Se o vídeo ainda não tem dimensões, não captura (evita crash)
+        if (videoWidth === 0 || videoHeight === 0) {
+            console.warn("Captura abortada: dimensões do vídeo são zero.");
+            return;
+        }
+
+        const canvas = document.createElement('canvas');
+        
+        // Redimensionamento inteligente: limita a 1024px para evitar uso excessivo de memória
+        const MAX_SIZE = 1024;
+        let targetWidth = videoWidth;
+        let targetHeight = videoHeight;
+
+        if (videoWidth > MAX_SIZE || videoHeight > MAX_SIZE) {
+            if (videoWidth > videoHeight) {
+                targetWidth = MAX_SIZE;
+                targetHeight = (videoHeight / videoWidth) * MAX_SIZE;
+            } else {
+                targetHeight = MAX_SIZE;
+                targetWidth = (videoWidth / videoHeight) * MAX_SIZE;
+            }
+        }
+
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+        
+        const context = canvas.getContext('2d', { alpha: false });
+        if (context) {
+          // Inverter se estiver usando câmera frontal (opcional, mas comum)
+          context.drawImage(video, 0, 0, targetWidth, targetHeight);
+          
+          // Usar JPEG com qualidade 0.8 para reduzir peso da string base64 e evitar crashes de memória
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          onCapture(dataUrl);
+        }
+    } catch (err) {
+        console.error("Erro durante a captura da foto:", err);
+        alert("Erro ao capturar a foto. Tente recarregar a página.");
     }
   };
   
@@ -85,6 +121,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
     if (file) {
       const reader = new FileReader();
       reader.onloadend = () => {
+        // Para uploads de arquivo, também poderíamos redimensionar, mas por ora passamos direto
         onCapture(reader.result as string);
       };
       reader.readAsDataURL(file);
@@ -94,7 +131,12 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
   return (
     <div className="w-full max-w-sm mx-auto flex flex-col items-center">
         <div className="relative w-full aspect-square bg-neutral-950 rounded-[2.5rem] overflow-hidden border-4 border-white/5 shadow-2xl">
-            {error && <div className="absolute inset-0 flex items-center justify-center text-center text-red-400 p-8 text-xs font-bold uppercase">{error}</div>}
+            {error && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8">
+                    <p className="text-red-400 text-xs font-bold uppercase mb-4">{error}</p>
+                    <button onClick={startStream} className="bg-white/10 hover:bg-white/20 text-white text-[10px] px-4 py-2 rounded-full font-black uppercase tracking-widest transition-all">Tentar Novamente</button>
+                </div>
+            )}
             {capturedImage ? (
                 <img src={capturedImage} alt="Captured" className="w-full h-full object-cover animate-in fade-in zoom-in-95 duration-500" />
             ) : (
