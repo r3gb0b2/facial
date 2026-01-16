@@ -34,30 +34,36 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
     stopStream();
     try {
       setError(null);
-      // Constraints super conservadoras para Android
+      // Constraints de alta compatibilidade para Android/Chrome
       const constraints = {
         video: {
             facingMode: 'user',
             width: { ideal: 640 },
-            height: { ideal: 480 }
+            height: { ideal: 480 },
+            frameRate: { max: 30 }
         }
       };
       
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = mediaStream;
+      
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-        // Play explícito com tratamento de erro
+        // Forçar play e garantir atributos para mobile
+        videoRef.current.setAttribute('playsinline', 'true');
+        videoRef.current.setAttribute('muted', 'true');
+        videoRef.current.setAttribute('autoplay', 'true');
+        
         try {
             await videoRef.current.play();
             setIsStreamActive(true);
         } catch (e) {
-            console.warn("Auto-play blocked, waiting for user", e);
+            console.warn("Auto-play blocked", e);
         }
       }
     } catch (err: any) {
       console.error("Error accessing webcam:", err);
-      setError("Câmera bloqueada. Verifique as permissões do Chrome.");
+      setError("Erro na câmera. Verifique as permissões do seu navegador.");
     }
   }, [stopStream]);
 
@@ -73,76 +79,65 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
     };
   }, [capturedImage, startStream, stopStream]);
 
-  const handleCapture = async () => {
+  const handleCapture = () => {
     const video = videoRef.current;
     if (!video || !streamRef.current || isProcessing) return;
 
     setIsProcessing(true);
-    const track = streamRef.current.getVideoTracks()[0];
 
-    try {
-        // TÉCNICA 1: ImageCapture (Nativa do Chrome Android - Evita crash de Canvas)
-        if ('ImageCapture' in window && track) {
+    // Pequeno atraso de 100ms para o hardware da câmera Android não "engasgar" com o clique
+    setTimeout(() => {
+        requestAnimationFrame(() => {
             try {
-                const imageCapture = new (window as any).ImageCapture(track);
-                const bitmap = await imageCapture.grabFrame();
-                
+                if (video.readyState < 2 || video.videoWidth === 0) {
+                    throw new Error("Vídeo não está pronto para captura.");
+                }
+
                 const canvas = document.createElement('canvas');
-                canvas.width = bitmap.width > 640 ? 640 : bitmap.width;
-                canvas.height = Math.round((bitmap.height / bitmap.width) * canvas.width);
+                // Resolução de segurança: 480px (Alta fidelidade facial, Baixo uso de memória)
+                const TARGET_SIZE = 480; 
+                const scale = TARGET_SIZE / video.videoWidth;
                 
-                const ctx = canvas.getContext('2d', { alpha: false });
-                if (ctx) {
-                    ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+                canvas.width = TARGET_SIZE;
+                canvas.height = Math.round(video.videoHeight * scale);
+
+                const context = canvas.getContext('2d', { 
+                    alpha: false,
+                    willReadFrequently: false // Deixa a GPU gerenciar se possível
+                });
+
+                if (context) {
+                    context.imageSmoothingEnabled = true;
+                    context.imageSmoothingQuality = 'high';
+                    
+                    // Preencher fundo para evitar transparência
+                    context.fillStyle = "#000000";
+                    context.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    // Desenha o frame
+                    context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                    // Converter para JPEG (70% qualidade) - O formato mais leve e estável
                     const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                    onCapture(dataUrl);
-                    setIsProcessing(false);
-                    return;
+                    
+                    if (dataUrl && dataUrl.length > 1000) {
+                        onCapture(dataUrl);
+                    } else {
+                        throw new Error("Falha ao gerar dados da imagem.");
+                    }
                 }
-            } catch (e) {
-                console.warn("ImageCapture failed, falling back to Canvas method", e);
+                
+                // Limpeza agressiva de memória do objeto canvas
+                canvas.width = 0;
+                canvas.height = 0;
+            } catch (err) {
+                console.error("Capture Error:", err);
+                alert("Erro ao processar a foto. Tente novamente.");
+            } finally {
+                setIsProcessing(false);
             }
-        }
-
-        // TÉCNICA 2: Canvas via Blob (Mais estável que DataURL direto)
-        if (video.readyState < 2) throw new Error("Vídeo não está pronto");
-
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 640; // Resolução VGA para máxima compatibilidade Android
-        const scale = MAX_WIDTH / video.videoWidth;
-        canvas.width = MAX_WIDTH;
-        canvas.height = Math.round(video.videoHeight * scale);
-
-        const context = canvas.getContext('2d', { 
-            alpha: false,
-            desynchronized: true // Melhora performance no Chrome
         });
-
-        if (context) {
-            context.fillStyle = "#000000";
-            context.fillRect(0, 0, canvas.width, canvas.height);
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            // Converter para Blob antes de virar DataURL (mais seguro para memória)
-            canvas.toBlob((blob) => {
-                if (blob) {
-                    const reader = new FileReader();
-                    reader.onloadend = () => {
-                        onCapture(reader.result as string);
-                        setIsProcessing(false);
-                        // Limpeza agressiva
-                        canvas.width = 0;
-                        canvas.height = 0;
-                    };
-                    reader.readAsDataURL(blob);
-                }
-            }, 'image/jpeg', 0.7);
-        }
-    } catch (err) {
-        console.error("Erro na captura:", err);
-        alert("Erro ao capturar foto. Tente atualizar a página.");
-        setIsProcessing(false);
-    }
+    }, 100);
   };
   
   const handleRetake = () => {
@@ -152,10 +147,6 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 8 * 1024 * 1024) {
-          alert("Arquivo muito grande.");
-          return;
-      }
       const reader = new FileReader();
       reader.onloadend = () => {
         onCapture(reader.result as string);
@@ -170,7 +161,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
             {error && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 bg-neutral-900/90 z-10">
                     <p className="text-red-400 text-xs font-bold uppercase mb-4 leading-relaxed">{error}</p>
-                    <button onClick={startStream} className="bg-white/10 hover:bg-white/20 text-white text-[10px] px-6 py-2 rounded-full font-black uppercase tracking-widest transition-all">Reativar</button>
+                    <button onClick={startStream} className="bg-white/10 hover:bg-white/20 text-white text-[10px] px-6 py-2 rounded-full font-black uppercase tracking-widest transition-all">Reativar Câmera</button>
                 </div>
             )}
             {capturedImage ? (
@@ -180,8 +171,8 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
                     ref={videoRef} 
                     autoPlay 
                     playsInline 
-                    className="w-full h-full object-cover" 
                     muted
+                    className="w-full h-full object-cover" 
                     onCanPlay={() => setIsStreamActive(true)}
                 ></video>
             )}
@@ -189,7 +180,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-4">
                     <SpinnerIcon className="w-8 h-8 text-indigo-500 animate-spin" />
                     <p className="text-neutral-500 text-[10px] font-black uppercase tracking-[0.2em]">
-                        {isProcessing ? "Processando Foto..." : t('webcam.starting')}
+                        {isProcessing ? "Processando..." : t('webcam.starting')}
                     </p>
                 </div>
             }
