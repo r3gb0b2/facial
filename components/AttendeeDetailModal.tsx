@@ -74,13 +74,16 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
   const statusInfo = {
     [CheckinStatus.PENDING]: { bg: isVip ? 'bg-amber-500' : 'bg-gray-600', text: 'text-white', label: t('status.pending') },
     [CheckinStatus.CHECKED_IN]: { bg: isVip ? 'bg-rose-500' : 'bg-green-600', text: 'text-white', label: t('status.checked_in') },
+    [CheckinStatus.CHECKED_OUT]: { bg: 'bg-slate-500', text: 'text-white', label: t('status.checked_out') },
     [CheckinStatus.CANCELLED]: { bg: 'bg-red-600', text: 'text-white', label: t('status.cancelled') },
     [CheckinStatus.SUBSTITUTION]: { bg: 'bg-yellow-500', text: 'text-black', label: t('status.substitution') },
     [CheckinStatus.SUBSTITUTION_REQUEST]: { bg: 'bg-blue-500', text: 'text-white', label: t('status.substitution_request') },
     [CheckinStatus.SECTOR_CHANGE_REQUEST]: { bg: 'bg-purple-500', text: 'text-white', label: t('status.sector_change_request') },
     [CheckinStatus.PENDING_APPROVAL]: { bg: 'bg-yellow-500', text: 'text-black', label: t('status.pending_approval') },
+    [CheckinStatus.SUPPLIER_REVIEW]: { bg: 'bg-blue-600/30', text: 'text-blue-400', label: t('status.supplier_review') },
     [CheckinStatus.MISSED]: { bg: 'bg-gray-800', text: 'text-gray-400', label: t('status.missed') },
     [CheckinStatus.BLOCKED]: { bg: 'bg-red-700', text: 'text-white', label: t('status.blocked') },
+    [CheckinStatus.REJECTED]: { bg: 'bg-red-500/10', text: 'text-red-500', label: t('status.rejected') },
   }[attendee.status] || { bg: 'bg-gray-600', text: 'text-gray-200', label: attendee.status };
   
   const formatCPF = (cpf: string) => {
@@ -222,12 +225,16 @@ export const AttendeeDetailModal: React.FC<AttendeeDetailModalProps> = ({
     }
 
     // Ações para Novo Cadastro Pendente (Admin)
-    if (attendee.status === CheckinStatus.PENDING_APPROVAL) {
+    if (attendee.status === CheckinStatus.PENDING_APPROVAL || attendee.status === CheckinStatus.SUPPLIER_REVIEW) {
         return (
             <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-2xl p-6 h-full flex flex-col gap-6">
                  <div className="text-center">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-yellow-500 block mb-4">Aprovação Administrativa</span>
-                    <p className="text-gray-400 text-xs leading-relaxed">Este colaborador foi cadastrado e aguarda a liberação oficial do administrador para o check-in.</p>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-yellow-500 block mb-4">Aprovação Necessária</span>
+                    <p className="text-gray-400 text-xs leading-relaxed">
+                        {attendee.status === CheckinStatus.SUPPLIER_REVIEW 
+                            ? "Este cadastro aguarda aprovação do fornecedor primeiro, mas você pode liberar agora se desejar." 
+                            : "Este colaborador foi cadastrado e aguarda sua liberação para o check-in."}
+                    </p>
                 </div>
                 <div className="flex flex-col gap-2 mt-auto">
                     <button 

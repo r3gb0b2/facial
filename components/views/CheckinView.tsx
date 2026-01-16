@@ -36,9 +36,9 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
   const { t } = useTranslation();
   const sessionKey = `filters_${currentEventId}`;
 
-  // Filtrar a lista base para ignorar quem está em análise pelo fornecedor
+  // LISTAGEM TOTAL: Agora inclui todos os status sem filtros automáticos escondidos
   const baseAttendees = useMemo(() => {
-    return attendees.filter(a => a.status !== CheckinStatus.SUPPLIER_REVIEW);
+    return attendees;
   }, [attendees]);
 
   const [filters, setFilters] = useState(() => {
@@ -161,7 +161,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
           {[
               { label: 'Total Operacional', val: baseAttendees.length, color: 'text-white' },
               { label: 'Presentes', val: baseAttendees.filter(a => a.status === CheckinStatus.CHECKED_IN).length, color: isVip ? 'text-rose-500' : 'text-green-400' },
-              { label: 'Pendentes', val: baseAttendees.filter(a => a.status === CheckinStatus.PENDING).length, color: 'text-amber-400' },
+              { label: 'Pendentes', val: baseAttendees.filter(a => a.status === CheckinStatus.PENDING || a.status === CheckinStatus.PENDING_APPROVAL || a.status === CheckinStatus.SUPPLIER_REVIEW).length, color: 'text-amber-400' },
               { label: 'Filtrados', val: filteredAttendees.length, color: 'text-indigo-400' }
           ].map(s => (
               <div key={s.label} className="bg-neutral-900/80 border border-white/5 p-6 rounded-[2rem] text-center shadow-xl">
