@@ -51,19 +51,19 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
 
   const selectedSupplierData = useMemo(() => {
     if (!isAdminView) return supplierInfo?.data;
-    return suppliers.find(s => s.id === selectedSupplierId);
+    return suppliers.find(s => s && s.id === selectedSupplierId);
   }, [isAdminView, selectedSupplierId, suppliers, supplierInfo]);
 
   const hasSubCompanies = useMemo(() => {
-    return Array.isArray(selectedSupplierData?.subCompanies) && selectedSupplierData!.subCompanies!.length > 0;
+    return selectedSupplierData && Array.isArray(selectedSupplierData.subCompanies) && selectedSupplierData.subCompanies.length > 0;
   }, [selectedSupplierData]);
 
   // Efeito para verificar limite do fornecedor (para portal público)
   useEffect(() => {
     const checkLimit = async () => {
-        if (!isAdminView && supplierInfo) {
+        if (!isAdminView && supplierInfo && supplierInfo.data) {
             const count = await api.getRegistrationsCountForSupplier(supplierInfo.data.eventId, supplierInfo.data.id);
-            if (count >= supplierInfo.data.registrationLimit) {
+            if (count >= (supplierInfo.data.registrationLimit || 0)) {
                 setIsLimitReached(true);
             } else {
                 setIsLimitReached(false);
@@ -73,19 +73,23 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
     checkLimit();
   }, [isAdminView, supplierInfo]);
 
+  // Hardening: Prevenir loop infinito de atualizações de setor
   useEffect(() => {
     if (selectedSupplierData) {
         if (!hasSubCompanies) {
-            setSubCompany('');
-            if (!isAdminView && selectedSupplierData.sectors?.length > 0) {
-                setSector(selectedSupplierData.sectors[0]);
+            if (subCompany !== '') setSubCompany('');
+            if (!isAdminView && Array.isArray(selectedSupplierData.sectors) && selectedSupplierData.sectors.length > 0) {
+                const firstSector = selectedSupplierData.sectors[0];
+                if (sector !== firstSector) setSector(firstSector);
             }
         } else if (subCompany && !isAdminView) {
-            const sc = selectedSupplierData.subCompanies?.find(c => c.name === subCompany);
-            if (sc) setSector(sc.sector);
+            const sc = selectedSupplierData.subCompanies?.find(c => c && c.name === subCompany);
+            if (sc && sector !== sc.sector) {
+                setSector(sc.sector);
+            }
         }
     }
-  }, [selectedSupplierData, hasSubCompanies, subCompany, isAdminView]);
+  }, [selectedSupplierData, hasSubCompanies, subCompany, isAdminView, sector]);
 
   const handleCpfBlur = async () => {
     const rawCpf = cpf.replace(/\D/g, '');
@@ -97,7 +101,12 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
         const blockInfo = await api.checkBlockedStatus(rawCpf);
         if (blockInfo) setBlockedInfo(blockInfo);
 
-        const activeEventId = isAdminView ? currentEventId : supplierInfo?.data.eventId;
+        const activeEventId = isAdminView ? currentEventId : supplierInfo?.data?.eventId;
+        if (!activeEventId) {
+            setCpfCheckMessage('Erro: Evento não identificado.');
+            return;
+        }
+
         const existingAttendee = await api.findAttendeeByCpf(rawCpf, activeEventId);
         
         if (existingAttendee) {
@@ -143,7 +152,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
     try {
       await onRegister({ 
           name, cpf: rawCpf, email: email || '', photo, 
-          sectors: [sector], subCompany 
+          sectors: sector ? [sector] : [], subCompany 
       }, isAdminView ? selectedSupplierId : undefined);
       
       setName(''); setCpf(''); setEmail(''); setPhoto(null); setSubCompany('');
@@ -152,7 +161,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
     } catch (error: any) {
       setError(error.message || "Falha ao registrar.");
       // Se o erro for de limite, atualizar o estado local
-      if (error.message?.includes("limite")) {
+      if (error.message && error.message.includes("limite")) {
           setIsLimitReached(true);
       }
     } finally {
@@ -160,7 +169,10 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
     }
   };
 
-  const formatCPF = (value: string) => value.replace(/\D/g, '').slice(0, 11).replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  const formatCPF = (value: string) => {
+      if (!value) return '';
+      return value.replace(/\D/g, '').slice(0, 11).replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+  };
 
   const renderFormFields = () => (
     <form onSubmit={handleRegisterSubmit} className="space-y-6">
@@ -180,7 +192,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
             <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-2">Fornecedor</label>
             <select value={selectedSupplierId} onChange={(e) => setSelectedSupplierId(e.target.value)} className="w-full bg-neutral-900 border border-white/10 rounded-xl py-4 px-4 text-white font-bold focus:border-indigo-500 transition-all cursor-pointer appearance-none" required>
               <option value="">Selecionar...</option>
-              {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+              {suppliers.map(s => s && <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
           </div>
         )}
@@ -191,7 +203,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
           <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-2">Empresa / Unidade</label>
           <select value={subCompany} onChange={(e) => setSubCompany(e.target.value)} className="w-full bg-neutral-900 border border-white/10 rounded-xl py-4 px-4 text-white font-bold focus:border-indigo-500 transition-all cursor-pointer appearance-none" required disabled={isLimitReached}>
             <option value="">Selecionar Empresa...</option>
-            {selectedSupplierData?.subCompanies?.map(sc => <option key={sc.name} value={sc.name}>{sc.name}</option>)}
+            {selectedSupplierData?.subCompanies?.map(sc => sc && <option key={sc.name} value={sc.name}>{sc.name}</option>)}
           </select>
         </div>
       )}
@@ -201,7 +213,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
           <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-500 mb-2">Setor de Acesso (Admin)</label>
           <select value={sector} onChange={(e) => setSector(e.target.value)} className="w-full bg-neutral-900 border border-white/10 rounded-xl py-4 px-4 text-white font-bold focus:border-indigo-500 transition-all appearance-none" required>
             <option value="">Selecionar Setor...</option>
-            {sectors.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+            {sectors.map(s => s && <option key={s.id} value={s.id}>{s.label}</option>)}
           </select>
         </div>
       )}

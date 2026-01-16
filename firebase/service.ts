@@ -178,6 +178,8 @@ const uploadPhoto = async (photoDataUrl: string, cpf: string): Promise<string> =
 };
 
 export const addAttendee = async (eventId: string, attendeeData: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>, supplierId?: string) => {
+    if (!eventId) throw new Error("ID do evento é obrigatório.");
+    
     let initialStatus = attendeeData.blockReason ? CheckinStatus.PENDING_APPROVAL : CheckinStatus.PENDING;
 
     if (supplierId) {
@@ -207,9 +209,10 @@ export const addAttendee = async (eventId: string, attendeeData: Omit<Attendee, 
     const data: Omit<Attendee, 'id'> = {
         ...attendeeData,
         email: attendeeData.email || '', 
-        photo: photoUrl,
+        photo: photoUrl || '',
         eventId,
         status: initialStatus,
+        sectors: attendeeData.sectors || [],
         createdAt: Timestamp.now(),
         ...(supplierId && { supplierId })
     };
@@ -218,7 +221,8 @@ export const addAttendee = async (eventId: string, attendeeData: Omit<Attendee, 
 };
 
 export const requestNewRegistration = async (eventId: string, attendeeData: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>, supplierId: string) => {
-    // Validação de limite também na solicitação por admin fornecedor
+    if (!eventId || !supplierId) throw new Error("IDs de Evento e Fornecedor são obrigatórios.");
+
     const supplierRef = db.collection('events').doc(eventId).collection('suppliers').doc(supplierId);
     const [supplierSnap, countSnap] = await Promise.all([
         supplierRef.get(),
@@ -240,9 +244,10 @@ export const requestNewRegistration = async (eventId: string, attendeeData: Omit
     const data: Omit<Attendee, 'id'> = {
         ...attendeeData,
         email: attendeeData.email || '',
-        photo: photoUrl,
+        photo: photoUrl || '',
         eventId,
         status: CheckinStatus.PENDING_APPROVAL,
+        sectors: attendeeData.sectors || [],
         createdAt: Timestamp.now(),
         supplierId,
     };
@@ -413,7 +418,6 @@ export const rejectSectorChange = (eventId: string, attendeeId: string) => {
     });
 };
 
-// FIX: Added missing sectorIds parameter to resolve "Cannot find name 'sectorIds'" and argument count mismatch in AdminView.tsx.
 export const updateSectorsForAttendees = async (eventId: string, attendeeIds: string[], sectorIds: string[]) => {
     if (attendeeIds.length === 0) {
         return;
@@ -478,11 +482,16 @@ export const subscribeToSupplierForRegistration = (
     const updateCallback = () => {
         if (data.eventName !== null && data.supplier !== null && data.allSectors !== null) {
             const { eventName, eventType, supplier, allSectors, allowPhotoChange, allowGuestUploads } = data;
-            const validSectorIds = new Set(allSectors.map(s => s.id));
+            
+            // Hardening: Garantir que allSectors seja um array antes de mapear
+            const validSectors = Array.isArray(allSectors) ? allSectors.filter(s => s && s.id) : [];
+            const validSectorIds = new Set(validSectors.map(s => s.id));
+            
             const dataForUI = { ...supplier };
             dataForUI.sectors = (supplier.sectors || []).filter(sectorId => validSectorIds.has(sectorId));
-            dataForUI.subCompanies = (supplier.subCompanies || []).filter(sc => validSectorIds.has(sc.sector));
-            callback({ data: dataForUI, name: eventName, sectors: allSectors, allowPhotoChange, allowGuestUploads, type: eventType });
+            dataForUI.subCompanies = (supplier.subCompanies || []).filter(sc => sc && validSectorIds.has(sc.sector));
+            
+            callback({ data: dataForUI, name: eventName, sectors: validSectors, allowPhotoChange, allowGuestUploads, type: eventType });
         }
     };
     
@@ -496,7 +505,7 @@ export const subscribeToSupplierForRegistration = (
 
     const eventUnsub = db.collection('events').doc(eventId).onSnapshot(eventSnap => {
         if (!eventSnap.exists) {
-            handleError(new Error("Event not found"));
+            handleError(new Error("Evento não encontrado."));
             return;
         }
         const eventData = eventSnap.data();
@@ -510,7 +519,7 @@ export const subscribeToSupplierForRegistration = (
 
     const supplierUnsub = db.collection('events').doc(eventId).collection('suppliers').doc(supplierId).onSnapshot(supplierSnap => {
         if (!supplierSnap.exists) {
-            handleError(new Error("Supplier not found"));
+            handleError(new Error("Fornecedor não encontrado ou link inativo."));
             return;
         }
         data.supplier = { ...getData<Supplier>(supplierSnap), eventId };
@@ -528,8 +537,14 @@ export const subscribeToSupplierForRegistration = (
 };
 
 export const getRegistrationsCountForSupplier = async (eventId: string, supplierId: string): Promise<number> => {
-    const snapshot = await db.collection('events').doc(eventId).collection('attendees').where('supplierId', '==', supplierId).get();
-    return snapshot.size;
+    if (!eventId || !supplierId) return 0;
+    try {
+        const snapshot = await db.collection('events').doc(eventId).collection('attendees').where('supplierId', '==', supplierId).get();
+        return snapshot.size;
+    } catch (e) {
+        console.error("Erro ao contar registros:", e);
+        return 0;
+    }
 };
 
 export const subscribeToSupplierAdminData = (
@@ -545,7 +560,7 @@ export const subscribeToSupplierAdminData = (
 
         const suppliersSnap = await db.collectionGroup('suppliers').where('adminToken', '==', token).limit(1).get();
         if (suppliersSnap.empty) {
-            onError(new Error("Invalid token"));
+            onError(new Error("Link de visualização inválido."));
             return;
         }
 
@@ -553,7 +568,7 @@ export const subscribeToSupplierAdminData = (
         const eventRef = supplierDoc.ref.parent.parent;
 
         if (!eventRef) {
-            onError(new Error("Event not found for supplier"));
+            onError(new Error("Evento não encontrado para este fornecedor."));
             return;
         }
 
@@ -574,13 +589,15 @@ export const subscribeToSupplierAdminData = (
         if (eventSnap.exists) {
             eventName = eventSnap.data()?.name || 'Evento';
         } else {
-            onError(new Error("Event data could not be retrieved."));
+            onError(new Error("Dados do evento inacessíveis."));
             return;
         }
 
         const supplierUnsub = supplierDoc.ref.onSnapshot(doc => {
-            supplier = getData<Supplier>(doc);
-            updateCallback();
+            if (doc.exists) {
+                supplier = getData<Supplier>(doc);
+                updateCallback();
+            }
         }, onError);
         unsubscribes.push(supplierUnsub);
 
@@ -621,7 +638,7 @@ export const deleteSector = async (eventId: string, sectorId: string) => {
     const attendeesSnap = await db.collection('events').doc(eventId).collection('attendees').where('sectors', 'array-contains', sectorId).get();
 
     if (!suppliersSnap.empty || !attendeesSnap.empty) {
-        throw new Error('Sector is in use and cannot be deleted.');
+        throw new Error('O setor está em uso e não pode ser excluído.');
     }
     return db.collection('events').doc(eventId).collection('sectors').doc(sectorId).delete();
 };
@@ -656,7 +673,7 @@ export const getUsers = async (): Promise<User[]> => {
 export const createUser = async (userData: Omit<User, 'id'>) => {
     const snapshot = await db.collection('users').where('username', '==', userData.username).get();
     if (!snapshot.empty) {
-        throw new Error("Username already exists.");
+        throw new Error("Este nome de usuário já existe.");
     }
     const userWithStatus = {
         ...userData,
@@ -719,7 +736,7 @@ export const registerUserWithInvite = async (token: string, userData: Pick<User,
 export const registerPendingUser = async (userData: Pick<User, 'username' | 'password'>) => {
     const snapshot = await db.collection('users').where('username', '==', userData.username).get();
     if (!snapshot.empty) {
-        throw new Error("Username already exists.");
+        throw new Error("Nome de usuário já existe.");
     }
     const newUser: Omit<User, 'id'> = {
         username: userData.username,

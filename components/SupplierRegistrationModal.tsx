@@ -15,6 +15,7 @@ interface SupplierRegistrationModalProps {
 }
 
 const formatCPF = (value: string) => {
+    if (!value) return '';
     return value
       .replace(/\D/g, '') // Remove all non-digit characters
       .slice(0, 11) // Limit to 11 digits
@@ -35,22 +36,34 @@ const SupplierRegistrationModal: React.FC<SupplierRegistrationModalProps> = ({ e
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   
-  const hasSubCompanies = Array.isArray(supplier.subCompanies) && supplier.subCompanies.length > 0;
+  const hasSubCompanies = supplier && Array.isArray(supplier.subCompanies) && supplier.subCompanies.length > 0;
 
   // Lógica Automática de Setor
   useEffect(() => {
-    if (!hasSubCompanies) {
-        if (supplier.sectors && supplier.sectors.length > 0) {
-            setSelectedSectors([supplier.sectors[0]]);
+    if (supplier) {
+        if (!hasSubCompanies) {
+            if (Array.isArray(supplier.sectors) && supplier.sectors.length > 0) {
+                const firstSector = supplier.sectors[0];
+                if (selectedSectors.length === 0 || selectedSectors[0] !== firstSector) {
+                    setSelectedSectors([firstSector]);
+                }
+            }
+        } else if (subCompany) {
+            const sc = supplier.subCompanies?.find(c => c && c.name === subCompany);
+            if (sc && (selectedSectors.length === 0 || selectedSectors[0] !== sc.sector)) {
+                setSelectedSectors([sc.sector]);
+            }
         }
-    } else if (subCompany) {
-        const sc = supplier.subCompanies?.find(c => c.name === subCompany);
-        if (sc) setSelectedSectors([sc.sector]);
     }
-  }, [hasSubCompanies, supplier.sectors, subCompany, supplier.subCompanies]);
+  }, [hasSubCompanies, supplier, subCompany, selectedSectors]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!eventId || !supplier) {
+        setError("Erro: Contexto de fornecedor não identificado.");
+        return;
+    }
+
     const rawCpf = cpf.replace(/\D/g, '');
 
     if (!name.trim() || rawCpf.length !== 11 || !photo || selectedSectors.length === 0) {
@@ -62,16 +75,17 @@ const SupplierRegistrationModal: React.FC<SupplierRegistrationModalProps> = ({ e
       return;
     }
     
-    const currentCount = await api.getRegistrationsCountForSupplier(eventId, supplier.id);
-    if (currentCount >= supplier.registrationLimit) {
-        setError(t('errors.registrationLimitReached'));
-        return;
-    }
-
     setIsSubmitting(true);
     setError('');
 
     try {
+        const currentCount = await api.getRegistrationsCountForSupplier(eventId, supplier.id);
+        if (currentCount >= (supplier.registrationLimit || 0)) {
+            setError(t('errors.registrationLimitReached'));
+            setIsSubmitting(false);
+            return;
+        }
+
         const attendeeData: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'> = {
             name: name.trim(),
             cpf: rawCpf,
@@ -84,9 +98,9 @@ const SupplierRegistrationModal: React.FC<SupplierRegistrationModalProps> = ({ e
       onSuccess();
       onClose();
 
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError("Falha ao enviar a solicitação de cadastro.");
+      setError(err.message || "Falha ao enviar a solicitação de cadastro.");
     } finally {
       setIsSubmitting(false);
     }
@@ -104,11 +118,11 @@ const SupplierRegistrationModal: React.FC<SupplierRegistrationModalProps> = ({ e
               required
             >
               <option value="" disabled>{t('register.form.subCompanyPlaceholder')}</option>
-              {supplier.subCompanies?.map(sc => 
+              {supplier.subCompanies?.map(sc => sc && (
                   <option key={sc.name} value={sc.name}>
                       {sc.name}
                   </option>
-              )}
+              ))}
             </select>
           </div>
       );

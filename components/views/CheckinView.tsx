@@ -36,9 +36,9 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
   const { t } = useTranslation();
   const sessionKey = `filters_${currentEventId}`;
 
-  // LISTAGEM TOTAL: Agora inclui todos os status sem filtros automáticos escondidos
+  // Hardening: Garantir que attendees seja sempre um array
   const baseAttendees = useMemo(() => {
-    return attendees;
+    return Array.isArray(attendees) ? attendees : [];
   }, [attendees]);
 
   const [filters, setFilters] = useState(() => {
@@ -64,22 +64,24 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
   const sectorMap = useMemo(() => new Map(sectors.map(s => [s.id, s])), [sectors]);
   const supplierMap = useMemo(() => new Map(suppliers.map(s => [s.id, s])), [suppliers]);
 
-  // --- Filtros Dinâmicos ---
+  // --- Filtros Dinâmicos com Hardening ---
   const availableStatusOptions = useMemo(() => {
     const usedStatuses = new Set<string>();
-    baseAttendees.forEach(a => usedStatuses.add(a.status));
+    baseAttendees.forEach(a => {
+        if (a && a.status) usedStatuses.add(a.status);
+    });
     return Object.values(CheckinStatus).filter(status => usedStatuses.has(status));
   }, [baseAttendees]);
 
   const availableSuppliers = useMemo(() => {
     const usedSupplierIds = new Set<string>();
-    baseAttendees.forEach(a => { if (a.supplierId) usedSupplierIds.add(a.supplierId); });
-    return suppliers.filter(s => usedSupplierIds.has(s.id)).sort((a, b) => a.name.localeCompare(b.name));
+    baseAttendees.forEach(a => { if (a && a.supplierId) usedSupplierIds.add(a.supplierId); });
+    return suppliers.filter(s => s && usedSupplierIds.has(s.id)).sort((a, b) => a.name.localeCompare(b.name));
   }, [baseAttendees, suppliers]);
 
   const availableCompanies = useMemo(() => {
     const companies = new Set<string>();
-    baseAttendees.forEach(a => { if (a.subCompany) companies.add(a.subCompany); });
+    baseAttendees.forEach(a => { if (a && a.subCompany) companies.add(a.subCompany); });
     return Array.from(companies).sort();
   }, [baseAttendees]);
 
@@ -120,11 +122,11 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
 
   const handleExportToExcel = () => {
     const dataToExport = baseAttendees.map(attendee => ({
-        [isVip ? 'Nome do Convidado' : 'Nome']: attendee.name,
-        'CPF': attendee.cpf,
-        'Status': t(`status.${attendee.status.toLowerCase()}`),
+        [isVip ? 'Nome do Convidado' : 'Nome']: attendee.name || 'Sem Nome',
+        'CPF': attendee.cpf || '',
+        'Status': attendee.status ? t(`status.${attendee.status.toLowerCase()}`) : 'S/ Status',
         'Empresa': attendee.subCompany || '',
-        'Fornecedor': attendee.supplierId ? supplierMap.get(attendee.supplierId)?.name : '',
+        'Fornecedor': attendee.supplierId ? (supplierMap.get(attendee.supplierId)?.name || 'N/A') : '',
     }));
     const ws = XLSX.utils.json_to_sheet(dataToExport);
     const wb = XLSX.utils.book_new();
@@ -136,6 +138,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
     const normalizedTerm = normalizeString(searchTerm);
 
     return baseAttendees.filter((attendee) => {
+      if (!attendee) return false;
       if (statusFilter !== 'ALL' && attendee.status !== statusFilter) return false;
       if (supplierFilter !== 'ALL' && attendee.supplierId !== supplierFilter) return false;
       if (companyFilter !== 'ALL' && attendee.subCompany !== companyFilter) return false;
@@ -144,15 +147,15 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
         const wristbandsStr = attendee.wristbands ? Object.values(attendee.wristbands).join(' ') : '';
         if (searchBy === 'ALL') {
           return normalizeString(attendee.name).includes(normalizedTerm) ||
-                 attendee.cpf.includes(normalizedTerm) ||
+                 (attendee.cpf && attendee.cpf.includes(normalizedTerm)) ||
                  normalizeString(wristbandsStr).includes(normalizedTerm) ||
                  (attendee.subCompany && normalizeString(attendee.subCompany).includes(normalizedTerm));
         }
         if (searchBy === 'NAME') return normalizeString(attendee.name).includes(normalizedTerm);
-        if (searchBy === 'CPF') return attendee.cpf.includes(normalizedTerm);
+        if (searchBy === 'CPF') return attendee.cpf && attendee.cpf.includes(normalizedTerm);
       }
       return true;
-    }).sort((a, b) => a.name.localeCompare(b.name));
+    }).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }, [baseAttendees, searchTerm, searchBy, statusFilter, supplierFilter, companyFilter]);
 
   return (
@@ -160,8 +163,8 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
               { label: 'Total Operacional', val: baseAttendees.length, color: 'text-white' },
-              { label: 'Presentes', val: baseAttendees.filter(a => a.status === CheckinStatus.CHECKED_IN).length, color: isVip ? 'text-rose-500' : 'text-green-400' },
-              { label: 'Pendentes', val: baseAttendees.filter(a => a.status === CheckinStatus.PENDING || a.status === CheckinStatus.PENDING_APPROVAL || a.status === CheckinStatus.SUPPLIER_REVIEW).length, color: 'text-amber-400' },
+              { label: 'Presentes', val: baseAttendees.filter(a => a && a.status === CheckinStatus.CHECKED_IN).length, color: isVip ? 'text-rose-500' : 'text-green-400' },
+              { label: 'Pendentes', val: baseAttendees.filter(a => a && (a.status === CheckinStatus.PENDING || a.status === CheckinStatus.PENDING_APPROVAL || a.status === CheckinStatus.SUPPLIER_REVIEW)).length, color: 'text-amber-400' },
               { label: 'Filtrados', val: filteredAttendees.length, color: 'text-indigo-400' }
           ].map(s => (
               <div key={s.label} className="bg-neutral-900/80 border border-white/5 p-6 rounded-[2rem] text-center shadow-xl">
@@ -188,7 +191,7 @@ const CheckinView: React.FC<CheckinViewProps> = ({ user, attendees, suppliers, s
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
              <select value={statusFilter} onChange={(e) => handleFilterChange('statusFilter', e.target.value)} className="bg-black/40 border border-white/10 rounded-xl py-4 px-4 text-white focus:outline-none font-bold uppercase text-[10px] tracking-widest">
                 <option value="ALL">Status: Todos ({availableStatusOptions.length})</option>
-                {availableStatusOptions.map(s => <option key={s} value={s}>{t(`status.${s.toLowerCase()}`)}</option>)}
+                {availableStatusOptions.map(s => <option key={s} value={s}>{s ? t(`status.${s.toLowerCase()}`) : s}</option>)}
              </select>
              <select value={companyFilter} onChange={(e) => handleFilterChange('companyFilter', e.target.value)} className="bg-black/40 border border-white/10 rounded-xl py-4 px-4 text-white focus:outline-none font-bold uppercase text-[10px] tracking-widest">
                 <option value="ALL">{isVip ? 'Todos Grupos' : 'Todas Empresas'} ({availableCompanies.length})</option>
