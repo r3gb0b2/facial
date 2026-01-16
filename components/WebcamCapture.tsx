@@ -34,14 +34,13 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
     stopStream();
     try {
       setError(null);
-      // HARDENING ANDROID: Pedir resolução EXATA baixa para evitar estouro de memória na GPU
+      // ANDROID SAFE CONSTRAINTS: 480p é o padrão mais estável para Chrome Android
       const constraints = {
         video: {
             facingMode: 'user',
             width: { ideal: 640 },
             height: { ideal: 480 },
-            // Evita que o Android tente resoluções 4K ou 1080p que causam o crash
-            frameRate: { max: 24 }
+            frameRate: { max: 20 } // Menos frames = menos uso de CPU/GPU
         }
       };
       
@@ -62,7 +61,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
       }
     } catch (err: any) {
       console.error("Error accessing webcam:", err);
-      setError("Erro ao acessar câmera. Verifique as permissões.");
+      setError("Erro na câmera. Verifique se o Chrome tem permissão.");
     }
   }, [stopStream]);
 
@@ -80,40 +79,26 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
 
   const handleCapture = async () => {
     const video = videoRef.current;
-    const stream = streamRef.current;
-    if (!video || !stream || isProcessing) return;
+    if (!video || !streamRef.current || isProcessing) return;
 
     setIsProcessing(true);
 
     try {
-        const track = stream.getVideoTracks()[0];
-        
-        // ESTRATÉGIA 1: ImageCapture API (Nativa Chrome Android)
-        // Esta API captura a foto diretamente do hardware sem passar pelo Canvas do Browser,
-        // evitando 100% o erro de tela branca/crash de GPU.
-        if ('ImageCapture' in window && track) {
-            try {
-                const imageCapture = new (window as any).ImageCapture(track);
-                // takePhoto é mais estável que grabFrame no Android
-                const blob = await imageCapture.takePhoto();
-                
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    onCapture(reader.result as string);
-                    setIsProcessing(false);
-                };
-                reader.readAsDataURL(blob);
-                return; // Sucesso com API Nativa
-            } catch (e) {
-                console.warn("ImageCapture failed, using legacy canvas method", e);
-            }
-        }
+        // 1. Pequeno delay para estabilização de hardware (Crucial no Android)
+        await new Promise(r => setTimeout(r, 300));
 
-        // ESTRATÉGIA 2: Fallback via Canvas (Otimizado)
-        if (video.readyState < 2) throw new Error("Vídeo não está pronto");
+        if (video.readyState < 2) throw new Error("Vídeo não pronto");
 
+        // 2. TÉCNICA ULTRA-SAFE: Usar ImageBitmap para captura direta de memória
+        // Isso evita o uso excessivo de CPU/GPU que o drawImage(video) causa no Android
+        const bitmap = await createImageBitmap(video, {
+            resizeWidth: 640,
+            resizeHeight: 480,
+            resizeQuality: 'medium'
+        });
+
+        // 3. Canvas descartável de baixa resolução
         const canvas = document.createElement('canvas');
-        // Forçar resolução fixa para evitar frames gigantes
         canvas.width = 640;
         canvas.height = 480;
 
@@ -123,20 +108,28 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
         });
 
         if (context) {
-            // Desenha com interpolação básica para não sobrecarregar a GPU
-            context.drawImage(video, 0, 0, 640, 480);
+            // Desenha o bitmap no canvas
+            context.drawImage(bitmap, 0, 0);
             
-            // Converter para JPEG (mais leve que PNG) com qualidade média
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-            onCapture(dataUrl);
+            // 4. Liberar o bitmap da memória imediatamente
+            bitmap.close();
+
+            // 5. Converter para JPEG com compressão moderada (economiza RAM no transporte da string)
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
             
-            // LIMPEZA AGRESSIVA: Reseta dimensões para liberar RAM imediatamente
+            if (dataUrl && dataUrl.length > 100) {
+                onCapture(dataUrl);
+            } else {
+                throw new Error("Falha na geração dos dados");
+            }
+            
+            // 6. Limpeza agressiva: Zerar o canvas para forçar o Garbage Collector do Chrome
             canvas.width = 0;
             canvas.height = 0;
         }
     } catch (err) {
         console.error("Capture Error:", err);
-        alert("Erro na captura. Tente fechar outras abas do navegador para liberar memória.");
+        alert("Erro ao capturar. Tente novamente.");
     } finally {
         setIsProcessing(false);
     }
@@ -163,7 +156,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
             {error && (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 bg-neutral-900/90 z-10">
                     <p className="text-red-400 text-[10px] font-black uppercase mb-4 leading-relaxed tracking-widest">{error}</p>
-                    <button onClick={startStream} className="bg-white/10 hover:bg-white/20 text-white text-[10px] px-6 py-3 rounded-full font-black uppercase tracking-widest transition-all">Tentar Reativar</button>
+                    <button onClick={startStream} className="bg-white/10 hover:bg-white/20 text-white text-[10px] px-6 py-3 rounded-full font-black uppercase tracking-widest transition-all">Recarregar Câmera</button>
                 </div>
             )}
             {capturedImage ? (
@@ -182,7 +175,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
                 <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-4">
                     <SpinnerIcon className="w-8 h-8 text-indigo-500 animate-spin" />
                     <p className="text-neutral-500 text-[10px] font-black uppercase tracking-[0.2em]">
-                        {isProcessing ? "Capturando..." : t('webcam.starting')}
+                        {isProcessing ? "Finalizando..." : t('webcam.starting')}
                     </p>
                 </div>
             }
