@@ -2,10 +2,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Attendee, Supplier } from '../../types.ts';
 import WebcamCapture from '../WebcamCapture.tsx';
-import { SpinnerIcon, CheckCircleIcon, CameraIcon, UserCircleIcon } from '../icons.tsx';
+import { SpinnerIcon, CheckCircleIcon, CameraIcon, UserCircleIcon, SearchIcon } from '../icons.tsx';
 import * as api from '../../firebase/service.ts';
 
-// CONFIGURAÇÃO DO BANCO LOCAL PARA SURVIVAL (Sobrevivência a crashes)
+// CONFIGURAÇÃO DO BANCO LOCAL PARA SURVIVAL
 const DB_NAME = "AppResilienceDB";
 const STORE_NAME = "registration_flow";
 
@@ -50,13 +50,13 @@ const RegisterView: React.FC<any> = ({ onRegister, eventName, supplierInfo }) =>
     const [subCompany, setSubCompany] = useState('');
     const [photoBlob, setPhotoBlob] = useState<Blob | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [isSearching, setIsSearching] = useState(false);
 
     // MÁSCARA DE CPF E LIMITE
     const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        let value = e.target.value.replace(/\D/g, ''); // Remove tudo que não é número
-        if (value.length > 11) value = value.slice(0, 11); // Limita a 11 dígitos
+        let value = e.target.value.replace(/\D/g, ''); 
+        if (value.length > 11) value = value.slice(0, 11);
         
-        // Aplica a máscara
         const masked = value
             .replace(/(\d{3})(\d)/, '$1.$2')
             .replace(/(\d{3})(\d)/, '$1.$2')
@@ -64,6 +64,34 @@ const RegisterView: React.FC<any> = ({ onRegister, eventName, supplierInfo }) =>
             .replace(/(-\d{2})\d+?$/, '$1');
         
         setCpf(masked);
+
+        // Dispara busca quando CPF estiver completo
+        if (value.length === 11) {
+            lookupAttendee(value);
+        }
+    };
+
+    const lookupAttendee = async (cleanCpf: string) => {
+        setIsSearching(true);
+        setError(null);
+        try {
+            const existing = await api.findAttendeeByCpf(cleanCpf);
+            if (existing) {
+                setName(existing.name.toUpperCase());
+                if (existing.subCompany) setSubCompany(existing.subCompany);
+                
+                // Converter URL da foto existente em Blob para manter fluxo de memória estável
+                if (existing.photo) {
+                    const response = await fetch(existing.photo);
+                    const blob = await response.blob();
+                    setPhotoBlob(blob);
+                }
+            }
+        } catch (e) {
+            console.error("Erro na busca automática", e);
+        } finally {
+            setIsSearching(false);
+        }
     };
 
     // RECUPERA DADOS SE O BROWSER CRASHOU
@@ -99,7 +127,7 @@ const RegisterView: React.FC<any> = ({ onRegister, eventName, supplierInfo }) =>
             const res = await fetch(dataUrl);
             const blob = await res.blob();
             setPhotoBlob(blob);
-            setStep('INFO'); // Volta para a tela de revisão
+            setStep('INFO'); 
         } catch (e) {
             setError("Erro ao processar imagem.");
             setStep('INFO');
@@ -110,18 +138,14 @@ const RegisterView: React.FC<any> = ({ onRegister, eventName, supplierInfo }) =>
         if (!photoBlob) return;
         
         setError(null);
-        setStep('UPLOADING'); // MONTA A TELA DE CARREGAMENTO (Isolamento de RAM)
+        setStep('UPLOADING'); 
         
-        // Pequena pausa para o Garbage Collector do Android agir
         await new Promise(r => setTimeout(r, 800));
 
         try {
             const cleanCpf = cpf.replace(/\D/g, '');
-            
-            // 1. Upload Binário (Moto G53 friendly)
             const photoUrl = await api.uploadBinaryPhoto(photoBlob, cleanCpf);
             
-            // 2. Registro no Firestore
             const attendee = {
                 name, cpf: cleanCpf, photo: photoUrl,
                 sectors: supplierInfo?.data?.sectors || [],
@@ -129,8 +153,6 @@ const RegisterView: React.FC<any> = ({ onRegister, eventName, supplierInfo }) =>
             };
             
             await onRegister(attendee, supplierInfo?.data?.id);
-            
-            // 3. Limpeza total
             await clearLocalData();
             setStep('DONE');
         } catch (e: any) {
@@ -190,7 +212,6 @@ const RegisterView: React.FC<any> = ({ onRegister, eventName, supplierInfo }) =>
                 </header>
 
                 <div className="space-y-12">
-                    {/* Visual de Preview da Foto */}
                     <div className="flex flex-col items-center">
                         <div onClick={startCamera} className={`w-32 h-32 rounded-full border-2 transition-all cursor-pointer overflow-hidden flex items-center justify-center group relative ${photoBlob ? 'border-green-500 shadow-[0_0_30px_rgba(34,197,94,0.2)]' : 'border-white/10 bg-black/40 hover:border-indigo-500'}`}>
                             {photoBlob ? (
@@ -202,11 +223,13 @@ const RegisterView: React.FC<any> = ({ onRegister, eventName, supplierInfo }) =>
                                 <span className="text-[8px] font-black text-white uppercase tracking-widest">{photoBlob ? 'Trocar' : 'Capturar'}</span>
                             </div>
                         </div>
-                        <p className="text-[10px] font-black text-neutral-600 uppercase tracking-widest mt-4">{photoBlob ? 'Identidade Bio-Métrica OK' : 'Toque para tirar a foto'}</p>
+                        <p className="text-[10px] font-black text-neutral-600 uppercase tracking-widest mt-4">
+                            {isSearching ? 'Buscando cadastro...' : (photoBlob ? 'Identidade Bio-Métrica OK' : 'Toque para tirar a foto')}
+                        </p>
                     </div>
 
                     <div className="grid grid-cols-1 gap-6">
-                        <div className="space-y-2">
+                        <div className="space-y-2 relative">
                             <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest ml-1">Documento CPF</label>
                             <input 
                                 type="text" 
@@ -215,6 +238,11 @@ const RegisterView: React.FC<any> = ({ onRegister, eventName, supplierInfo }) =>
                                 onChange={handleCpfChange}
                                 className="w-full bg-black/40 border border-white/5 rounded-2xl py-5 px-6 text-white text-xl font-black focus:outline-none focus:border-indigo-500/50 transition-all placeholder:text-neutral-800" 
                             />
+                            {isSearching && (
+                                <div className="absolute right-6 top-[3.2rem]">
+                                    <SpinnerIcon className="w-5 h-5 text-indigo-500 animate-spin" />
+                                </div>
+                            )}
                         </div>
 
                         <div className="space-y-2">
@@ -252,13 +280,15 @@ const RegisterView: React.FC<any> = ({ onRegister, eventName, supplierInfo }) =>
                     {!photoBlob ? (
                         <button 
                             onClick={startCamera}
-                            className="w-full bg-white text-black font-black uppercase tracking-widest text-xs py-6 rounded-[2rem] shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
+                            disabled={isSearching}
+                            className="w-full bg-white text-black font-black uppercase tracking-widest text-xs py-6 rounded-[2rem] shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
                         >
                             <CameraIcon className="w-5 h-5" /> Iniciar Reconhecimento
                         </button>
                     ) : (
                         <button 
                             onClick={finalizeRegistration}
+                            disabled={isSearching}
                             className="w-full bg-indigo-600 text-white font-black uppercase tracking-widest text-xs py-6 rounded-[2rem] shadow-[0_20px_40px_rgba(79,70,229,0.3)] hover:bg-indigo-500 active:scale-95 transition-all flex items-center justify-center gap-3"
                         >
                             <CheckCircleIcon className="w-5 h-5" /> Confirmar e Enviar
