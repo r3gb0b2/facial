@@ -33,17 +33,15 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.srcObject = null;
-      videoRef.current.load();
     }
     setIsStreamActive(false);
   }, []);
 
   const startStream = useCallback(async () => {
-    // Se já tem foto ou está confirmando, não inicia a câmera (evita sobrecarga)
     if (capturedImage || tempImage) return;
     
     stopStream();
-    await new Promise(r => setTimeout(r, 500)); // Delay para o Android liberar o hardware
+    await new Promise(r => setTimeout(r, 600)); // Delay maior para estabilidade do driver
     
     try {
       setError(null);
@@ -52,7 +50,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
           facingMode: 'user', 
           width: { ideal: 480 }, 
           height: { ideal: 480 }, 
-          frameRate: { ideal: 15 } 
+          frameRate: { ideal: 20 } 
         }
       };
       const ms = await navigator.mediaDevices.getUserMedia(constraints);
@@ -65,7 +63,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
       }
     } catch (err) {
       console.error(err);
-      setError("Câmera ocupada ou negada.");
+      setError("Falha ao abrir câmera.");
     }
   }, [capturedImage, tempImage, stopStream]);
 
@@ -79,13 +77,14 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
   const processSource = async (source: HTMLVideoElement | Blob) => {
     setIsProcessing(true);
     try {
-      // 1. Desligar a câmera IMEDIATAMENTE (Libera RAM antes do processamento caro)
-      if (source instanceof HTMLVideoElement) stopStream();
-
+      // 1. CAPTURAR BITMAP PRIMEIRO (Câmera ainda ligada para não vir preto)
       const bitmap = await createImageBitmap(source, {
-        resizeWidth: 400,
+        resizeWidth: 480,
         resizeQuality: 'medium'
       });
+
+      // 2. DESLIGAR HARDWARE (Agora é seguro liberar a RAM da câmera)
+      if (source instanceof HTMLVideoElement) stopStream();
 
       const canvas = document.createElement('canvas');
       canvas.width = bitmap.width;
@@ -101,34 +100,25 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
             const blobUrl = URL.createObjectURL(blob);
             setTempImage(blobUrl);
             setIsProcessing(false);
-            // GC Manual
+            // Garbage collection
             canvas.width = 0;
             canvas.height = 0;
           }
-        }, 'image/jpeg', 0.4);
+        }, 'image/jpeg', 0.5);
       }
     } catch (e) {
-      console.error(e);
+      console.error("Capture Error:", e);
       setIsProcessing(false);
-      startStream();
+      startStream(); // Volta para a câmera se falhar
     }
   };
 
   const handleConfirmImage = async () => {
     if (!tempImage || isClosingModal) return;
-    
-    setIsClosingModal(true); // Trava UI
-    
-    // 1. Aguarda a UI do Modal sumir visualmente (Fade out fictício)
-    await new Promise(r => setTimeout(r, 200));
-
-    // 2. Notifica o pai (RegisterView)
+    setIsClosingModal(true);
+    await new Promise(r => setTimeout(r, 250));
     onCapture(tempImage);
-
-    // 3. Pequeno delay para o React processar o estado do Pai
-    await new Promise(r => setTimeout(r, 300));
-
-    // 4. Limpa o estado local
+    await new Promise(r => setTimeout(r, 350));
     setTempImage(null);
     setIsClosingModal(false);
   };
@@ -143,38 +133,36 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
 
   return (
     <div className="w-full max-w-sm mx-auto">
-      {/* AREA DE STATUS/VIDEO */}
       <div className="relative w-full aspect-square bg-neutral-950 rounded-[2.5rem] overflow-hidden border-2 border-white/5 shadow-2xl">
         {capturedImage ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-indigo-950/20 p-8 text-center animate-in fade-in duration-500">
              <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center shadow-[0_0_30px_rgba(34,197,94,0.3)] mb-4">
                 <CheckCircleIcon className="w-10 h-10 text-white" />
              </div>
-             <p className="text-white font-black uppercase tracking-[0.2em] text-xs mb-1">Biometria Salva</p>
-             <p className="text-gray-500 text-[9px] font-bold uppercase tracking-widest">Pode prosseguir com o formulário.</p>
+             <p className="text-white font-black uppercase tracking-[0.2em] text-xs mb-1">Biometria Pronta</p>
+             <p className="text-gray-500 text-[9px] font-bold uppercase tracking-widest">A foto foi validada.</p>
           </div>
         ) : (
           <>
-            {!tempImage && (
-              <video 
-                ref={videoRef} 
-                autoPlay 
-                playsInline 
-                muted 
-                className="w-full h-full object-cover bg-black"
-              ></video>
-            )}
+            {/* O Vídeo continua montado durante o isProcessing para evitar flash de tela preta */}
+            <video 
+              ref={videoRef} 
+              autoPlay 
+              playsInline 
+              muted 
+              className={`w-full h-full object-cover bg-black transition-opacity duration-300 ${tempImage ? 'opacity-0' : 'opacity-100'}`}
+            ></video>
+            
             {isProcessing && (
               <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 z-30 gap-4">
                 <SpinnerIcon className="w-8 h-8 text-indigo-500 animate-spin" />
-                <p className="text-[10px] font-black text-white uppercase tracking-[0.3em]">Criptografando...</p>
+                <p className="text-[10px] font-black text-white uppercase tracking-[0.3em]">Processando...</p>
               </div>
             )}
           </>
         )}
       </div>
 
-      {/* BOTÕES PRINCIPAIS */}
       <div className="mt-8 space-y-4 px-4">
         {capturedImage ? (
           <button type="button" onClick={handleRetake} className="w-full bg-neutral-800 text-white font-black uppercase tracking-[0.2em] text-[10px] py-5 rounded-2xl flex items-center justify-center gap-3">
@@ -208,20 +196,19 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
         )}
       </div>
 
-      {/* MODAL DE CONFIRMAÇÃO COM TRANSIÇÃO SEGURA */}
       {tempImage && (
         <div className={`fixed inset-0 z-[200] bg-black/95 flex flex-col items-center justify-center p-6 transition-opacity duration-300 ${isClosingModal ? 'opacity-0' : 'opacity-100'}`}>
            <div className="w-full max-w-sm flex flex-col gap-8">
               <div className="text-center">
                 <h3 className="text-white font-black uppercase tracking-[0.3em] text-xs mb-2">Validar Foto</h3>
-                <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">A foto está visível e clara?</p>
+                <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest">Verifique se seu rosto está visível.</p>
               </div>
               <div className="relative aspect-square w-full rounded-[3rem] overflow-hidden border-4 border-white/10 shadow-2xl">
                  <img src={tempImage} alt="Confirm" className="w-full h-full object-cover" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                  <button 
-                  onClick={() => { URL.revokeObjectURL(tempImage); setTempImage(null); }} 
+                  onClick={() => { URL.revokeObjectURL(tempImage); setTempImage(null); startStream(); }} 
                   disabled={isClosingModal}
                   className="bg-neutral-900 text-gray-500 font-black uppercase tracking-widest text-[10px] py-5 rounded-3xl border border-white/5 disabled:opacity-50"
                  >
