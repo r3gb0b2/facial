@@ -25,6 +25,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
       streamRef.current = null;
     }
     if (videoRef.current) {
+      videoRef.current.pause();
       videoRef.current.srcObject = null;
     }
     setIsStreamActive(false);
@@ -34,13 +35,14 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
     stopStream();
     try {
       setError(null);
-      // HARD LOCK: Constraints mínimas para máxima estabilidade no Android
+      // HARD LOCK: Constraints para Moto G53 e similares
+      // Usamos 'exact' para forçar o hardware a não subir a resolução
       const constraints = {
         video: {
           facingMode: 'user',
-          width: { ideal: 640, max: 640 },
-          height: { ideal: 480, max: 480 },
-          frameRate: { max: 15 } // Baixo framerate reduz aquecimento e uso de memória
+          width: { exact: 640 },
+          height: { exact: 480 },
+          frameRate: { max: 20 }
         },
         audio: false
       };
@@ -52,13 +54,23 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
         videoRef.current.srcObject = mediaStream;
         videoRef.current.setAttribute('playsinline', 'true');
         videoRef.current.muted = true;
-        
         await videoRef.current.play();
         setIsStreamActive(true);
       }
     } catch (err: any) {
-      console.error("Camera access error:", err);
-      setError("Câmera indisponível. Verifique permissões.");
+      console.error("Camera error:", err);
+      // Fallback para caso o hardware não suporte 'exact' 640x480
+      try {
+          const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
+          streamRef.current = fallbackStream;
+          if (videoRef.current) {
+              videoRef.current.srcObject = fallbackStream;
+              await videoRef.current.play();
+              setIsStreamActive(true);
+          }
+      } catch (e) {
+          setError("Câmera bloqueada ou indisponível.");
+      }
     }
   }, [stopStream]);
 
@@ -71,42 +83,51 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
     return () => stopStream();
   }, [capturedImage, startStream, stopStream]);
 
-  const handleCapture = () => {
+  const handleCapture = async () => {
     const video = videoRef.current;
     if (!video || !isStreamActive || isProcessing) return;
 
     setIsProcessing(true);
 
-    // Técnica de processamento síncrono para evitar threads de GPU no Android
     try {
+      // 1. Criar canvas de baixa resolução
       const canvas = document.createElement('canvas');
-      // Fixar tamanho pequeno para evitar estouro de string
       canvas.width = 640;
       canvas.height = 480;
-
-      const ctx = canvas.getContext('2d', { 
-        alpha: false, // Otimiza performance
-        desynchronized: true // Reduz latência no Chrome
-      });
+      const ctx = canvas.getContext('2d', { alpha: false });
 
       if (ctx) {
-        // Desenha o frame atual do vídeo
+        // 2. Capturar o frame IMEDIATAMENTE
         ctx.drawImage(video, 0, 0, 640, 480);
+
+        // 3. ESTRATÉGIA CRÍTICA: Desligar a câmera ANTES de converter para string
+        // Isso libera a memória da GPU usada pelo vídeo ao vivo, evitando a tela branca.
+        stopStream();
         
-        // Converte para JPEG com qualidade balanceada (muito mais leve que PNG)
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.5);
-        
-        onCapture(dataUrl);
-        
-        // Limpeza agressiva imediata
-        canvas.width = 0;
-        canvas.height = 0;
+        // Pequena pausa para o Android liberar o hardware
+        await new Promise(r => setTimeout(r, 100));
+
+        // 4. Converter usando Blob (mais estável que toDataURL no Chrome Android)
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              const base64data = reader.result as string;
+              onCapture(base64data);
+              setIsProcessing(false);
+              // Limpar canvas
+              canvas.width = 0;
+              canvas.height = 0;
+            };
+            reader.readAsDataURL(blob);
+          }
+        }, 'image/jpeg', 0.5);
       }
     } catch (err) {
       console.error("Capture failure:", err);
-      alert("Erro ao tirar foto. Tente reiniciar o Chrome.");
-    } finally {
+      alert("Falha na captura. Tente fechar outras abas.");
       setIsProcessing(false);
+      startStream();
     }
   };
 
@@ -121,7 +142,6 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
 
   return (
     <div className="w-full max-w-sm mx-auto flex flex-col items-center">
-      {/* Removido o 'backdrop-blur' que causava crash no Android */}
       <div className="relative w-full aspect-square bg-black rounded-[2rem] overflow-hidden border-2 border-white/10 shadow-xl">
         {error && (
           <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-20 bg-neutral-900">
@@ -146,7 +166,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-10">
             <SpinnerIcon className="w-8 h-8 text-indigo-500 animate-spin mb-2" />
             <p className="text-[10px] font-bold text-white uppercase tracking-widest">
-              {isProcessing ? "Capturando..." : "Iniciando..."}
+              {isProcessing ? "Processando..." : "Aguarde..."}
             </p>
           </div>
         )}
