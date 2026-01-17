@@ -3,50 +3,44 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Attendee, Sector, Supplier, SubCompany, EventType } from '../../types.ts';
 import WebcamCapture from '../WebcamCapture.tsx';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { SpinnerIcon, CheckCircleIcon, ArrowPathIcon } from '../icons.tsx';
+import { SpinnerIcon, CheckCircleIcon } from '../icons.tsx';
 import * as api from '../../firebase/service.ts';
 
-// Utilitário para Banco de Dados Local (IndexedDB) - Sobrevive a crashes e refresh
-const dbName = "offline_register_db";
-const storeName = "pending_photos";
+// Utilitário local para IndexedDB (Sobrevive a crashes)
+const dbName = "app_offline_v2";
+const storeName = "sync_queue";
 
-const savePhotoLocal = async (blob: Blob) => {
+const persistPhotoLocal = async (blob: Blob) => {
     return new Promise((resolve) => {
         const request = indexedDB.open(dbName, 1);
         request.onupgradeneeded = () => request.result.createObjectStore(storeName);
         request.onsuccess = () => {
             const db = request.result;
             const tx = db.transaction(storeName, "readwrite");
-            tx.objectStore(storeName).put(blob, "last_capture");
+            tx.objectStore(storeName).put(blob, "last_valid_photo");
             tx.oncomplete = () => resolve(true);
         };
     });
 };
 
-const getPhotoLocal = async (): Promise<Blob | null> => {
+const getPersistedPhoto = async (): Promise<Blob | null> => {
     return new Promise((resolve) => {
         const request = indexedDB.open(dbName, 1);
         request.onsuccess = () => {
             const db = request.result;
             if (!db.objectStoreNames.contains(storeName)) { resolve(null); return; }
-            const tx = db.transaction(storeName, "readonly");
-            const getReq = tx.objectStore(storeName).get("last_capture");
+            const getReq = db.transaction(storeName, "readonly").objectStore(storeName).get("last_valid_photo");
             getReq.onsuccess = () => resolve(getReq.result || null);
         };
         request.onerror = () => resolve(null);
     });
 };
 
-const clearLocalData = async () => {
-    localStorage.removeItem('draft_name');
-    localStorage.removeItem('draft_cpf');
-    localStorage.removeItem('draft_sub');
+const clearPersistedData = async () => {
     const request = indexedDB.open(dbName, 1);
     request.onsuccess = () => {
         const db = request.result;
-        if (db.objectStoreNames.contains(storeName)) {
-            db.transaction(storeName, "readwrite").objectStore(storeName).clear();
-        }
+        if (db.objectStoreNames.contains(storeName)) db.transaction(storeName, "readwrite").objectStore(storeName).clear();
     };
 };
 
@@ -68,102 +62,91 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
   const { onRegister, setError, sectors, eventName, supplierInfo, predefinedSector } = props;
   const { t } = useTranslation();
   
-  const [name, setName] = useState(localStorage.getItem('draft_name') || '');
-  const [cpf, setCpf] = useState(localStorage.getItem('draft_cpf') || '');
-  const [subCompany, setSubCompany] = useState(localStorage.getItem('draft_sub') || '');
+  const [name, setName] = useState(localStorage.getItem('temp_name') || '');
+  const [cpf, setCpf] = useState(localStorage.getItem('temp_cpf') || '');
+  const [subCompany, setSubCompany] = useState(localStorage.getItem('temp_sub') || '');
   const [photo, setPhoto] = useState<string | null>(null);
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [persistentSuccessName, setPersistentSuccessName] = useState<string | null>(null);
-  const [isRecovered, setIsRecovered] = useState(false);
+  const [persistentName, setPersistentName] = useState('');
 
-  // RECUPERAÇÃO DE SESSÃO PÓS-CRASH
+  // TENTA RECUPERAR FOTO SE O CHROME CRASHOU
   useEffect(() => {
-    // 1. Verifica se já teve sucesso registrado antes do crash
-    const lastSuccess = localStorage.getItem('last_reg_success');
+    const lastSuccess = localStorage.getItem('success_receipt');
     if (lastSuccess) {
-      setPersistentSuccessName(lastSuccess);
+      setPersistentName(lastSuccess);
       setShowSuccess(true);
       return;
     }
 
-    // 2. Tenta recuperar foto do banco local
-    const recover = async () => {
-        const blob = await getPhotoLocal();
-        if (blob) {
-            const url = URL.createObjectURL(blob);
-            setPhoto(url);
-            setIsRecovered(true);
-        }
-    };
-    recover();
+    getPersistedPhoto().then(blob => {
+        if (blob) setPhoto(URL.createObjectURL(blob));
+    });
   }, []);
 
-  // SALVA RASCUNHO ENQUANTO DIGITA
+  // SALVA DADOS ENQUANTO DIGITA
   useEffect(() => {
-    localStorage.setItem('draft_name', name);
-    localStorage.setItem('draft_cpf', cpf);
-    localStorage.setItem('draft_sub', subCompany);
+    localStorage.setItem('temp_name', name);
+    localStorage.setItem('temp_cpf', cpf);
+    localStorage.setItem('temp_sub', subCompany);
   }, [name, cpf, subCompany]);
 
   const isAdminView = !predefinedSector;
   const selectedSupplierData = useMemo(() => isAdminView ? null : supplierInfo?.data, [isAdminView, supplierInfo]);
   const hasSubCompanies = useMemo(() => selectedSupplierData && (selectedSupplierData.subCompanies?.length || 0) > 0, [selectedSupplierData]);
 
-  const handleCapture = async (blobUrl: string) => {
+  const handleCaptureComplete = async (blobUrl: string) => {
       setPhoto(blobUrl);
-      setIsRecovered(false);
       if (blobUrl) {
           try {
               const res = await fetch(blobUrl);
               const blob = await res.blob();
-              await savePhotoLocal(blob);
-          } catch (e) { console.error("Erro ao salvar foto localmente", e); }
+              await persistPhotoLocal(blob);
+          } catch (e) { console.error(e); }
       }
   };
 
-  const handleRegisterSubmit = async (e: React.FormEvent) => {
+  const handleFinalSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const rawCpf = cpf.replace(/\D/g, '');
     
     if (!name || !rawCpf || !photo) {
-      setError('Por favor, capture a foto biométrica.');
+      setError('A biometria facial é obrigatória.');
       return;
     }
 
+    // 1. Inicia estado de envio e remove formulário da tela para liberar RAM
     setIsSubmitting(true);
-    // Unmount visual agressivo para o Moto G53
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 600)); // Delay para o browser limpar o DOM
 
     try {
-      const activeEventId = isAdminView ? props.currentEventId : supplierInfo?.data?.eventId;
+      // 2. Executa o upload e registro
+      await onRegister({ 
+          name, cpf: rawCpf, email: '', photo: photo, 
+          sectors: selectedSupplierData?.sectors || [], subCompany 
+      }, isAdminView ? undefined : supplierInfo?.data?.id);
       
-      // Verifica se já não foi enviado (anti-duplicidade em crash)
-      const existing = await api.findAttendeeByCpf(rawCpf, activeEventId);
-      if (existing && existing.eventId === activeEventId) {
-          // Se já existe, apenas finge sucesso
-      } else {
-          await onRegister({ 
-              name, cpf: rawCpf, email: '', photo: photo, 
-              sectors: selectedSupplierData?.sectors || [], subCompany 
-          }, isAdminView ? undefined : supplierInfo?.data?.id);
-      }
+      // 3. Salva recibo de sucesso no LocalStorage ANTES de qualquer coisa
+      localStorage.setItem('success_receipt', name);
       
-      // SALVA RECIBO ANTI-CRASH
-      localStorage.setItem('last_reg_success', name);
-      await clearLocalData();
+      // 4. Limpeza total
+      await clearPersistedData();
+      localStorage.removeItem('temp_name');
+      localStorage.removeItem('temp_cpf');
+      localStorage.removeItem('temp_sub');
 
-      setPersistentSuccessName(name);
+      setPersistentName(name);
       setShowSuccess(true);
     } catch (error: any) {
       setIsSubmitting(false);
-      setError(error.message || "Erro no envio.");
+      setError(error.message || "Erro no envio. Verifique sua conexão.");
     }
   };
 
   const formatCPF = (v: string) => v.replace(/\D/g, '').slice(0, 11).replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
 
+  // VIEW DE SUCESSO
   if (showSuccess) {
     return (
       <div className="w-full max-w-md mx-auto py-20 text-center animate-in zoom-in-95 duration-500 px-4">
@@ -171,20 +154,21 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
           <div className="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-8 shadow-[0_0_40px_rgba(34,197,94,0.3)]">
             <CheckCircleIcon className="w-14 h-14 text-white" />
           </div>
-          <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">Confirmado!</h2>
-          <p className="text-green-500 font-bold uppercase tracking-widest text-[10px] mb-8">{persistentSuccessName}</p>
-          <button onClick={() => { localStorage.removeItem('last_reg_success'); window.location.reload(); }} className="w-full bg-white text-black font-black uppercase tracking-widest text-xs py-5 rounded-2xl shadow-xl">Novo Cadastro</button>
+          <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">Concluido!</h2>
+          <p className="text-green-500 font-bold uppercase tracking-widest text-[10px] mb-8">{persistentName}</p>
+          <button onClick={() => { localStorage.removeItem('success_receipt'); window.location.reload(); }} className="w-full bg-white text-black font-black uppercase tracking-widest text-xs py-5 rounded-2xl shadow-xl active:scale-95 transition-all">Novo Cadastro</button>
         </div>
       </div>
     );
   }
 
+  // VIEW DE ENVIANDO (Otimizada para economizar 100% de CPU/RAM no Moto G53)
   if (isSubmitting) {
     return (
       <div className="fixed inset-0 bg-black flex flex-col items-center justify-center p-10 z-[500]">
           <SpinnerIcon className="w-16 h-16 text-indigo-500 animate-spin mb-10" />
           <h2 className="text-xl font-black text-white uppercase tracking-[0.3em]">Sincronizando</h2>
-          <p className="text-neutral-600 text-[10px] font-bold uppercase tracking-widest mt-6 text-center">Processando biometria... Não feche esta tela.</p>
+          <p className="text-neutral-600 text-[10px] font-bold uppercase tracking-widest mt-6 text-center">Processando biometria facial.<br/>Por favor, mantenha o navegador aberto.</p>
       </div>
     );
   }
@@ -200,7 +184,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
                 <p className="text-neutral-500 text-[10px] font-black uppercase tracking-[0.2em]">{eventName || 'Evento'}</p>
               </div>
               
-              <form onSubmit={handleRegisterSubmit} className="space-y-5">
+              <form onSubmit={handleFinalSubmit} className="space-y-5">
                 <div>
                   <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-600 mb-2">CPF</label>
                   <input type="text" value={cpf} onChange={(e) => setCpf(formatCPF(e.target.value))} className="w-full bg-black/40 border border-white/10 rounded-xl py-4 px-5 text-white font-bold focus:border-indigo-500 transition-all" placeholder="000.000.000-00" required />
@@ -221,8 +205,12 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
                   </div>
                 )}
 
-                <button type="submit" disabled={!photo} className={`w-full font-black uppercase tracking-[0.2em] text-xs py-5 rounded-2xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${!photo ? 'bg-neutral-800 text-neutral-600 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}>
-                  {isRecovered ? 'FINALIZAR ENVIO' : 'CONCLUIR CADASTRO'}
+                <button 
+                  type="submit" 
+                  disabled={!photo} 
+                  className={`w-full font-black uppercase tracking-[0.2em] text-xs py-5 rounded-2xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${!photo ? 'bg-neutral-800 text-neutral-600 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}
+                >
+                  CONCLUIR CADASTRO
                 </button>
               </form>
             </div>
@@ -230,12 +218,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
             <div className="flex flex-col items-center justify-center pt-8">
                <span className="text-[10px] font-black text-neutral-600 uppercase tracking-[0.4em] mb-8">Biometria Facial</span>
                <div className="w-full max-w-sm">
-                  <WebcamCapture onCapture={handleCapture} capturedImage={photo} disabled={false} allowUpload={isAdminView} />
-                  {isRecovered && (
-                      <p className="mt-4 text-center text-green-500 font-bold text-[9px] uppercase tracking-widest animate-pulse">
-                         Foto recuperada do sistema local
-                      </p>
-                  )}
+                  <WebcamCapture onCapture={handleCaptureComplete} capturedImage={photo} disabled={false} allowUpload={isAdminView} />
                </div>
             </div>
           </div>
