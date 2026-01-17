@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Attendee, Sector, Supplier, SubCompany, EventType } from '../../types.ts';
 import WebcamCapture from '../WebcamCapture.tsx';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { SpinnerIcon } from '../icons.tsx';
+import { SpinnerIcon, CheckCircleIcon } from '../icons.tsx';
 import * as api from '../../firebase/service.ts';
 
 interface RegisterViewProps {
@@ -33,103 +33,75 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
   const [cpf, setCpf] = useState('');
   const [email, setEmail] = useState('');
   const [sector, setSector] = useState('');
-  const [selectedSupplierId, setSelectedSupplierId] = useState('');
   const [subCompany, setSubCompany] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [existingAttendeeFound, setExistingAttendeeFound] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [isLimitReached, setIsLimitReached] = useState(false);
+  const [persistentSuccess, setPersistentSuccess] = useState<string | null>(null);
+
+  // RECIBO DE SEGURANÇA: Verifica se já houve um sucesso recente antes do crash
+  useEffect(() => {
+    const lastSuccess = localStorage.getItem('last_reg_success');
+    const lastTime = localStorage.getItem('last_reg_time');
+    
+    if (lastSuccess && lastTime) {
+      const diff = Date.now() - parseInt(lastTime);
+      if (diff < 300000) { // 5 minutos de validade do recibo
+        setPersistentSuccess(lastSuccess);
+        setShowSuccess(true);
+      } else {
+        localStorage.removeItem('last_reg_success');
+        localStorage.removeItem('last_reg_time');
+      }
+    }
+  }, []);
 
   const isAdminView = !predefinedSector;
-
-  const selectedSupplierData = useMemo(() => {
-    if (!isAdminView) return supplierInfo?.data;
-    return suppliers.find(s => s && s.id === selectedSupplierId);
-  }, [isAdminView, selectedSupplierId, suppliers, supplierInfo]);
-
-  const hasSubCompanies = useMemo(() => {
-    return selectedSupplierData && Array.isArray(selectedSupplierData.subCompanies) && selectedSupplierData.subCompanies.length > 0;
-  }, [selectedSupplierData]);
+  const selectedSupplierData = useMemo(() => isAdminView ? null : supplierInfo?.data, [isAdminView, supplierInfo]);
+  const hasSubCompanies = useMemo(() => selectedSupplierData && (selectedSupplierData.subCompanies?.length || 0) > 0, [selectedSupplierData]);
 
   useEffect(() => {
-    const checkLimit = async () => {
-        if (!isAdminView && supplierInfo && supplierInfo.data) {
-            const count = await api.getRegistrationsCountForSupplier(supplierInfo.data.eventId, supplierInfo.data.id);
-            setIsLimitReached(count >= (supplierInfo.data.registrationLimit || 0));
-        }
-    };
-    checkLimit();
-  }, [isAdminView, supplierInfo]);
-
-  useEffect(() => {
-    if (selectedSupplierData) {
-        if (!hasSubCompanies) {
-            if (subCompany !== '') setSubCompany('');
-            if (!isAdminView && Array.isArray(selectedSupplierData.sectors) && selectedSupplierData.sectors.length > 0) {
-                const firstSector = selectedSupplierData.sectors[0];
-                if (sector !== firstSector) setSector(firstSector);
-            }
-        } else if (subCompany && !isAdminView) {
-            const sc = selectedSupplierData.subCompanies?.find(c => c && c.name === subCompany);
-            if (sc && sector !== sc.sector) setSector(sc.sector);
-        }
+    if (selectedSupplierData && !hasSubCompanies && selectedSupplierData.sectors?.length > 0) {
+      setSector(selectedSupplierData.sectors[0]);
     }
-  }, [selectedSupplierData, hasSubCompanies, subCompany, isAdminView, sector]);
-
-  const handleCpfBlur = async () => {
-    const rawCpf = cpf.replace(/\D/g, '');
-    if (rawCpf.length !== 11) return;
-
-    try {
-        const activeEventId = isAdminView ? currentEventId : supplierInfo?.data?.eventId;
-        if (!activeEventId) return;
-
-        const existingAttendee = await api.findAttendeeByCpf(rawCpf, activeEventId);
-        
-        if (existingAttendee) {
-            setName(existingAttendee.name);
-            setPhoto(existingAttendee.photo);
-            if (existingAttendee.email) setEmail(existingAttendee.email);
-            setExistingAttendeeFound(activeEventId === existingAttendee.eventId);
-        }
-    } catch (error) {
-        setError('Erro ao validar CPF.');
-    }
-  };
+  }, [selectedSupplierData, hasSubCompanies]);
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const rawCpf = cpf.replace(/\D/g, '');
     
-    if (isLimitReached) {
-        setError("Limite atingido.");
-        return;
-    }
-
     if (!name || !rawCpf || !photo) {
-      setError('Preencha tudo.');
+      setError('Campos incompletos');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // OTIMIZAÇÃO CRÍTICA: Não convertemos para Base64 aqui.
-      // Passamos o blob:URL diretamente, o Firebase service já sabe lidar com ele.
-      // Isso evita o pico de memória que causa a tela branca.
+      // 1. Envia o registro
       await onRegister({ 
           name, cpf: rawCpf, email: email || '', photo: photo, 
           sectors: sector ? [sector] : [], subCompany 
-      }, isAdminView ? selectedSupplierId : undefined);
+      });
       
-      // Limpeza de memória SÓ DEPOIS do sucesso
-      if (photo.startsWith('blob:')) {
-          URL.revokeObjectURL(photo);
-      }
+      // 2. SALVA RECIBO IMEDIATAMENTE (Anti-Crash)
+      localStorage.setItem('last_reg_success', name);
+      localStorage.setItem('last_reg_time', Date.now().toString());
 
-      setName(''); setCpf(''); setEmail(''); setPhoto(null); setSubCompany('');
+      // 3. Limpa estados locais e mostra sucesso
+      if (photo.startsWith('blob:')) URL.revokeObjectURL(photo);
+      
+      setName(''); setCpf(''); setEmail(''); setPhoto(null);
+      setPersistentSuccess(name);
       setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 5000);
+      
+      // 4. Limpa o recibo após 10 segundos se não crashar
+      setTimeout(() => {
+        localStorage.removeItem('last_reg_success');
+        localStorage.removeItem('last_reg_time');
+        setShowSuccess(false);
+        setPersistentSuccess(null);
+      }, 10000);
+
     } catch (error: any) {
       setError(error.message || "Erro no envio.");
     } finally {
@@ -138,6 +110,32 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
   };
 
   const formatCPF = (v: string) => v.replace(/\D/g, '').slice(0, 11).replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
+
+  // VIEW DE SUCESSO PERSISTENTE
+  if (showSuccess) {
+    return (
+      <div className="w-full max-w-md mx-auto py-20 text-center animate-in zoom-in-95 duration-500">
+        <div className="bg-neutral-900 border border-green-500/30 p-12 rounded-[3rem] shadow-2xl">
+          <div className="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-8 shadow-[0_0_40px_rgba(34,197,94,0.3)]">
+            <CheckCircleIcon className="w-14 h-14 text-white" />
+          </div>
+          <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">Enviado com Sucesso!</h2>
+          <p className="text-green-500 font-bold uppercase tracking-widest text-[10px] mb-8">{persistentSuccess || 'Cadastro'}</p>
+          <p className="text-neutral-500 text-xs leading-relaxed mb-10">Sua biometria foi sincronizada. Você já pode fechar esta página ou realizar um novo cadastro.</p>
+          <button 
+            onClick={() => {
+              localStorage.removeItem('last_reg_success');
+              setShowSuccess(false);
+              setPersistentSuccess(null);
+            }} 
+            className="w-full bg-white text-black font-black uppercase tracking-widest text-xs py-5 rounded-2xl shadow-xl active:scale-95 transition-all"
+          >
+            Novo Cadastro
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full max-w-5xl mx-auto px-4">
@@ -153,17 +151,17 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
               <form onSubmit={handleRegisterSubmit} className="space-y-5">
                 <div>
                   <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-600 mb-2">CPF</label>
-                  <input type="text" value={cpf} onChange={(e) => setCpf(formatCPF(e.target.value))} onBlur={handleCpfBlur} className="w-full bg-black/40 border border-white/10 rounded-xl py-4 px-5 text-white font-bold focus:border-indigo-500 transition-all" placeholder="000.000.000-00" required disabled={isSubmitting} />
+                  <input type="text" value={cpf} onChange={(e) => setCpf(formatCPF(e.target.value))} className="w-full bg-black/40 border border-white/10 rounded-xl py-4 px-5 text-white font-bold focus:border-indigo-500 transition-all" placeholder="000.000.000-00" required disabled={isSubmitting} />
                 </div>
 
                 <div>
                   <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-600 mb-2">Nome</label>
-                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl py-4 px-5 text-white font-bold focus:border-indigo-500 transition-all" placeholder="Nome completo" required disabled={isSubmitting || existingAttendeeFound} />
+                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl py-4 px-5 text-white font-bold focus:border-indigo-500 transition-all" placeholder="Nome completo" required disabled={isSubmitting} />
                 </div>
 
                 {hasSubCompanies && (
                   <div>
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-600 mb-2">Empresa</label>
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-600 mb-2">Unidade/Empresa</label>
                     <select value={subCompany} onChange={(e) => setSubCompany(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl py-4 px-4 text-white font-bold focus:border-indigo-500 transition-all appearance-none" required>
                       <option value="">Selecionar...</option>
                       {selectedSupplierData?.subCompanies?.map(sc => sc && <option key={sc.name} value={sc.name}>{sc.name}</option>)}
@@ -173,16 +171,16 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
 
                 <button 
                   type="submit" 
-                  disabled={isSubmitting || existingAttendeeFound || !photo || isLimitReached} 
-                  className={`w-full font-black uppercase tracking-[0.2em] text-xs py-5 rounded-2xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${(!photo || isLimitReached) ? 'bg-neutral-800 text-neutral-600' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}
+                  disabled={isSubmitting || !photo} 
+                  className={`w-full font-black uppercase tracking-[0.2em] text-xs py-5 rounded-2xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${!photo ? 'bg-neutral-800 text-neutral-600' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}
                 >
-                  {isSubmitting ? <SpinnerIcon className="w-5 h-5 animate-spin" /> : (existingAttendeeFound ? 'CADASTRADO' : 'CONCLUIR')}
+                  {isSubmitting ? <SpinnerIcon className="w-5 h-5 animate-spin" /> : 'CONCLUIR CADASTRO'}
                 </button>
               </form>
             </div>
             
             <div className="flex flex-col items-center justify-center pt-8">
-               <span className="text-[10px] font-black text-neutral-600 uppercase tracking-[0.4em] mb-8">Biometria</span>
+               <span className="text-[10px] font-black text-neutral-600 uppercase tracking-[0.4em] mb-8">Biometria Facial</span>
                <div className="w-full max-w-sm">
                   <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting} allowUpload={isAdminView} />
                </div>
@@ -190,11 +188,6 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
           </div>
         </div>
       </div>
-      {showSuccess && (
-        <div className="fixed top-10 left-1/2 -translate-x-1/2 bg-green-600 text-white px-10 py-5 rounded-3xl shadow-2xl font-black uppercase tracking-widest text-xs animate-in slide-in-from-top-10 z-[300]">
-          Cadastro realizado!
-        </div>
-      )}
     </div>
   );
 };
