@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Attendee, Supplier } from '../../types.ts';
+import { Attendee, Supplier, CheckinStatus } from '../../types.ts';
 import WebcamCapture from '../WebcamCapture.tsx';
-import { SpinnerIcon, CheckCircleIcon, CameraIcon, UserCircleIcon, SearchIcon } from '../icons.tsx';
+import { SpinnerIcon, CheckCircleIcon, CameraIcon, UserCircleIcon, SearchIcon, NoSymbolIcon } from '../icons.tsx';
 import * as api from '../../firebase/service.ts';
 
-// CONFIGURAÇÃO DO BANCO LOCAL PARA SURVIVAL
+// CONFIGURAÇÃO DO BANCO LOCAL PARA RESILIÊNCIA (Moto G53)
 const DB_NAME = "AppResilienceDB";
 const STORE_NAME = "registration_flow";
 
@@ -51,8 +51,9 @@ const RegisterView: React.FC<any> = ({ onRegister, eventName, supplierInfo }) =>
     const [photoBlob, setPhotoBlob] = useState<Blob | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isSearching, setIsSearching] = useState(false);
+    const [isAlreadyInEvent, setIsAlreadyInEvent] = useState(false);
 
-    // MÁSCARA DE CPF E LIMITE
+    // MÁSCARA DE CPF E LIMITE DE 11 DÍGITOS
     const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         let value = e.target.value.replace(/\D/g, ''); 
         if (value.length > 11) value = value.slice(0, 11);
@@ -64,8 +65,8 @@ const RegisterView: React.FC<any> = ({ onRegister, eventName, supplierInfo }) =>
             .replace(/(-\d{2})\d+?$/, '$1');
         
         setCpf(masked);
+        setIsAlreadyInEvent(false); // Reseta estado ao digitar
 
-        // Dispara busca quando CPF estiver completo
         if (value.length === 11) {
             lookupAttendee(value);
         }
@@ -77,10 +78,24 @@ const RegisterView: React.FC<any> = ({ onRegister, eventName, supplierInfo }) =>
         try {
             const existing = await api.findAttendeeByCpf(cleanCpf);
             if (existing) {
+                // VERIFICA SE JÁ ESTÁ NO EVENTO ATUAL (supplierInfo.data.eventId)
+                if (existing.eventId === supplierInfo?.data?.eventId) {
+                    setIsAlreadyInEvent(true);
+                    setError("Este CPF já possui cadastro ativo para este evento.");
+                    setName(existing.name.toUpperCase());
+                    if (existing.subCompany) setSubCompany(existing.subCompany);
+                    if (existing.photo) {
+                        const response = await fetch(existing.photo);
+                        const blob = await response.blob();
+                        setPhotoBlob(blob);
+                    }
+                    return;
+                }
+
+                // Se existir em outro evento, puxa os dados para agilizar
                 setName(existing.name.toUpperCase());
                 if (existing.subCompany) setSubCompany(existing.subCompany);
                 
-                // Converter URL da foto existente em Blob para manter fluxo de memória estável
                 if (existing.photo) {
                     const response = await fetch(existing.photo);
                     const blob = await response.blob();
@@ -94,7 +109,7 @@ const RegisterView: React.FC<any> = ({ onRegister, eventName, supplierInfo }) =>
         }
     };
 
-    // RECUPERA DADOS SE O BROWSER CRASHOU
+    // RECUPERAÇÃO EM CASO DE CRASH (OOM)
     useEffect(() => {
         getTemporaryData().then(data => {
             if (data) {
@@ -106,7 +121,7 @@ const RegisterView: React.FC<any> = ({ onRegister, eventName, supplierInfo }) =>
         });
     }, []);
 
-    // SALVA RASCUNHO AO ALTERAR
+    // SALVAMENTO AUTOMÁTICO DE DRAFT
     useEffect(() => {
         if (name || cpf || photoBlob) {
             saveTemporaryData({ name, cpf, subCompany, blob: photoBlob });
@@ -114,6 +129,7 @@ const RegisterView: React.FC<any> = ({ onRegister, eventName, supplierInfo }) =>
     }, [name, cpf, subCompany, photoBlob]);
 
     const startCamera = () => {
+        if (isAlreadyInEvent) return;
         if (!name || cpf.length < 14) {
             setError("Preencha o nome e o CPF corretamente.");
             return;
@@ -135,12 +151,12 @@ const RegisterView: React.FC<any> = ({ onRegister, eventName, supplierInfo }) =>
     };
 
     const finalizeRegistration = async () => {
-        if (!photoBlob) return;
+        if (!photoBlob || isAlreadyInEvent) return;
         
         setError(null);
         setStep('UPLOADING'); 
         
-        await new Promise(r => setTimeout(r, 800));
+        await new Promise(r => setTimeout(r, 800)); // Delay para respiro da RAM no Android
 
         try {
             const cleanCpf = cpf.replace(/\D/g, '');
@@ -213,18 +229,23 @@ const RegisterView: React.FC<any> = ({ onRegister, eventName, supplierInfo }) =>
 
                 <div className="space-y-12">
                     <div className="flex flex-col items-center">
-                        <div onClick={startCamera} className={`w-32 h-32 rounded-full border-2 transition-all cursor-pointer overflow-hidden flex items-center justify-center group relative ${photoBlob ? 'border-green-500 shadow-[0_0_30px_rgba(34,197,94,0.2)]' : 'border-white/10 bg-black/40 hover:border-indigo-500'}`}>
+                        <div 
+                            onClick={() => !isAlreadyInEvent && startCamera()} 
+                            className={`w-32 h-32 rounded-full border-2 transition-all overflow-hidden flex items-center justify-center group relative ${isAlreadyInEvent ? 'border-red-500/50 bg-red-500/10 opacity-50 cursor-not-allowed' : (photoBlob ? 'border-green-500 shadow-[0_0_30px_rgba(34,197,94,0.2)] cursor-pointer' : 'border-white/10 bg-black/40 hover:border-indigo-500 cursor-pointer')}`}
+                        >
                             {photoBlob ? (
                                 <img src={URL.createObjectURL(photoBlob)} className="w-full h-full object-cover" />
                             ) : (
-                                <CameraIcon className="w-8 h-8 text-neutral-700 group-hover:text-indigo-400 transition-colors" />
+                                isAlreadyInEvent ? <NoSymbolIcon className="w-8 h-8 text-red-500" /> : <CameraIcon className="w-8 h-8 text-neutral-700 group-hover:text-indigo-400 transition-colors" />
                             )}
-                            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                                <span className="text-[8px] font-black text-white uppercase tracking-widest">{photoBlob ? 'Trocar' : 'Capturar'}</span>
-                            </div>
+                            {!isAlreadyInEvent && (
+                                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                                    <span className="text-[8px] font-black text-white uppercase tracking-widest">{photoBlob ? 'Trocar' : 'Capturar'}</span>
+                                </div>
+                            )}
                         </div>
-                        <p className="text-[10px] font-black text-neutral-600 uppercase tracking-widest mt-4">
-                            {isSearching ? 'Buscando cadastro...' : (photoBlob ? 'Identidade Bio-Métrica OK' : 'Toque para tirar a foto')}
+                        <p className={`text-[10px] font-black uppercase tracking-widest mt-4 ${isAlreadyInEvent ? 'text-red-500' : 'text-neutral-600'}`}>
+                            {isSearching ? 'Buscando cadastro...' : (isAlreadyInEvent ? 'Acesso Negado (Duplicidade)' : (photoBlob ? 'Biometria Identificada' : 'Toque para tirar a foto'))}
                         </p>
                     </div>
 
@@ -236,7 +257,7 @@ const RegisterView: React.FC<any> = ({ onRegister, eventName, supplierInfo }) =>
                                 placeholder="000.000.000-00" 
                                 value={cpf} 
                                 onChange={handleCpfChange}
-                                className="w-full bg-black/40 border border-white/5 rounded-2xl py-5 px-6 text-white text-xl font-black focus:outline-none focus:border-indigo-500/50 transition-all placeholder:text-neutral-800" 
+                                className={`w-full bg-black/40 border rounded-2xl py-5 px-6 text-white text-xl font-black focus:outline-none transition-all placeholder:text-neutral-800 ${isAlreadyInEvent ? 'border-red-500/50 focus:border-red-500' : 'border-white/5 focus:border-indigo-500/50'}`} 
                             />
                             {isSearching && (
                                 <div className="absolute right-6 top-[3.2rem]">
@@ -251,8 +272,9 @@ const RegisterView: React.FC<any> = ({ onRegister, eventName, supplierInfo }) =>
                                 type="text" 
                                 placeholder="Nome Sobrenome" 
                                 value={name} 
-                                onChange={e => setName(e.target.value.toUpperCase())}
-                                className="w-full bg-black/40 border border-white/5 rounded-2xl py-5 px-6 text-white text-lg font-black focus:outline-none focus:border-indigo-500/50 transition-all placeholder:text-neutral-800" 
+                                onChange={e => !isAlreadyInEvent && setName(e.target.value.toUpperCase())}
+                                disabled={isAlreadyInEvent}
+                                className={`w-full bg-black/40 border border-white/5 rounded-2xl py-5 px-6 text-white text-lg font-black focus:outline-none focus:border-indigo-500/50 transition-all placeholder:text-neutral-800 ${isAlreadyInEvent ? 'opacity-50' : ''}`} 
                             />
                         </div>
 
@@ -261,8 +283,9 @@ const RegisterView: React.FC<any> = ({ onRegister, eventName, supplierInfo }) =>
                                 <label className="text-[10px] font-black text-neutral-500 uppercase tracking-widest ml-1">Empresa / Unidade</label>
                                 <select 
                                     value={subCompany} 
-                                    onChange={e => setSubCompany(e.target.value)} 
-                                    className="w-full bg-black/40 border border-white/5 rounded-2xl py-5 px-6 text-white font-black focus:outline-none focus:border-indigo-500/50 transition-all appearance-none cursor-pointer"
+                                    onChange={e => !isAlreadyInEvent && setSubCompany(e.target.value)} 
+                                    disabled={isAlreadyInEvent}
+                                    className={`w-full bg-black/40 border border-white/5 rounded-2xl py-5 px-6 text-white font-black focus:outline-none focus:border-indigo-500/50 transition-all appearance-none cursor-pointer ${isAlreadyInEvent ? 'opacity-50' : ''}`}
                                 >
                                     <option value="">Selecionar...</option>
                                     {supplierInfo.data.subCompanies.map((sc: any) => <option key={sc.name} value={sc.name}>{sc.name}</option>)}
@@ -272,27 +295,33 @@ const RegisterView: React.FC<any> = ({ onRegister, eventName, supplierInfo }) =>
                     </div>
 
                     {error && (
-                        <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-center">
+                        <div className={`border p-4 rounded-xl text-center ${isAlreadyInEvent ? 'bg-red-500/20 border-red-500/40' : 'bg-red-500/10 border-red-500/20'}`}>
                             <p className="text-red-500 font-bold text-xs uppercase tracking-widest leading-relaxed">{error}</p>
                         </div>
                     )}
 
-                    {!photoBlob ? (
-                        <button 
-                            onClick={startCamera}
-                            disabled={isSearching}
-                            className="w-full bg-white text-black font-black uppercase tracking-widest text-xs py-6 rounded-[2rem] shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
-                        >
-                            <CameraIcon className="w-5 h-5" /> Iniciar Reconhecimento
-                        </button>
+                    {isAlreadyInEvent ? (
+                        <div className="w-full bg-red-900/20 border border-red-500/30 text-red-500 font-black uppercase tracking-widest text-[10px] py-6 rounded-[2rem] flex items-center justify-center gap-3">
+                            <NoSymbolIcon className="w-5 h-5" /> Envio Bloqueado: CPF já registrado
+                        </div>
                     ) : (
-                        <button 
-                            onClick={finalizeRegistration}
-                            disabled={isSearching}
-                            className="w-full bg-indigo-600 text-white font-black uppercase tracking-widest text-xs py-6 rounded-[2rem] shadow-[0_20px_40px_rgba(79,70,229,0.3)] hover:bg-indigo-500 active:scale-95 transition-all flex items-center justify-center gap-3"
-                        >
-                            <CheckCircleIcon className="w-5 h-5" /> Confirmar e Enviar
-                        </button>
+                        !photoBlob ? (
+                            <button 
+                                onClick={startCamera}
+                                disabled={isSearching}
+                                className="w-full bg-white text-black font-black uppercase tracking-widest text-xs py-6 rounded-[2rem] shadow-xl hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 disabled:opacity-50"
+                            >
+                                <CameraIcon className="w-5 h-5" /> Iniciar Reconhecimento
+                            </button>
+                        ) : (
+                            <button 
+                                onClick={finalizeRegistration}
+                                disabled={isSearching}
+                                className="w-full bg-indigo-600 text-white font-black uppercase tracking-widest text-xs py-6 rounded-[2rem] shadow-[0_20px_40px_rgba(79,70,229,0.3)] hover:bg-indigo-500 active:scale-95 transition-all flex items-center justify-center gap-3"
+                            >
+                                <CheckCircleIcon className="w-5 h-5" /> Confirmar e Enviar
+                            </button>
+                        )
                     )}
                 </div>
             </div>
