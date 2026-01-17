@@ -35,11 +35,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
     stopStream();
     try {
       const constraints = {
-        video: { 
-          facingMode: 'user', 
-          width: { ideal: 640 }, 
-          height: { ideal: 640 } 
-        }
+        video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 640 } }
       };
       const ms = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = ms;
@@ -61,31 +57,35 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
   const processSource = async (source: HTMLVideoElement | Blob) => {
     setIsProcessing(true);
     try {
-      const bitmap = await createImageBitmap(source, {
-        resizeWidth: 640,
-        resizeHeight: 640,
-        resizeQuality: 'medium'
-      });
-
-      if (source instanceof HTMLVideoElement) stopStream();
-
-      const canvas = document.createElement('canvas');
-      canvas.width = 640;
-      canvas.height = 640;
-      const ctx = canvas.getContext('2d', { alpha: false });
-      
-      if (ctx) {
-        ctx.drawImage(bitmap, 0, 0);
-        bitmap.close();
-
-        // Qualidade 0.3 para manter o arquivo leve e evitar estouro de RAM no upload
-        canvas.toBlob((blob) => {
-          if (blob) {
-            const blobUrl = URL.createObjectURL(blob);
-            setTempImage(blobUrl);
-            setIsProcessing(false);
+      // Liberação de hardware IMEDIATA
+      if (source instanceof HTMLVideoElement) {
+          const bitmap = await createImageBitmap(source, { resizeWidth: 640, resizeHeight: 640 });
+          stopStream(); // Mata a câmera AGORA
+          const canvas = document.createElement('canvas');
+          canvas.width = 640; canvas.height = 640;
+          const ctx = canvas.getContext('2d', { alpha: false });
+          if (ctx) {
+            ctx.drawImage(bitmap, 0, 0);
+            bitmap.close();
+            canvas.toBlob((blob) => {
+              if (blob) setTempImage(URL.createObjectURL(blob));
+              setIsProcessing(false);
+            }, 'image/jpeg', 0.4);
           }
-        }, 'image/jpeg', 0.3);
+      } else {
+          // Se for arquivo
+          const bitmap = await createImageBitmap(source, { resizeWidth: 640, resizeHeight: 640 });
+          const canvas = document.createElement('canvas');
+          canvas.width = 640; canvas.height = 640;
+          const ctx = canvas.getContext('2d', { alpha: false });
+          if (ctx) {
+            ctx.drawImage(bitmap, 0, 0);
+            bitmap.close();
+            canvas.toBlob((blob) => {
+              if (blob) setTempImage(URL.createObjectURL(blob));
+              setIsProcessing(false);
+            }, 'image/jpeg', 0.4);
+          }
       }
     } catch (e) {
       console.error(e);
@@ -98,13 +98,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
     if (!tempImage) return;
     const finalUrl = tempImage;
     setTempImage(null);
-    onCapture(finalUrl); // Passa para o pai, que exibirá o "Biometria OK"
-  };
-
-  const handleRetake = () => {
-    if (capturedImage?.startsWith('blob:')) URL.revokeObjectURL(capturedImage);
-    onCapture('');
-    startStream();
+    onCapture(finalUrl);
   };
 
   return (
@@ -116,7 +110,6 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
                 <CheckCircleIcon className="w-12 h-12 text-white" />
              </div>
              <p className="text-white font-black uppercase tracking-[0.3em] text-xs">Biometria OK</p>
-             <p className="text-gray-500 text-[9px] mt-2 font-bold uppercase tracking-widest">Foto capturada com sucesso</p>
           </div>
         ) : (
           <>
@@ -134,17 +127,12 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
 
       <div className="mt-8 px-4">
         {capturedImage ? (
-          <button type="button" onClick={handleRetake} disabled={disabled} className="w-full bg-neutral-800 text-white font-black uppercase tracking-[0.2em] text-[10px] py-5 rounded-2xl flex items-center justify-center gap-3 transition-all active:scale-95">
-             <RefreshIcon className="w-4 h-4"/> Refazer Biometria
+          <button type="button" onClick={() => { onCapture(''); startStream(); }} disabled={disabled} className="w-full bg-neutral-800 text-white font-black uppercase tracking-[0.2em] text-[10px] py-5 rounded-2xl flex items-center justify-center gap-3">
+             <RefreshIcon className="w-4 h-4"/> Refazer Foto
           </button>
         ) : (
           <>
-            <button
-              type="button"
-              onClick={() => !isProcessing && videoRef.current && processSource(videoRef.current)}
-              disabled={!isStreamActive || isProcessing || disabled}
-              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-[0.2em] text-[10px] py-5 rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-30 flex items-center justify-center gap-3"
-            >
+            <button type="button" onClick={() => !isProcessing && videoRef.current && processSource(videoRef.current)} disabled={!isStreamActive || isProcessing || disabled} className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-[0.2em] text-[10px] py-5 rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-30 flex items-center justify-center gap-3">
               <CameraIcon className="w-5 h-5" /> Capturar Foto
             </button>
             {allowUpload && !disabled && (
@@ -153,7 +141,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
                   const f = e.target.files?.[0];
                   if(f) processSource(f);
                 }} />
-                <button type="button" onClick={() => fileInputRef.current?.click()} className="text-neutral-600 font-black uppercase tracking-[0.2em] text-[9px] py-2 hover:text-neutral-400">
+                <button type="button" onClick={() => fileInputRef.current?.click()} className="text-neutral-600 font-black uppercase tracking-[0.2em] text-[9px] py-2">
                   Ou usar Galeria
                 </button>
               </div>
@@ -165,15 +153,12 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
       {tempImage && (
         <div className="fixed inset-0 z-[300] bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-6">
            <div className="w-full max-w-xs flex flex-col gap-8 animate-in zoom-in-95 duration-300">
-              <div className="text-center">
-                <h3 className="text-white font-black uppercase tracking-[0.3em] text-xs">Confirmar Foto</h3>
-              </div>
-              <div className="relative aspect-square w-full rounded-[3rem] overflow-hidden border-4 border-white/10 shadow-2xl">
+              <div className="relative aspect-square w-full rounded-[3rem] overflow-hidden border-4 border-white/10">
                  <img src={tempImage} alt="Confirm" className="w-full h-full object-cover" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                  <button onClick={() => { URL.revokeObjectURL(tempImage); setTempImage(null); startStream(); }} className="bg-neutral-900 text-gray-500 font-black uppercase tracking-widest text-[10px] py-6 rounded-3xl">Refazer</button>
-                 <button onClick={handleConfirmImage} className="bg-white text-black font-black uppercase tracking-widest text-[10px] py-6 rounded-3xl shadow-xl active:scale-95 transition-all">Confirmar</button>
+                 <button onClick={handleConfirmImage} className="bg-white text-black font-black uppercase tracking-widest text-[10px] py-6 rounded-3xl shadow-xl">Confirmar</button>
               </div>
            </div>
         </div>
