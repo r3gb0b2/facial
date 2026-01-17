@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Attendee, Sector, Supplier, SubCompany, EventType } from '../../types.ts';
 import WebcamCapture from '../WebcamCapture.tsx';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
-import { UsersIcon, CheckCircleIcon, SpinnerIcon, NoSymbolIcon, FaceSmileIcon, ArrowUpTrayIcon } from '../icons.tsx';
+import { SpinnerIcon } from '../icons.tsx';
 import * as api from '../../firebase/service.ts';
 
 interface RegisterViewProps {
@@ -29,8 +29,6 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
   } = props;
 
   const { t } = useTranslation();
-  const isVip = eventType === 'VIP_LIST';
-
   const [name, setName] = useState('');
   const [cpf, setCpf] = useState('');
   const [email, setEmail] = useState('');
@@ -39,12 +37,8 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
   const [subCompany, setSubCompany] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCheckingCpf, setIsCheckingCpf] = useState(false);
-  const [cpfCheckMessage, setCpfCheckMessage] = useState('');
   const [existingAttendeeFound, setExistingAttendeeFound] = useState(false);
-  const [isPhotoLocked, setIsPhotoLocked] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [blockedInfo, setBlockedInfo] = useState<{ reason: string, eventName: string } | null>(null);
   const [isLimitReached, setIsLimitReached] = useState(false);
 
   const isAdminView = !predefinedSector;
@@ -62,11 +56,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
     const checkLimit = async () => {
         if (!isAdminView && supplierInfo && supplierInfo.data) {
             const count = await api.getRegistrationsCountForSupplier(supplierInfo.data.eventId, supplierInfo.data.id);
-            if (count >= (supplierInfo.data.registrationLimit || 0)) {
-                setIsLimitReached(true);
-            } else {
-                setIsLimitReached(false);
-            }
+            setIsLimitReached(count >= (supplierInfo.data.registrationLimit || 0));
         }
     };
     checkLimit();
@@ -82,9 +72,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
             }
         } else if (subCompany && !isAdminView) {
             const sc = selectedSupplierData.subCompanies?.find(c => c && c.name === subCompany);
-            if (sc && sector !== sc.sector) {
-                setSector(sc.sector);
-            }
+            if (sc && sector !== sc.sector) setSector(sc.sector);
         }
     }
   }, [selectedSupplierData, hasSubCompanies, subCompany, isAdminView, sector]);
@@ -93,17 +81,9 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
     const rawCpf = cpf.replace(/\D/g, '');
     if (rawCpf.length !== 11) return;
 
-    setIsCheckingCpf(true);
-    setCpfCheckMessage('Verificando...');
     try {
-        const blockInfo = await api.checkBlockedStatus(rawCpf);
-        if (blockInfo) setBlockedInfo(blockInfo);
-
         const activeEventId = isAdminView ? currentEventId : supplierInfo?.data?.eventId;
-        if (!activeEventId) {
-            setCpfCheckMessage('Erro: Evento não identificado.');
-            return;
-        }
+        if (!activeEventId) return;
 
         const existingAttendee = await api.findAttendeeByCpf(rawCpf, activeEventId);
         
@@ -112,15 +92,9 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
             setPhoto(existingAttendee.photo);
             if (existingAttendee.email) setEmail(existingAttendee.email);
             setExistingAttendeeFound(activeEventId === existingAttendee.eventId);
-            setIsPhotoLocked(activeEventId === existingAttendee.eventId || !allowPhotoChange);
-            setCpfCheckMessage(activeEventId === existingAttendee.eventId ? 'Já cadastrado.' : 'Dados recuperados.');
-        } else {
-            setCpfCheckMessage('Novo cadastro.');
         }
     } catch (error) {
         setError('Erro ao validar CPF.');
-    } finally {
-        setIsCheckingCpf(false);
     }
   };
 
@@ -137,18 +111,30 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
       setError('Complete os dados e a biometria.');
       return;
     }
-    if (hasSubCompanies && !subCompany) {
-      setError('A seleção da empresa/unidade é obrigatória.');
-      return;
-    }
 
     setIsSubmitting(true);
     try {
+      let finalPhoto = photo;
+      
+      // CONVERSÃO JUST-IN-TIME: Converte o Object URL para Base64 apenas no envio
+      if (photo.startsWith('blob:')) {
+          const response = await fetch(photo);
+          const blob = await response.blob();
+          finalPhoto = await new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.readAsDataURL(blob);
+          });
+      }
+
       await onRegister({ 
-          name, cpf: rawCpf, email: email || '', photo, 
+          name, cpf: rawCpf, email: email || '', photo: finalPhoto, 
           sectors: sector ? [sector] : [], subCompany 
       }, isAdminView ? selectedSupplierId : undefined);
       
+      // Limpeza de memória
+      if (photo.startsWith('blob:')) URL.revokeObjectURL(photo);
+
       setName(''); setCpf(''); setEmail(''); setPhoto(null); setSubCompany('');
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 5000);
@@ -159,10 +145,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
     }
   };
 
-  const formatCPF = (value: string) => {
-      if (!value) return '';
-      return value.replace(/\D/g, '').slice(0, 11).replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
-  };
+  const formatCPF = (v: string) => v.replace(/\D/g, '').slice(0, 11).replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
 
   return (
     <div className="w-full max-w-5xl mx-auto px-4">
@@ -201,7 +184,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
                   disabled={isSubmitting || existingAttendeeFound || !photo || isLimitReached} 
                   className={`w-full font-black uppercase tracking-[0.2em] text-xs py-5 rounded-2xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${(!photo || isLimitReached) ? 'bg-neutral-800 text-neutral-600 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}
                 >
-                  {isSubmitting ? <SpinnerIcon className="w-5 h-5" /> : (existingAttendeeFound ? 'CPF JÁ CADASTRADO' : 'CONCLUIR CREDENCIAMENTO')}
+                  {isSubmitting ? <SpinnerIcon className="w-5 h-5 animate-spin" /> : (existingAttendeeFound ? 'CPF JÁ CADASTRADO' : 'CONCLUIR CREDENCIAMENTO')}
                 </button>
               </form>
             </div>
@@ -209,7 +192,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
             <div className="flex flex-col items-center justify-center pt-8">
                <span className="text-[10px] font-black text-neutral-600 uppercase tracking-[0.4em] mb-8">Validação de Biometria</span>
                <div className="w-full max-w-sm">
-                  <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting || isPhotoLocked || isLimitReached} allowUpload={isAdminView} />
+                  <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting || isLimitReached} allowUpload={isAdminView} />
                </div>
             </div>
           </div>
