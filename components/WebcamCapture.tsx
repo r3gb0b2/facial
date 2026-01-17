@@ -35,14 +35,13 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
     stopStream();
     try {
       setError(null);
-      // HARD LOCK: Constraints para Moto G53 e similares
-      // Usamos 'exact' para forçar o hardware a não subir a resolução
+      // HARDENING: Moto G53 prefere constraints ideais do que exatas
       const constraints = {
         video: {
           facingMode: 'user',
-          width: { exact: 640 },
-          height: { exact: 480 },
-          frameRate: { max: 20 }
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          frameRate: { ideal: 15 }
         },
         audio: false
       };
@@ -54,23 +53,15 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
         videoRef.current.srcObject = mediaStream;
         videoRef.current.setAttribute('playsinline', 'true');
         videoRef.current.muted = true;
+        // Não usar mirror CSS no Android para evitar crash de GPU
+        videoRef.current.style.transform = 'none';
+        
         await videoRef.current.play();
         setIsStreamActive(true);
       }
     } catch (err: any) {
-      console.error("Camera error:", err);
-      // Fallback para caso o hardware não suporte 'exact' 640x480
-      try {
-          const fallbackStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' } });
-          streamRef.current = fallbackStream;
-          if (videoRef.current) {
-              videoRef.current.srcObject = fallbackStream;
-              await videoRef.current.play();
-              setIsStreamActive(true);
-          }
-      } catch (e) {
-          setError("Câmera bloqueada ou indisponível.");
-      }
+      console.error("Camera access error:", err);
+      setError("Câmera bloqueada. Verifique as permissões do Chrome.");
     }
   }, [stopStream]);
 
@@ -83,51 +74,55 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
     return () => stopStream();
   }, [capturedImage, startStream, stopStream]);
 
-  const handleCapture = async () => {
+  const handleCapture = () => {
     const video = videoRef.current;
     if (!video || !isStreamActive || isProcessing) return;
 
     setIsProcessing(true);
 
     try {
-      // 1. Criar canvas de baixa resolução
+      // 1. CONGELAR O VÍDEO (Técnica Vital para Android)
+      // Pausar o vídeo libera o hardware de renderização para focar na captura do frame
+      video.pause();
+
       const canvas = document.createElement('canvas');
-      canvas.width = 640;
-      canvas.height = 480;
-      const ctx = canvas.getContext('2d', { alpha: false });
+      // Usar resolução pequena e quadrada para economizar RAM
+      canvas.width = 400;
+      canvas.height = 400;
+      
+      const ctx = canvas.getContext('2d', { 
+        alpha: false,
+        willReadFrequently: true 
+      });
 
       if (ctx) {
-        // 2. Capturar o frame IMEDIATAMENTE
-        ctx.drawImage(video, 0, 0, 640, 480);
+        // 2. CAPTURA
+        // Calculamos o crop para centralizar a imagem quadrada
+        const size = Math.min(video.videoWidth, video.videoHeight);
+        const startX = (video.videoWidth - size) / 2;
+        const startY = (video.videoHeight - size) / 2;
+        
+        ctx.drawImage(video, startX, startY, size, size, 0, 0, 400, 400);
 
-        // 3. ESTRATÉGIA CRÍTICA: Desligar a câmera ANTES de converter para string
-        // Isso libera a memória da GPU usada pelo vídeo ao vivo, evitando a tela branca.
+        // 3. CONVERSÃO (JPEG 0.4 é muito leve e estável no Moto G53)
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.4);
+        
+        // 4. PARAR HARDWARE IMEDIATAMENTE
         stopStream();
         
-        // Pequena pausa para o Android liberar o hardware
-        await new Promise(r => setTimeout(r, 100));
-
-        // 4. Converter usando Blob (mais estável que toDataURL no Chrome Android)
-        canvas.toBlob((blob) => {
-          if (blob) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-              const base64data = reader.result as string;
-              onCapture(base64data);
-              setIsProcessing(false);
-              // Limpar canvas
-              canvas.width = 0;
-              canvas.height = 0;
-            };
-            reader.readAsDataURL(blob);
-          }
-        }, 'image/jpeg', 0.5);
+        // 5. FINALIZAR
+        onCapture(dataUrl);
+        
+        // Limpeza de memória
+        canvas.width = 0;
+        canvas.height = 0;
       }
     } catch (err) {
       console.error("Capture failure:", err);
-      alert("Falha na captura. Tente fechar outras abas.");
+      alert("Erro de memória no navegador. Tente fechar outras abas.");
+      startStream(); // Tenta reativar se falhar
+    } finally {
       setIsProcessing(false);
-      startStream();
     }
   };
 
@@ -146,7 +141,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
         {error && (
           <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-20 bg-neutral-900">
             <p className="text-red-400 text-xs font-bold uppercase mb-4">{error}</p>
-            <button onClick={startStream} className="bg-white/10 text-white text-[10px] px-4 py-2 rounded-full font-black uppercase">Reiniciar</button>
+            <button onClick={startStream} className="bg-white/10 text-white text-[10px] px-4 py-2 rounded-full font-black uppercase">Recarregar</button>
           </div>
         )}
         
@@ -158,7 +153,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
             autoPlay 
             playsInline 
             muted
-            className="w-full h-full object-cover scale-x-[-1]" 
+            className="w-full h-full object-cover" 
           ></video>
         )}
 
@@ -166,7 +161,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-10">
             <SpinnerIcon className="w-8 h-8 text-indigo-500 animate-spin mb-2" />
             <p className="text-[10px] font-bold text-white uppercase tracking-widest">
-              {isProcessing ? "Processando..." : "Aguarde..."}
+              {isProcessing ? "Gravando..." : "Câmera..."}
             </p>
           </div>
         )}
