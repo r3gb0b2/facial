@@ -170,15 +170,17 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
             <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
               <div className="text-center">
                 <h3 className="text-lg font-semibold text-gray-300 mb-2">{t('verificationModal.registeredPhoto')}</h3>
-                <img src={attendee.photo} alt="Registered" className="rounded-lg w-full aspect-square object-contain bg-black border-2 border-gray-600" />
+                <div className="rounded-lg w-full aspect-square max-w-[400px] mx-auto overflow-hidden bg-black border-2 border-gray-600">
+                    <img src={attendee.photo} alt="Registered" className="w-full h-full object-contain" loading="lazy" />
+                </div>
                 <p className="text-gray-400 mt-2 text-sm">{attendee.cpf}</p>
               </div>
               <div className="text-center">
                 <h3 className="text-lg font-semibold text-gray-300 mb-2">{t('verificationModal.liveVerification')}</h3>
-                <>
+                <div className="w-full max-w-[400px] mx-auto">
                   <WebcamCapture onCapture={setVerificationPhoto} capturedImage={verificationPhoto} />
-                  {renderVerificationControls()}
-                </>
+                </div>
+                {renderVerificationControls()}
               </div>
             </div>
         </div>
