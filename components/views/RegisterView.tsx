@@ -103,43 +103,35 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
     const rawCpf = cpf.replace(/\D/g, '');
     
     if (isLimitReached) {
-        setError("Limite de cadastros atingido.");
+        setError("Limite atingido.");
         return;
     }
 
     if (!name || !rawCpf || !photo) {
-      setError('Complete os dados e a biometria.');
+      setError('Preencha tudo.');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      let finalPhoto = photo;
-      
-      // CONVERSÃO JUST-IN-TIME: Converte o Object URL para Base64 apenas no envio
-      if (photo.startsWith('blob:')) {
-          const response = await fetch(photo);
-          const blob = await response.blob();
-          finalPhoto = await new Promise((resolve) => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.readAsDataURL(blob);
-          });
-      }
-
+      // OTIMIZAÇÃO CRÍTICA: Não convertemos para Base64 aqui.
+      // Passamos o blob:URL diretamente, o Firebase service já sabe lidar com ele.
+      // Isso evita o pico de memória que causa a tela branca.
       await onRegister({ 
-          name, cpf: rawCpf, email: email || '', photo: finalPhoto, 
+          name, cpf: rawCpf, email: email || '', photo: photo, 
           sectors: sector ? [sector] : [], subCompany 
       }, isAdminView ? selectedSupplierId : undefined);
       
-      // Limpeza de memória
-      if (photo.startsWith('blob:')) URL.revokeObjectURL(photo);
+      // Limpeza de memória SÓ DEPOIS do sucesso
+      if (photo.startsWith('blob:')) {
+          URL.revokeObjectURL(photo);
+      }
 
       setName(''); setCpf(''); setEmail(''); setPhoto(null); setSubCompany('');
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 5000);
     } catch (error: any) {
-      setError(error.message || "Falha ao registrar.");
+      setError(error.message || "Erro no envio.");
     } finally {
       setIsSubmitting(false);
     }
@@ -154,26 +146,26 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
             <div className="space-y-8">
               <div>
-                <h2 className="text-3xl font-black text-white uppercase tracking-tighter mb-1">Registro de Acesso</h2>
-                <p className="text-neutral-500 text-[10px] font-black uppercase tracking-[0.2em]">{eventName || 'Evento Geral'}</p>
+                <h2 className="text-3xl font-black text-white uppercase tracking-tighter mb-1">Registro</h2>
+                <p className="text-neutral-500 text-[10px] font-black uppercase tracking-[0.2em]">{eventName || 'Evento'}</p>
               </div>
               
               <form onSubmit={handleRegisterSubmit} className="space-y-5">
                 <div>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-600 mb-2">CPF do Colaborador</label>
-                  <input type="text" value={cpf} onChange={(e) => setCpf(formatCPF(e.target.value))} onBlur={handleCpfBlur} className="w-full bg-black/40 border border-white/10 rounded-xl py-4 px-5 text-white font-bold focus:border-indigo-500 transition-all" placeholder="000.000.000-00" required disabled={isSubmitting || isLimitReached} />
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-600 mb-2">CPF</label>
+                  <input type="text" value={cpf} onChange={(e) => setCpf(formatCPF(e.target.value))} onBlur={handleCpfBlur} className="w-full bg-black/40 border border-white/10 rounded-xl py-4 px-5 text-white font-bold focus:border-indigo-500 transition-all" placeholder="000.000.000-00" required disabled={isSubmitting} />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-600 mb-2">Nome Completo</label>
-                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl py-4 px-5 text-white font-bold focus:border-indigo-500 transition-all" placeholder="Nome impresso no crachá" required disabled={isSubmitting || existingAttendeeFound || isLimitReached} />
+                  <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-600 mb-2">Nome</label>
+                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl py-4 px-5 text-white font-bold focus:border-indigo-500 transition-all" placeholder="Nome completo" required disabled={isSubmitting || existingAttendeeFound} />
                 </div>
 
                 {hasSubCompanies && (
                   <div>
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-600 mb-2">Empresa / Grupo</label>
-                    <select value={subCompany} onChange={(e) => setSubCompany(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl py-4 px-4 text-white font-bold focus:border-indigo-500 transition-all appearance-none" required disabled={isLimitReached}>
-                      <option value="">Selecionar Empresa...</option>
+                    <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-600 mb-2">Empresa</label>
+                    <select value={subCompany} onChange={(e) => setSubCompany(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl py-4 px-4 text-white font-bold focus:border-indigo-500 transition-all appearance-none" required>
+                      <option value="">Selecionar...</option>
                       {selectedSupplierData?.subCompanies?.map(sc => sc && <option key={sc.name} value={sc.name}>{sc.name}</option>)}
                     </select>
                   </div>
@@ -182,17 +174,17 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
                 <button 
                   type="submit" 
                   disabled={isSubmitting || existingAttendeeFound || !photo || isLimitReached} 
-                  className={`w-full font-black uppercase tracking-[0.2em] text-xs py-5 rounded-2xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${(!photo || isLimitReached) ? 'bg-neutral-800 text-neutral-600 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}
+                  className={`w-full font-black uppercase tracking-[0.2em] text-xs py-5 rounded-2xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${(!photo || isLimitReached) ? 'bg-neutral-800 text-neutral-600' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}
                 >
-                  {isSubmitting ? <SpinnerIcon className="w-5 h-5 animate-spin" /> : (existingAttendeeFound ? 'CPF JÁ CADASTRADO' : 'CONCLUIR CREDENCIAMENTO')}
+                  {isSubmitting ? <SpinnerIcon className="w-5 h-5 animate-spin" /> : (existingAttendeeFound ? 'CADASTRADO' : 'CONCLUIR')}
                 </button>
               </form>
             </div>
             
             <div className="flex flex-col items-center justify-center pt-8">
-               <span className="text-[10px] font-black text-neutral-600 uppercase tracking-[0.4em] mb-8">Validação de Biometria</span>
+               <span className="text-[10px] font-black text-neutral-600 uppercase tracking-[0.4em] mb-8">Biometria</span>
                <div className="w-full max-w-sm">
-                  <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting || isLimitReached} allowUpload={isAdminView} />
+                  <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting} allowUpload={isAdminView} />
                </div>
             </div>
           </div>
@@ -200,7 +192,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
       </div>
       {showSuccess && (
         <div className="fixed top-10 left-1/2 -translate-x-1/2 bg-green-600 text-white px-10 py-5 rounded-3xl shadow-2xl font-black uppercase tracking-widest text-xs animate-in slide-in-from-top-10 z-[300]">
-          Cadastro realizado com sucesso!
+          Cadastro realizado!
         </div>
       )}
     </div>
