@@ -168,13 +168,20 @@ export const checkBlockedStatus = async (cpf: string): Promise<{ isBlocked: true
 }
 
 const uploadPhoto = async (photoDataUrl: string, cpf: string): Promise<string> => {
-    if (photoDataUrl.startsWith('http://') || photoDataUrl.startsWith('https://')) {
-        return photoDataUrl;
-    }
-    const blob = await (await fetch(photoDataUrl)).blob();
-    const ref = storage.ref(`photos/${cpf}-${Date.now()}.png`);
-    const snapshot = await ref.put(blob);
-    return snapshot.ref.getDownloadURL();
+    if (photoDataUrl.startsWith('http')) return photoDataUrl;
+    
+    // OTIMIZAÇÃO: Tenta pegar o blob diretamente para evitar pico de memória
+    const response = await fetch(photoDataUrl);
+    const blob = await response.blob();
+    
+    const ref = storage.ref(`photos/${cpf}-${Date.now()}.jpg`);
+    const snapshot = await ref.put(blob, { contentType: 'image/jpeg' });
+    const url = await snapshot.ref.getDownloadURL();
+    
+    // Limpeza de cache do blob se for URL interna
+    if (photoDataUrl.startsWith('blob:')) URL.revokeObjectURL(photoDataUrl);
+    
+    return url;
 };
 
 export const addAttendee = async (eventId: string, attendeeData: Omit<Attendee, 'id' | 'status' | 'eventId' | 'createdAt'>, supplierId?: string) => {
@@ -183,7 +190,6 @@ export const addAttendee = async (eventId: string, attendeeData: Omit<Attendee, 
     let initialStatus = attendeeData.blockReason ? CheckinStatus.PENDING_APPROVAL : CheckinStatus.PENDING;
 
     if (supplierId) {
-        // Validação de limite no momento do cadastro
         const supplierRef = db.collection('events').doc(eventId).collection('suppliers').doc(supplierId);
         const [supplierSnap, countSnap] = await Promise.all([
             supplierRef.get(),
@@ -201,10 +207,8 @@ export const addAttendee = async (eventId: string, attendeeData: Omit<Attendee, 
         }
     }
 
-    let photoUrl = attendeeData.photo;
-    if (attendeeData.photo.startsWith('data:image') || !attendeeData.photo.startsWith('http')) {
-        photoUrl = await uploadPhoto(attendeeData.photo, attendeeData.cpf);
-    }
+    // O upload da foto é o processo mais pesado, rodamos isolado
+    const photoUrl = await uploadPhoto(attendeeData.photo, attendeeData.cpf);
 
     const data: Omit<Attendee, 'id'> = {
         ...attendeeData,
@@ -236,10 +240,7 @@ export const requestNewRegistration = async (eventId: string, attendeeData: Omit
         }
     }
 
-    let photoUrl = attendeeData.photo;
-    if (attendeeData.photo.startsWith('data:image')) {
-        photoUrl = await uploadPhoto(attendeeData.photo, attendeeData.cpf);
-    }
+    const photoUrl = await uploadPhoto(attendeeData.photo, attendeeData.cpf);
 
     const data: Omit<Attendee, 'id'> = {
         ...attendeeData,
@@ -367,7 +368,7 @@ export const approveSubstitution = async (eventId: string, attendeeId: string) =
         substitutionData: FieldValue.delete(),
     };
 
-    if (photoDataUrl && photoDataUrl.startsWith('data:image')) {
+    if (photoDataUrl && (photoDataUrl.startsWith('data:image') || photoDataUrl.startsWith('blob:'))) {
         const photoUrl = await uploadPhoto(photoDataUrl, cpf);
         dataToUpdate.photo = photoUrl;
     }

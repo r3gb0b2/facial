@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Attendee, Sector, Supplier, SubCompany, EventType } from '../../types.ts';
 import WebcamCapture from '../WebcamCapture.tsx';
 import { useTranslation } from '../../hooks/useTranslation.tsx';
@@ -39,14 +39,14 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
   const [showSuccess, setShowSuccess] = useState(false);
   const [persistentSuccess, setPersistentSuccess] = useState<string | null>(null);
 
-  // RECIBO DE SEGURANÇA: Verifica se já houve um sucesso recente antes do crash
+  // RECIBO DE SEGURANÇA
   useEffect(() => {
     const lastSuccess = localStorage.getItem('last_reg_success');
     const lastTime = localStorage.getItem('last_reg_time');
     
     if (lastSuccess && lastTime) {
       const diff = Date.now() - parseInt(lastTime);
-      if (diff < 300000) { // 5 minutos de validade do recibo
+      if (diff < 300000) { 
         setPersistentSuccess(lastSuccess);
         setShowSuccess(true);
       } else {
@@ -66,6 +66,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
     }
   }, [selectedSupplierData, hasSubCompanies]);
 
+  // FUNÇÃO DE REGISTRO COM ISOLAMENTO DE RAM
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const rawCpf = cpf.replace(/\D/g, '');
@@ -75,46 +76,44 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
       return;
     }
 
+    const attendeeToRegister = { 
+        name, cpf: rawCpf, email: email || '', photo: photo, 
+        sectors: sector ? [sector] : [], subCompany 
+    };
+    const sId = isAdminView ? undefined : supplierInfo?.data?.id;
+
+    // 1. Inicia estado de envio (isso vai disparar o Unmount do formulário abaixo)
     setIsSubmitting(true);
-    // Pequeno delay para permitir que o React renderize o estado "isSubmitting" 
-    // e o Moto G53 estabilize a RAM antes do upload pesado.
-    await new Promise(r => setTimeout(r, 300));
+
+    // 2. Pequeno delay para o React remover os elementos pesados do DOM
+    await new Promise(r => setTimeout(r, 800));
 
     try {
-      // 1. Envia o registro
-      await onRegister({ 
-          name, cpf: rawCpf, email: email || '', photo: photo, 
-          sectors: sector ? [sector] : [], subCompany 
-      }, isAdminView ? undefined : supplierInfo?.data?.id);
+      // 3. O upload acontece agora com a RAM limpa
+      await onRegister(attendeeToRegister, sId);
       
-      // 2. SALVA RECIBO IMEDIATAMENTE (Anti-Crash)
+      // 4. Salva recibo anti-crash
       localStorage.setItem('last_reg_success', name);
       localStorage.setItem('last_reg_time', Date.now().toString());
 
-      // 3. Limpa estados locais e mostra sucesso
-      if (photo.startsWith('blob:')) URL.revokeObjectURL(photo);
-      
-      setName(''); setCpf(''); setEmail(''); setPhoto(null);
       setPersistentSuccess(name);
       setShowSuccess(true);
       
-      // 4. Limpa o recibo após 10 segundos se não crashar
       setTimeout(() => {
         localStorage.removeItem('last_reg_success');
         localStorage.removeItem('last_reg_time');
-        // Não resetamos o showSuccess aqui para o usuário ver a tela verde.
       }, 10000);
 
     } catch (error: any) {
-      setError(error.message || "Erro no envio. Tente novamente.");
-    } finally {
+      // Se der erro, volta para o formulário
       setIsSubmitting(false);
+      setError(error.message || "Erro no envio. Tente novamente.");
     }
   };
 
   const formatCPF = (v: string) => v.replace(/\D/g, '').slice(0, 11).replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d)/, '$1.$2').replace(/(\d{3})(\d{1,2})$/, '$1-$2');
 
-  // VIEW DE SUCESSO PERSISTENTE
+  // 1. TELA DE SUCESSO (Prioridade máxima de render)
   if (showSuccess) {
     return (
       <div className="w-full max-w-md mx-auto py-20 text-center animate-in zoom-in-95 duration-500 px-4">
@@ -124,15 +123,13 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
           </div>
           <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">Concluido!</h2>
           <p className="text-green-500 font-bold uppercase tracking-widest text-[10px] mb-8">{persistentSuccess || 'Cadastro'}</p>
-          <p className="text-neutral-500 text-xs leading-relaxed mb-10">Sua biometria facial foi sincronizada com o sistema. Você já pode fechar esta página.</p>
           <button 
             onClick={() => {
               localStorage.removeItem('last_reg_success');
               localStorage.removeItem('last_reg_time');
-              setShowSuccess(false);
-              setPersistentSuccess(null);
+              window.location.reload(); // Recarrega para limpar 100% a RAM
             }} 
-            className="w-full bg-white text-black font-black uppercase tracking-widest text-xs py-5 rounded-2xl shadow-xl active:scale-95 transition-all"
+            className="w-full bg-white text-black font-black uppercase tracking-widest text-xs py-5 rounded-2xl shadow-xl"
           >
             Novo Cadastro
           </button>
@@ -141,17 +138,20 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
     );
   }
 
-  // VIEW DE ENVIANDO (Otimizada para Moto G53 - Mínimo de elementos)
+  // 2. TELA DE PROCESSAMENTO (Minimalista para salvar RAM)
   if (isSubmitting) {
     return (
-      <div className="w-full max-w-md mx-auto py-32 text-center animate-in fade-in duration-300">
-          <SpinnerIcon className="w-16 h-16 text-indigo-500 animate-spin mx-auto mb-8" />
-          <h2 className="text-xl font-black text-white uppercase tracking-[0.3em]">Sincronizando</h2>
-          <p className="text-neutral-500 text-[10px] font-bold uppercase tracking-widest mt-4">Gravando biometria no servidor...</p>
+      <div className="fixed inset-0 bg-black flex flex-col items-center justify-center p-10 z-[500]">
+          <SpinnerIcon className="w-16 h-16 text-indigo-500 animate-spin mb-10" />
+          <h2 className="text-xl font-black text-white uppercase tracking-[0.3em]">Enviando...</h2>
+          <p className="text-neutral-600 text-[10px] font-bold uppercase tracking-widest mt-6 text-center leading-relaxed">
+            Sincronizando biometria facial.<br/>Por favor, não feche o navegador.
+          </p>
       </div>
     );
   }
 
+  // 3. FORMULÁRIO PADRÃO (Só renderiza se não estiver enviando)
   return (
     <div className="w-full max-w-5xl mx-auto px-4">
       <div className="bg-neutral-900/60 backdrop-blur-xl border border-white/10 rounded-[2.5rem] overflow-hidden shadow-2xl">
@@ -166,12 +166,12 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
               <form onSubmit={handleRegisterSubmit} className="space-y-5">
                 <div>
                   <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-600 mb-2">CPF</label>
-                  <input type="text" value={cpf} onChange={(e) => setCpf(formatCPF(e.target.value))} className="w-full bg-black/40 border border-white/10 rounded-xl py-4 px-5 text-white font-bold focus:border-indigo-500 transition-all" placeholder="000.000.000-00" required disabled={isSubmitting} />
+                  <input type="text" value={cpf} onChange={(e) => setCpf(formatCPF(e.target.value))} className="w-full bg-black/40 border border-white/10 rounded-xl py-4 px-5 text-white font-bold focus:border-indigo-500 transition-all" placeholder="000.000.000-00" required />
                 </div>
 
                 <div>
                   <label className="block text-[10px] font-black uppercase tracking-widest text-neutral-600 mb-2">Nome</label>
-                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl py-4 px-5 text-white font-bold focus:border-indigo-500 transition-all" placeholder="Nome completo" required disabled={isSubmitting} />
+                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl py-4 px-5 text-white font-bold focus:border-indigo-500 transition-all" placeholder="Nome completo" required />
                 </div>
 
                 {hasSubCompanies && (
@@ -186,7 +186,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
 
                 <button 
                   type="submit" 
-                  disabled={isSubmitting || !photo} 
+                  disabled={!photo} 
                   className={`w-full font-black uppercase tracking-[0.2em] text-xs py-5 rounded-2xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${!photo ? 'bg-neutral-800 text-neutral-600 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}
                 >
                   CONCLUIR CADASTRO
@@ -197,7 +197,7 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
             <div className="flex flex-col items-center justify-center pt-8">
                <span className="text-[10px] font-black text-neutral-600 uppercase tracking-[0.4em] mb-8">Biometria Facial</span>
                <div className="w-full max-w-sm">
-                  <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={isSubmitting} allowUpload={isAdminView} />
+                  <WebcamCapture onCapture={setPhoto} capturedImage={photo} disabled={false} allowUpload={isAdminView} />
                </div>
             </div>
           </div>
