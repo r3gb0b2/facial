@@ -22,190 +22,154 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [activeDeviceId, setActiveDeviceId] = useState<string>('');
 
-  const getDevices = useCallback(async () => {
-    try {
-      const allDevices = await navigator.mediaDevices.enumerateDevices();
-      const videoDevices = allDevices.filter(d => d.kind === 'videoinput');
-      setDevices(videoDevices);
-      if (videoDevices.length > 0 && !activeDeviceId) {
-        const frontal = videoDevices.find(d => d.label.toLowerCase().includes('front') || d.label.toLowerCase().includes('user'));
-        setActiveDeviceId(frontal ? frontal.deviceId : videoDevices[0].deviceId);
-      }
-    } catch (e) {
-      console.error("Erro ao listar câmeras", e);
-    }
-  }, [activeDeviceId]);
-
   const stopStream = useCallback(() => {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current.getTracks().forEach(track => {
+        track.stop();
+        track.enabled = false;
+      });
       streamRef.current = null;
     }
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.srcObject = null;
+      videoRef.current.load();
     }
     setIsStreamActive(false);
   }, []);
 
+  const getDevices = useCallback(async () => {
+    try {
+      const all = await navigator.mediaDevices.enumerateDevices();
+      const vids = all.filter(d => d.kind === 'videoinput');
+      setDevices(vids);
+      if (vids.length > 0 && !activeDeviceId) {
+        const frontal = vids.find(d => d.label.toLowerCase().includes('front') || d.label.toLowerCase().includes('user'));
+        setActiveDeviceId(frontal ? frontal.deviceId : vids[0].deviceId);
+      }
+    } catch (e) { console.error(e); }
+  }, [activeDeviceId]);
+
   const startStream = useCallback(async () => {
     stopStream();
-    await new Promise(r => setTimeout(r, 250));
+    await new Promise(r => setTimeout(r, 300)); // Delay para o Android liberar o driver
+    
     try {
       setError(null);
       const constraints = {
         video: {
           deviceId: activeDeviceId ? { exact: activeDeviceId } : undefined,
-          facingMode: activeDeviceId ? undefined : 'user',
           width: { ideal: 640 },
           height: { ideal: 480 },
           frameRate: { ideal: 15 }
-        },
-        audio: false
+        }
       };
-      const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-      streamRef.current = mediaStream;
+      const ms = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = ms;
       if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-        videoRef.current.setAttribute('playsinline', 'true');
-        videoRef.current.muted = true;
+        videoRef.current.srcObject = ms;
         await videoRef.current.play();
         setIsStreamActive(true);
+        getDevices();
       }
-      getDevices();
-    } catch (err: any) {
-      console.error("Camera error:", err);
-      setError("Câmera indisponível.");
+    } catch (err) {
+      setError("Câmera bloqueada ou em uso.");
     }
-  }, [stopStream, activeDeviceId, getDevices]);
+  }, [activeDeviceId, stopStream, getDevices]);
 
   useEffect(() => {
-    if (!capturedImage) {
-      startStream();
-    } else {
-      stopStream();
-    }
+    if (!capturedImage) startStream();
+    else stopStream();
     return () => stopStream();
   }, [capturedImage, activeDeviceId, startStream, stopStream]);
 
-  // Função mestre de processamento: Reduz QUALQUER imagem para 640px Max (Leve para RAM)
-  const processAndSetImage = (source: HTMLVideoElement | HTMLImageElement) => {
-    const canvas = document.createElement('canvas');
-    const MAX_SIZE = 640;
+  // FUNÇÃO DE PROCESSAMENTO ULTRA-LEVE (Moto G53 Optimized)
+  const processSource = async (source: HTMLVideoElement | Blob) => {
+    setIsProcessing(true);
     
-    let width = source instanceof HTMLVideoElement ? source.videoWidth : source.width;
-    let height = source instanceof HTMLVideoElement ? source.videoHeight : source.height;
+    try {
+      // 1. Criar Bitmap (mais leve que Image)
+      const bitmap = await createImageBitmap(source, {
+        resizeWidth: 480, // Resolução de segurança para não estourar RAM
+        resizeQuality: 'medium'
+      });
 
-    // Calcula proporções para não distorcer
-    if (width > height) {
-      if (width > MAX_SIZE) {
-        height *= MAX_SIZE / width;
-        width = MAX_SIZE;
-      }
-    } else {
-      if (height > MAX_SIZE) {
-        width *= MAX_SIZE / height;
-        height = MAX_SIZE;
-      }
-    }
+      // 2. Limpar o hardware ANTES de converter para string (Libera VRAM)
+      if (source instanceof HTMLVideoElement) stopStream();
 
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d', { alpha: false });
-    
-    if (ctx) {
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
-      ctx.drawImage(source, 0, 0, width, height);
+      const canvas = document.createElement('canvas');
+      canvas.width = bitmap.width;
+      canvas.height = bitmap.height;
+      const ctx = canvas.getContext('2d', { alpha: false });
       
-      // Converte para JPEG 0.5 (equilíbrio perfeito entre peso e qualidade para IA)
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            onCapture(reader.result as string);
-            setIsProcessing(false);
-          };
-          reader.readAsDataURL(blob);
-        }
-      }, 'image/jpeg', 0.5);
+      if (ctx) {
+        ctx.drawImage(bitmap, 0, 0);
+        bitmap.close(); // Libera o bitmap da memória
+
+        // 3. Conversão final
+        canvas.toBlob((blob) => {
+          if (blob) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+              onCapture(reader.result as string);
+              setIsProcessing(false);
+              canvas.width = 0; // Garbage collection manual
+            };
+            reader.readAsDataURL(blob);
+          }
+        }, 'image/jpeg', 0.5);
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Falha no processamento de imagem.");
+      setIsProcessing(false);
+      if (!capturedImage) startStream();
     }
   };
 
-  const handleCapture = async () => {
-    const video = videoRef.current;
-    if (!video || !isStreamActive || isProcessing) return;
-    setIsProcessing(true);
-    try {
-      video.pause();
-      processAndSetImage(video);
-      stopStream();
-    } catch (err) {
-      console.error("Capture failure:", err);
-      setIsProcessing(false);
-      startStream();
-    }
+  const handleCapture = () => {
+    if (!videoRef.current || !isStreamActive) return;
+    processSource(videoRef.current);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsProcessing(true);
-    
-    // IMPORTANTE: Criamos um objeto de imagem para redimensionar ANTES de virar Base64
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    
-    img.onload = () => {
-      processAndSetImage(img);
-      URL.revokeObjectURL(url); // Libera a memória do arquivo original pesado
-    };
-    
-    img.onerror = () => {
-      alert("Erro ao ler arquivo de imagem.");
-      setIsProcessing(false);
-    };
-    
-    img.src = url;
+    if (file) processSource(file);
   };
 
-  const handleSwitchCamera = () => {
+  const switchCam = () => {
     if (devices.length < 2) return;
-    const currentIndex = devices.findIndex(d => d.deviceId === activeDeviceId);
-    const nextIndex = (currentIndex + 1) % devices.length;
-    setActiveDeviceId(devices[nextIndex].deviceId);
+    const idx = devices.findIndex(d => d.deviceId === activeDeviceId);
+    setActiveDeviceId(devices[(idx + 1) % devices.length].deviceId);
   };
 
   return (
     <div className="w-full max-w-sm mx-auto flex flex-col items-center">
-      <div className="relative w-full aspect-square bg-neutral-900 rounded-[2.5rem] overflow-hidden border-2 border-white/5 shadow-2xl">
+      <div className="relative w-full aspect-square bg-neutral-950 rounded-[2.5rem] overflow-hidden border-2 border-white/5 shadow-2xl">
         {error && (
           <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-20 bg-neutral-900">
-            <p className="text-red-400 text-[10px] font-black uppercase mb-4 tracking-widest">{error}</p>
-            <button onClick={startStream} className="bg-white/10 text-white text-[10px] px-6 py-3 rounded-full font-black uppercase">Recarregar</button>
+            <p className="text-red-500 text-[10px] font-black uppercase mb-4 tracking-widest">{error}</p>
+            <button onClick={startStream} className="bg-white/10 text-white text-[10px] px-6 py-3 rounded-full font-black uppercase">Reiniciar</button>
           </div>
         )}
         
         {capturedImage ? (
-          <img src={capturedImage} alt="Captured" className="w-full h-full object-cover" />
+          <img src={capturedImage} alt="Preview" className="w-full h-full object-cover" />
         ) : (
           <>
-            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover"></video>
+            <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover bg-black"></video>
             {devices.length > 1 && !isProcessing && (
-              <button onClick={handleSwitchCamera} className="absolute top-4 right-4 bg-black/50 p-3 rounded-full text-white backdrop-blur-md border border-white/10 active:scale-90 transition-all">
+              <button onClick={switchCam} className="absolute top-4 right-4 bg-black/60 p-3 rounded-full text-white backdrop-blur-md border border-white/10 active:scale-75 transition-all">
                 <ArrowPathIcon className="w-5 h-5" />
               </button>
             )}
           </>
         )}
 
-        {(isProcessing || (!isStreamActive && !capturedImage && !error)) && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 z-10 gap-4">
-            <SpinnerIcon className="w-8 h-8 text-indigo-500 animate-spin" />
-            <p className="text-[10px] font-black text-white uppercase tracking-[0.3em]">
-              {isProcessing ? "Otimizando..." : "Iniciando..."}
-            </p>
+        {isProcessing && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 z-30 gap-4">
+            <SpinnerIcon className="w-10 h-10 text-indigo-500 animate-spin" />
+            <p className="text-[10px] font-black text-white uppercase tracking-[0.4em] animate-pulse">Otimizando RAM...</p>
           </div>
         )}
       </div>
@@ -215,7 +179,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
           <button
             type="button"
             onClick={() => onCapture('')}
-            className="w-full bg-neutral-800 text-white font-black uppercase tracking-[0.2em] text-[10px] py-5 rounded-2xl transition-all flex items-center justify-center gap-3"
+            className="w-full bg-neutral-800 text-white font-black uppercase tracking-[0.2em] text-[10px] py-5 rounded-2xl flex items-center justify-center gap-3"
           >
             <RefreshIcon className="w-4 h-4"/>
             {t('webcam.retakeButton')}
@@ -226,7 +190,7 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
               type="button"
               onClick={handleCapture}
               disabled={!isStreamActive || isProcessing}
-              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-[0.2em] text-[10px] py-5 rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-3"
+              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black uppercase tracking-[0.2em] text-[10px] py-5 rounded-2xl shadow-xl transition-all active:scale-95 disabled:opacity-30 flex items-center justify-center gap-3"
             >
               <CameraIcon className="w-5 h-5" />
               {t('webcam.captureButton')}
@@ -238,10 +202,10 @@ const WebcamCapture: React.FC<WebcamCaptureProps> = ({ onCapture, capturedImage,
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isProcessing}
-                className="w-full bg-white/5 hover:bg-white/10 text-neutral-500 font-black uppercase tracking-[0.2em] text-[9px] py-4 rounded-2xl border border-white/5 transition-all flex items-center justify-center gap-2"
+                className="w-full bg-white/5 hover:bg-white/10 text-neutral-500 font-black uppercase tracking-[0.2em] text-[9px] py-4 rounded-2xl border border-white/5 flex items-center justify-center gap-2"
               >
                 <ArrowUpTrayIcon className="w-3 h-3" />
-                Carregar da Galeria (Auto-Compress)
+                {t('webcam.uploadButton')}
               </button>
             </div>
           </>
