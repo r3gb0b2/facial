@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Attendee } from '../../types.ts';
 import WebcamCapture from '../WebcamCapture.tsx';
@@ -11,7 +12,6 @@ interface VerificationModalProps {
   onConfirm: () => void;
 }
 
-// Helper to convert an image URL to a base64 string for the API
 const imageUrlToPartData = async (url: string): Promise<{ base64: string; mimeType: string; }> => {
     const response = await fetch(url);
     const blob = await response.blob();
@@ -36,7 +36,6 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
   const [verificationResult, setVerificationResult] = useState<'MATCH' | 'NO_MATCH' | 'ERROR' | null>(null);
   const [verificationMessage, setVerificationMessage] = useState('');
 
-  // Reset state when a new attendee is selected
   useEffect(() => {
     setVerificationPhoto(null);
     setIsVerifying(false);
@@ -52,7 +51,6 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
     setVerificationResult(null);
     setVerificationMessage('Analisando...');
 
-    // FIX: Use API_KEY from environment variables as per guidelines.
     if (!process.env.API_KEY) {
         setVerificationResult('ERROR');
         setVerificationMessage(t('errors.apiKeyNeeded'));
@@ -60,20 +58,8 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
         return;
     }
 
-    let ai: GoogleGenAI;
     try {
-        ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    } catch (e: any) {
-        console.error("AI SDK Initialization failed:", e);
-        setVerificationResult('ERROR');
-        const details = e.message || 'Verifique o console para mais detalhes.';
-        setVerificationMessage(`${t('ai.initializingError')}: ${details}`);
-        setIsVerifying(false);
-        return;
-    }
-
-    try {
-        // Prepare registered photo
+        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const registeredPhotoData = await imageUrlToPartData(attendee.photo);
         const registeredPhotoPart = {
             inlineData: {
@@ -82,7 +68,6 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
             },
         };
 
-        // Prepare captured photo
         const [header, capturedBase64] = verificationPhoto.split(',');
         const capturedMimeType = header.match(/:(.*?);/)?.[1] || 'image/png';
         const capturedPhotoPart = {
@@ -92,9 +77,8 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
             },
         };
         
-        const prompt = "You are a facial verification expert. Your task is to determine if two photos are of the same person. The first photo is a registered image from a database. The second photo is a live capture. Carefully compare the two faces, accounting for minor variations in lighting, angle, and expression. Respond ONLY with the word 'MATCH' if you are confident they are the same person. Respond ONLY with 'NO_MATCH' if they are different people. Do not add any other text, formatting, or punctuation.";
+        const prompt = "Compare as duas imagens. São a mesma pessoa? Responda apenas MATCH ou NO_MATCH.";
 
-        // FIX: Updated model name to 'gemini-3-flash-preview' for multimodal reasoning.
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
             contents: { parts: [{ text: prompt }, registeredPhotoPart, capturedPhotoPart] },
@@ -104,21 +88,16 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
 
         if (resultText.includes('MATCH')) {
             setVerificationResult('MATCH');
-            setVerificationMessage('Verificação facial concluída com sucesso!');
+            setVerificationMessage('Validado!');
         } else {
             setVerificationResult('NO_MATCH');
-            setVerificationMessage('As fotos não parecem ser da mesma pessoa. Verificação manual necessária.');
+            setVerificationMessage('Divergência detectada.');
         }
 
     } catch (error: any) {
-        console.error("AI Verification Error:", error);
-        if (error.message?.includes("API key not valid")) {
-            setVerificationResult('ERROR');
-            setVerificationMessage(t('errors.apiKeyInvalid'));
-        } else {
-            setVerificationResult('ERROR');
-            setVerificationMessage('Ocorreu um erro na verificação com IA. Tente novamente ou verifique manualmente.');
-        }
+        console.error(error);
+        setVerificationResult('ERROR');
+        setVerificationMessage('Erro na IA.');
     } finally {
         setIsVerifying(false);
     }
@@ -130,70 +109,47 @@ const VerificationModal: React.FC<VerificationModalProps> = ({ attendee, onClose
     ERROR: 'bg-red-500/20 text-red-300 border-red-500',
   }[verificationResult || ''] || '';
   
-  const renderVerificationControls = () => {
-    if (verificationMessage) {
-        return (
-            <div className={`mt-4 text-center p-3 rounded-lg border ${resultBoxClass} flex items-center justify-center gap-2`}>
-                 {verificationResult === 'MATCH' && <CheckCircleIcon className="w-5 h-5" />}
-                 {verificationResult === 'NO_MATCH' && <XMarkIcon className="w-5 h-5" />}
-                 {verificationResult === 'ERROR' && <XMarkIcon className="w-5 h-5" />}
-                 <p className="text-sm font-medium">{verificationMessage}</p>
-            </div>
-        );
-    }
-
-    if (verificationPhoto) {
-        return (
-            <div className="mt-4 w-full">
-                <button
-                    onClick={handleVerification}
-                    disabled={isVerifying}
-                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center gap-2 disabled:bg-indigo-400 disabled:cursor-wait"
-                >
-                    {isVerifying ? <SpinnerIcon className="w-5 h-5"/> : <SparklesIcon className="w-5 h-5"/>}
-                    {isVerifying ? 'Verificando...' : 'Verificar com IA'}
-                </button>
-            </div>
-        );
-    }
-    
-    return null;
-  };
-
-
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-gray-800 rounded-2xl shadow-2xl w-full max-w-4xl border border-gray-700 flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="p-6 border-b border-gray-700 flex justify-between items-center flex-shrink-0">
-          <h2 className="text-2xl font-bold text-white">{t('verificationModal.title')} <span className="text-indigo-400">{attendee.name}</span></h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
-            <XMarkIcon className="w-6 h-6" />
-          </button>
+    <div className="fixed inset-0 bg-black/95 flex items-center justify-center z-[200] p-4" onClick={onClose}>
+      <div className="bg-neutral-900 rounded-[2.5rem] w-full max-w-4xl border border-white/10 flex flex-col overflow-hidden shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="p-6 border-b border-white/5 flex justify-between items-center">
+          <h2 className="text-xl font-black text-white uppercase tracking-tighter">{attendee.name}</h2>
+          <button onClick={onClose} className="p-2 bg-white/5 rounded-full"><XMarkIcon className="w-6 h-6" /></button>
         </div>
-        <div className="overflow-y-auto max-h-[80vh]">
-            <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-              <div className="text-center">
-                <h3 className="text-lg font-semibold text-gray-300 mb-2">{t('verificationModal.registeredPhoto')}</h3>
-                <img src={attendee.photo} alt="Registered" className="rounded-lg w-full aspect-square object-contain bg-black border-2 border-gray-600" />
-                <p className="text-gray-400 mt-2 text-sm">{attendee.cpf}</p>
+        <div className="overflow-y-auto p-6 md:p-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Foto Original</span>
+                <div className="rounded-[2rem] aspect-square overflow-hidden bg-black border-2 border-white/5">
+                    <img src={attendee.photo} alt="Registered" className="w-full h-full object-cover" />
+                </div>
               </div>
-              <div className="text-center">
-                <h3 className="text-lg font-semibold text-gray-300 mb-2">{t('verificationModal.liveVerification')}</h3>
-                <>
-                  <WebcamCapture onCapture={setVerificationPhoto} capturedImage={verificationPhoto} allowUpload={true} />
-                  {renderVerificationControls()}
-                </>
+              <div className="space-y-4">
+                <span className="text-[10px] font-black uppercase text-gray-500 tracking-widest">Nova Captura</span>
+                <WebcamCapture onCapture={setVerificationPhoto} capturedImage={verificationPhoto} allowUpload={false} />
+                
+                {verificationPhoto && !verificationResult && (
+                   <button onClick={handleVerification} disabled={isVerifying} className="w-full bg-indigo-600 py-4 rounded-2xl text-white font-black uppercase text-xs tracking-widest flex items-center justify-center gap-2">
+                      {isVerifying ? <SpinnerIcon className="w-4 h-4 animate-spin"/> : <SparklesIcon className="w-4 h-4"/>}
+                      {isVerifying ? 'Analisando...' : 'Verificar IA'}
+                   </button>
+                )}
+
+                {verificationMessage && (
+                  <div className={`p-4 rounded-xl border ${resultBoxClass} text-center font-black uppercase text-[10px] tracking-widest`}>
+                    {verificationMessage}
+                  </div>
+                )}
               </div>
             </div>
         </div>
-        <div className="p-6 bg-gray-900/50 rounded-b-2xl flex-shrink-0">
+        <div className="p-6 bg-black/40">
             <button
                 onClick={onConfirm}
                 disabled={!verificationPhoto || verificationResult !== 'MATCH' || isVerifying}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 disabled:bg-gray-600 disabled:cursor-not-allowed"
+                className="w-full bg-white text-black font-black uppercase py-5 rounded-3xl text-xs tracking-widest disabled:opacity-20 transition-all"
             >
-                <CheckCircleIcon className="w-6 h-6"/>
-                {t('verificationModal.confirmButton')}
+                Confirmar Acesso
             </button>
         </div>
       </div>
