@@ -71,17 +71,21 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
     const rawCpf = cpf.replace(/\D/g, '');
     
     if (!name || !rawCpf || !photo) {
-      setError('Campos incompletos');
+      setError('Por favor, preencha todos os campos e capture a foto.');
       return;
     }
 
     setIsSubmitting(true);
+    // Pequeno delay para permitir que o React renderize o estado "isSubmitting" 
+    // e o Moto G53 estabilize a RAM antes do upload pesado.
+    await new Promise(r => setTimeout(r, 300));
+
     try {
       // 1. Envia o registro
       await onRegister({ 
           name, cpf: rawCpf, email: email || '', photo: photo, 
           sectors: sector ? [sector] : [], subCompany 
-      });
+      }, isAdminView ? undefined : supplierInfo?.data?.id);
       
       // 2. SALVA RECIBO IMEDIATAMENTE (Anti-Crash)
       localStorage.setItem('last_reg_success', name);
@@ -98,12 +102,11 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
       setTimeout(() => {
         localStorage.removeItem('last_reg_success');
         localStorage.removeItem('last_reg_time');
-        setShowSuccess(false);
-        setPersistentSuccess(null);
+        // Não resetamos o showSuccess aqui para o usuário ver a tela verde.
       }, 10000);
 
     } catch (error: any) {
-      setError(error.message || "Erro no envio.");
+      setError(error.message || "Erro no envio. Tente novamente.");
     } finally {
       setIsSubmitting(false);
     }
@@ -114,17 +117,18 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
   // VIEW DE SUCESSO PERSISTENTE
   if (showSuccess) {
     return (
-      <div className="w-full max-w-md mx-auto py-20 text-center animate-in zoom-in-95 duration-500">
+      <div className="w-full max-w-md mx-auto py-20 text-center animate-in zoom-in-95 duration-500 px-4">
         <div className="bg-neutral-900 border border-green-500/30 p-12 rounded-[3rem] shadow-2xl">
           <div className="w-24 h-24 bg-green-500 rounded-full flex items-center justify-center mx-auto mb-8 shadow-[0_0_40px_rgba(34,197,94,0.3)]">
             <CheckCircleIcon className="w-14 h-14 text-white" />
           </div>
-          <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">Enviado com Sucesso!</h2>
+          <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">Concluido!</h2>
           <p className="text-green-500 font-bold uppercase tracking-widest text-[10px] mb-8">{persistentSuccess || 'Cadastro'}</p>
-          <p className="text-neutral-500 text-xs leading-relaxed mb-10">Sua biometria foi sincronizada. Você já pode fechar esta página ou realizar um novo cadastro.</p>
+          <p className="text-neutral-500 text-xs leading-relaxed mb-10">Sua biometria facial foi sincronizada com o sistema. Você já pode fechar esta página.</p>
           <button 
             onClick={() => {
               localStorage.removeItem('last_reg_success');
+              localStorage.removeItem('last_reg_time');
               setShowSuccess(false);
               setPersistentSuccess(null);
             }} 
@@ -133,6 +137,17 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
             Novo Cadastro
           </button>
         </div>
+      </div>
+    );
+  }
+
+  // VIEW DE ENVIANDO (Otimizada para Moto G53 - Mínimo de elementos)
+  if (isSubmitting) {
+    return (
+      <div className="w-full max-w-md mx-auto py-32 text-center animate-in fade-in duration-300">
+          <SpinnerIcon className="w-16 h-16 text-indigo-500 animate-spin mx-auto mb-8" />
+          <h2 className="text-xl font-black text-white uppercase tracking-[0.3em]">Sincronizando</h2>
+          <p className="text-neutral-500 text-[10px] font-bold uppercase tracking-widest mt-4">Gravando biometria no servidor...</p>
       </div>
     );
   }
@@ -172,9 +187,9 @@ const RegisterView: React.FC<RegisterViewProps> = (props) => {
                 <button 
                   type="submit" 
                   disabled={isSubmitting || !photo} 
-                  className={`w-full font-black uppercase tracking-[0.2em] text-xs py-5 rounded-2xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${!photo ? 'bg-neutral-800 text-neutral-600' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}
+                  className={`w-full font-black uppercase tracking-[0.2em] text-xs py-5 rounded-2xl shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3 ${!photo ? 'bg-neutral-800 text-neutral-600 cursor-not-allowed' : 'bg-indigo-600 hover:bg-indigo-500 text-white'}`}
                 >
-                  {isSubmitting ? <SpinnerIcon className="w-5 h-5 animate-spin" /> : 'CONCLUIR CADASTRO'}
+                  CONCLUIR CADASTRO
                 </button>
               </form>
             </div>
